@@ -109,6 +109,23 @@ async function main() {
       },
     });
   }
+
+  // Joueur de test à ID fixe — pratique pour tester GET /players/me sans
+  // devoir aller chercher un UUID généré dans les logs.
+  const TEST_PLAYER_ID = "11111111-1111-1111-1111-111111111111";
+
+  await prisma.player.upsert({
+    where: { id: TEST_PLAYER_ID },
+    create: {
+      id: TEST_PLAYER_ID,
+      email: "joueur.test@patrimoine-jeu.local",
+      pseudo: "joueur_test",
+      stats: {
+        create: {},
+      },
+    },
+    update: {},
+  });
 }
 
 main()
