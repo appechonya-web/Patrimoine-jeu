@@ -1,0 +1,18 @@
+{
+  "name": "@patrimoine-jeu/fiscal-be",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "lint": "echo \"(lint todo)\""
+  },
+  "devDependencies": {
+    "@patrimoine-jeu/config": "workspace:*",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.0"
+  }
+}
