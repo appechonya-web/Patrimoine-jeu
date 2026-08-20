@@ -1,0 +1,3 @@
+ALTER TABLE "TaxRuleSet"
+  ADD COLUMN "pensionSavingsTaxReductionRate" DECIMAL(5,4) NOT NULL DEFAULT 0.30,
+  ADD COLUMN "pensionSavingsAnnualCap" DECIMAL(10,2) NOT NULL DEFAULT 1000;

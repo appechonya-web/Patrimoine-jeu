@@ -1,0 +1,21 @@
+{
+  "name": "@patrimoine-jeu/game-engine",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "lint": "echo \"(lint todo)\""
+  },
+  "dependencies": {
+    "@patrimoine-jeu/db": "workspace:*",
+    "@patrimoine-jeu/domain": "workspace:*",
+    "@patrimoine-jeu/fiscal-be": "workspace:*"
+  },
+  "devDependencies": {
+    "@patrimoine-jeu/config": "workspace:*",
+    "typescript": "^5.7.0"
+  }
+}

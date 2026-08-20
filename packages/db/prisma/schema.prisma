@@ -12,9 +12,17 @@ enum EmployerType {
   COMPANY
 }
 
+/// RESIDENTIAL n'est plus utilisé au seed depuis la refonte des prix (trop
+/// grossier) — conservé pour compatibilité descendante, remplacé par
+/// APARTMENT/HOUSE. PARKING et LUXURY couvrent les extrêmes bas et haut de
+/// gamme (cf. seed.ts, PROPERTY_TEMPLATES).
 enum PropertyType {
   RESIDENTIAL
+  PARKING
+  APARTMENT
+  HOUSE
   COMMERCIAL
+  LUXURY
 }
 
 enum PropertyStatus {
@@ -51,6 +59,11 @@ enum LoanStatus {
   DEFAULTED
 }
 
+enum GuildStatus {
+  ACTIVE
+  DISSOLVED
+}
+
 enum CycleStatus {
   OPEN
   CLOSING
@@ -60,9 +73,10 @@ enum CycleStatus {
 // --- Géographie & fiscalité -------------------------------------------------
 
 model Region {
-  id             String         @id @default(uuid())
-  name           String         @unique
+  id             String          @id @default(uuid())
+  name           String          @unique
   municipalities Municipality[]
+  sectoralEvents SectoralEvent[]
 }
 
 model Municipality {
@@ -74,58 +88,365 @@ model Municipality {
   registrationDutyRate        Decimal @db.Decimal(5, 4)
   registrationDutyRateOwnHome Decimal @db.Decimal(5, 4)
 
-  properties Property[]
-  companies  Company[]
+  /// Investissement dans les infrastructures communales (cf.
+  /// domain/municipality-governance.ts) — fonds cumulé, jamais réduit,
+  /// relève l'attractivité effective de TOUTES les entreprises de la
+  /// commune à rendement décroissant (cf. game-engine/municipality.ts).
+  infrastructureFund Decimal @default(0) @db.Decimal(14, 2)
+
+  properties    Property[]
+  companies     Company[]
+  contributions MunicipalityContribution[]
+  proposals     MunicipalityProposal[]
 
   @@unique([regionId, name])
+}
+
+/// Statut visible pour le financeur (cf. section 11) — contribution
+/// cumulée par joueur, sert aussi de poids de vote au conseil communal
+/// (cf. MunicipalityProposal).
+model MunicipalityContribution {
+  id             String       @id @default(uuid())
+  municipality   Municipality @relation(fields: [municipalityId], references: [id])
+  municipalityId String
+  playerId       String
+  amount         Decimal      @db.Decimal(12, 2)
+  createdCycle   Int
+
+  @@unique([municipalityId, playerId])
+}
+
+enum CouncilProposalStatus {
+  OPEN
+  APPROVED
+  REJECTED
+}
+
+/// Conseil communal jouable (cf. domain/municipality-governance.ts) — les
+/// joueurs influents (poids = contribution cumulée au fonds d'infrastructure
+/// de cette commune) votent une variation bornée du taux de droits
+/// d'enregistrement immobiliers (le seul paramètre communal réellement
+/// branché sur un calcul, cf. properties.service.ts computeRegistrationDuty).
+/// Résolue à l'expiration (pas de seuil de majorité instantané, faute de
+/// "total" fixe comme le 100% des parts d'une entreprise).
+model MunicipalityProposal {
+  id                      String                     @id @default(uuid())
+  municipality            Municipality               @relation(fields: [municipalityId], references: [id])
+  municipalityId          String
+  proposerId              String
+  newRegistrationDutyRate Decimal                    @db.Decimal(5, 4)
+  status                  CouncilProposalStatus      @default(OPEN)
+  createdCycle            Int
+  expiresCycle            Int
+  votes                   MunicipalityProposalVote[]
+}
+
+model MunicipalityProposalVote {
+  id           String               @id @default(uuid())
+  proposal     MunicipalityProposal @relation(fields: [proposalId], references: [id])
+  proposalId   String
+  voterId      String
+  inFavor      Boolean
+  weight       Decimal              @db.Decimal(12, 2)
+  createdCycle Int
+
+  @@unique([proposalId, voterId])
 }
 
 /// Barème fiscal versionné par date d'effet — cf. section 7 du document de
 /// conception. Les tranches sont stockées en JSON plutôt qu'en tables dédiées
 /// pour rester ajustables sans migration à chaque réforme.
 model TaxRuleSet {
-  id                              String   @id @default(uuid())
-  effectiveFrom                   DateTime
-  taxFreeAllowance                Decimal  @db.Decimal(10, 2)
-  ippBrackets                     Json
-  socialContributionRateEmployee  Decimal  @db.Decimal(5, 4)
-  selfEmployedBrackets             Json
-  selfEmployedMinimumQuarterly    Decimal  @db.Decimal(10, 2)
-  isocRate                        Decimal  @db.Decimal(5, 4)
-  isocReducedRate                 Decimal  @db.Decimal(5, 4)
-  isocReducedThreshold             Decimal  @db.Decimal(10, 2)
-  capitalGainsRate                Decimal  @db.Decimal(5, 4)
-  capitalGainsExemption           Decimal  @db.Decimal(10, 2)
-  createdAt                       DateTime @default(now())
+  id                             String   @id @default(uuid())
+  effectiveFrom                  DateTime
+  taxFreeAllowance               Decimal  @db.Decimal(10, 2)
+  ippBrackets                    Json
+  socialContributionRateEmployee Decimal  @db.Decimal(5, 4)
+  selfEmployedBrackets           Json
+  selfEmployedMinimumQuarterly   Decimal  @db.Decimal(10, 2)
+  isocRate                       Decimal  @db.Decimal(5, 4)
+  isocReducedRate                Decimal  @db.Decimal(5, 4)
+  isocReducedThreshold           Decimal  @db.Decimal(10, 2)
+  capitalGainsRate               Decimal  @db.Decimal(5, 4)
+  capitalGainsExemption          Decimal  @db.Decimal(10, 2)
+  pensionSavingsTaxReductionRate Decimal  @db.Decimal(5, 4)
+  pensionSavingsAnnualCap        Decimal  @db.Decimal(10, 2)
+  createdAt                      DateTime @default(now())
 }
 
 // --- Joueur & progression ----------------------------------------------------
 
 model Player {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  pseudo    String   @unique
-  createdAt DateTime @default(now())
+  id           String   @id @default(uuid())
+  email        String   @unique
+  pseudo       String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
 
-  stats           PlayerStats?
-  statHistory     PlayerStatHistory[]
-  employments     Employment[]
-  ownedProperties Property[]          @relation("PropertyOwner")
-  bids            Bid[]
-  companyShares   CompanyShare[]
-  loans           Loan[]
-  leasesAsTenant  Lease[]             @relation("LeaseTenantPlayer")
+  /// Alerte mail (cf. domain/notification-preferences.ts) — activable sur
+  /// demande, volontairement rare (réservée aux événements graves). Aucun
+  /// envoi réel : simulée par une boîte d'envoi consultable, cf.
+  /// notifications.service.ts getEmailOutbox.
+  emailAlertsEnabled Boolean @default(false)
+
+  stats                 PlayerStats?
+  statHistory           PlayerStatHistory[]
+  employments           Employment[]
+  sectorExperience      PlayerSectorExperience[]
+  ownedProperties       Property[]               @relation("PropertyOwner")
+  bids                  Bid[]
+  companyShares         CompanyShare[]
+  loans                 Loan[]
+  leasesAsTenant        Lease[]                  @relation("LeaseTenantPlayer")
+  shareListingsAsSeller CompanyShareListing[]    @relation("ShareListingSeller")
+  shareListingsAsBuyer  CompanyShareListing[]    @relation("ShareListingBuyer")
+  commodityHoldings     PlayerCommodityHolding[]
+  actionCooldowns       PlayerActionCooldown[]
+  savingsAccounts       SavingsAccount[]
+  notifications         PlayerNotification[]
+  personalGoods         PersonalGood[]
+  independentActivity   IndependentActivity?
+  achievements          PlayerAchievement[]
+  assetHoldings         PlayerAssetHolding[]
+  bankDeposits          BankDeposit[]
+  causeDonations        CauseDonation[]
+}
+
+/// Biens de consommation personnels (cf. domain/personal-goods.ts) — un
+/// actif possédé tant que soldCycle est nul (même pattern que
+/// Employment.endedCycle / SavingsAccount.withdrawnCycle). La valeur
+/// résiduelle courante n'est pas stockée : recalculée à la volée depuis
+/// purchasePrice/purchasedCycle (cf. computePersonalGoodValue).
+model PersonalGood {
+  id             String  @id @default(uuid())
+  player         Player  @relation(fields: [playerId], references: [id])
+  playerId       String
+  goodId         String
+  purchasePrice  Decimal @db.Decimal(12, 2)
+  purchasedCycle Int
+  soldCycle      Int?
+}
+
+/// Journal d'événements consultable par le joueur (cf. domain/notifications.ts)
+/// — la plupart des événements du jeu (aléas d'entreprise, défauts de
+/// paiement, saisies, maturité d'un compte d'épargne...) se produisaient déjà
+/// mais ne laissaient aucune trace visible pour le joueur concerné.
+model PlayerNotification {
+  id        String    @id @default(uuid())
+  player    Player    @relation(fields: [playerId], references: [id])
+  playerId  String
+  type      String
+  message   String
+  cycle     Int
+  createdAt DateTime  @default(now())
+  readAt    DateTime?
+
+  @@index([playerId, createdAt])
 }
 
 model PlayerStats {
   player          Player   @relation(fields: [playerId], references: [id])
   playerId        String   @id
-  wealthLiquid    Decimal  @db.Decimal(14, 2) @default(0)
-  wealthDisplayed Decimal  @db.Decimal(14, 2) @default(0)
-  reputation      Decimal  @db.Decimal(5, 2)  @default(50)
-  experience      Decimal  @db.Decimal(14, 2) @default(0)
-  wellbeing       Decimal  @db.Decimal(5, 2)  @default(50)
+  wealthLiquid    Decimal  @default(0) @db.Decimal(14, 2)
+  wealthDisplayed Decimal  @default(0) @db.Decimal(14, 2)
+  reputation      Decimal  @default(50) @db.Decimal(5, 2)
+  experience      Decimal  @default(0) @db.Decimal(14, 2)
+  wellbeing       Decimal  @default(50) @db.Decimal(5, 2)
   updatedAt       DateTime @updatedAt
+
+  /// Section bien-être personnelle (packages/domain/personal.ts) — mêmes
+  /// paliers d'investissement permanents que les leviers d'entreprise
+  /// (computeInvestmentLevel), mais à l'échelle individuelle : chaque axe
+  /// module une formule de packages/game-engine/wellbeing.ts.
+  sportInvestment     Decimal @default(0) @db.Decimal(12, 2)
+  nutritionInvestment Decimal @default(0) @db.Decimal(12, 2)
+  socialInvestment    Decimal @default(0) @db.Decimal(12, 2)
+  comfortInvestment   Decimal @default(0) @db.Decimal(12, 2)
+
+  /// Patrimoine total = cash + équité immobilière (valeur - hypothèques) +
+  /// quote-part dans les entreprises détenues (cf. bilan simplifié,
+  /// packages/game-engine/companies.ts assembleCompanyBalanceSheet) +
+  /// valorisation des matières premières détenues. Recalculé à chaque
+  /// clôture de cycle (packages/game-engine/cycles.ts) — pas maintenu en
+  /// temps réel entre deux clôtures, pour rester cohérent avec le rythme du
+  /// jeu. Alimente le classement (cf. PlayerStatHistory.netWorth pour la
+  /// croissance dans le temps).
+  netWorth Decimal @default(0) @db.Decimal(16, 2)
+
+  /// Franchise à vie sur les plus-values d'épargne (cf.
+  /// TaxRuleSet.capitalGainsExemption, packages/domain/savings.ts) — total
+  /// brut des intérêts déjà perçus (livret + compte à terme, pas
+  /// l'épargne-pension qui est exonérée), consommé au fil des cycles.
+  /// Simplification volontaire : franchise à vie plutôt qu'annuelle, pas de
+  /// remise à zéro calendaire à suivre.
+  cumulativeInvestmentGains Decimal @default(0) @db.Decimal(14, 2)
+
+  /// Bonus de connexion quotidien (cf. domain/engagement.ts) — streak de
+  /// jours calendaires consécutifs, remis à 1 si un jour est manqué.
+  dailyBonusStreak        Int       @default(0)
+  lastDailyBonusClaimedAt DateTime?
+}
+
+/// Défis de première fois (cf. domain/achievements.ts) — un par joueur et
+/// par défi, jamais réattribué une fois débloqué.
+model PlayerAchievement {
+  player        Player   @relation(fields: [playerId], references: [id])
+  playerId      String
+  achievementId String
+  unlockedAt    DateTime @default(now())
+
+  @@id([playerId, achievementId])
+}
+
+/// Limite les petits boulots, les investissements bien-être personnels et
+/// les actions ponctuelles (vacances, sorties...) à un rythme raisonnable
+/// par joueur et par action — même logique que CompanyActionCooldown mais
+/// à l'échelle du joueur.
+model PlayerActionCooldown {
+  player       Player    @relation(fields: [playerId], references: [id])
+  playerId     String
+  /// "gig:<gigId>" | "personal-invest:<axis>" | "personal-action:<actionId>"
+  actionType   String
+  lastCycle    Int
+  /// Horodatage réel du dernier déclenchement — seuls les petits boulots
+  /// (gigs.ts) l'utilisent pour un cooldown en temps réel plutôt qu'en
+  /// cycles ; personal-invest/personal-action restent gérés via lastCycle.
+  lastPlayedAt DateTime?
+
+  @@id([playerId, actionType])
+}
+
+/// Épargne & produits financiers (cf. domain/savings.ts) : livret (pas de
+/// termCycles, retrait libre), compte à terme et épargne-pension (bloqués
+/// jusqu'à ce que le cycle courant atteigne openedCycle + termCycles, sous
+/// peine de pénalité de sortie anticipée). Pas de statut dédié — un compte
+/// est actif tant que withdrawnCycle est nul, comme Employment.endedCycle.
+model SavingsAccount {
+  id             String  @id @default(uuid())
+  player         Player  @relation(fields: [playerId], references: [id])
+  playerId       String
+  productType    String
+  principal      Decimal @db.Decimal(14, 2)
+  balance        Decimal @db.Decimal(14, 2)
+  rate           Decimal @db.Decimal(5, 4)
+  termCycles     Int
+  openedCycle    Int
+  withdrawnCycle Int?
+}
+
+/// Bourse d'actifs financiers — actions, crypto, art (cf.
+/// domain/financial-assets.ts) : prix par marche aléatoire propre à chaque
+/// actif, recalculé à chaque clôture de cycle, distinct du marché de
+/// matières premières (CommodityMarket, un AMM à réserve partagée).
+/// previousPrice sert uniquement à afficher une variation cycle sur cycle
+/// côté frontend, pas d'historique complet conservé pour ce MVP.
+model FinancialAsset {
+  id            String  @id @default(uuid())
+  key           String  @unique
+  name          String
+  type          String
+  price         Decimal @db.Decimal(14, 4)
+  previousPrice Decimal @db.Decimal(14, 4)
+
+  holdings PlayerAssetHolding[]
+}
+
+/// Position d'un joueur sur un actif — costBasis est le montant total payé
+/// pour la position actuelle (moyenne pondérée implicite), utilisé pour
+/// calculer la plus-value réalisée à la revente (cf.
+/// game-engine/financial-assets.ts computeCapitalGainsTax). Pas de ligne
+/// tant que la quantité n'est pas positive.
+model PlayerAssetHolding {
+  player    Player         @relation(fields: [playerId], references: [id])
+  playerId  String
+  asset     FinancialAsset @relation(fields: [assetId], references: [id])
+  assetId   String
+  quantity  Decimal        @db.Decimal(16, 6)
+  costBasis Decimal        @db.Decimal(14, 2)
+
+  @@id([playerId, assetId])
+}
+
+/// Dépôt d'un joueur dans une entreprise-banque (cf. Company.depositRate) —
+/// liquide (retirable à tout moment, dans la limite de la trésorerie
+/// réellement disponible de la banque : un retrait peut échouer ou être
+/// partiel si elle a trop prêté, la vraie leçon de risque de liquidité
+/// bancaire). rate est figé au moment du dépôt. Intérêt composé chaque
+/// cycle (cf. game-engine/banking.ts computeBankDepositInterest), taxé au
+/// taux plus-values, sans franchise partagée avec l'épargne/les actifs
+/// financiers (simplification volontaire : un régime par produit).
+model BankDeposit {
+  id             String  @id @default(uuid())
+  player         Player  @relation(fields: [playerId], references: [id])
+  playerId       String
+  company        Company @relation(fields: [companyId], references: [id])
+  companyId      String
+  principal      Decimal @db.Decimal(14, 2)
+  balance        Decimal @db.Decimal(14, 2)
+  rate           Decimal @db.Decimal(5, 4)
+  depositedCycle Int
+  withdrawnCycle Int?
+}
+
+/// Cartel sectoriel (section 12quinquies) : les entreprises membres
+/// s'engagent à ne jamais vendre leur gamme "core" sous priceFloor (cf.
+/// companies.service.ts setProductPrice) — une entente sur les prix
+/// classique. Détection automatique à chaque cycle, probabilité croissante
+/// avec l'écart au prix de référence et le nombre de membres (cf.
+/// game-engine/guild.ts) : en cas de découverte, dissolution immédiate,
+/// amende et réputation entamée pour chaque membre.
+model Guild {
+  id              String      @id @default(uuid())
+  name            String
+  sector          Sector      @relation(fields: [sectorId], references: [id])
+  sectorId        String
+  founderPlayerId String
+  priceFloor      Decimal     @db.Decimal(10, 2)
+  status          GuildStatus @default(ACTIVE)
+  createdCycle    Int
+  dissolvedCycle  Int?
+
+  members  GuildMembership[]
+  messages GuildMessage[]
+}
+
+model GuildMembership {
+  id          String  @id @default(uuid())
+  guild       Guild   @relation(fields: [guildId], references: [id])
+  guildId     String
+  company     Company @relation(fields: [companyId], references: [id])
+  companyId   String
+  playerId    String
+  joinedCycle Int
+
+  @@unique([guildId, companyId])
+}
+
+/// Espace de communication ouvert de guilde (cf. domain/guild.ts) — un fil
+/// de messages réservé aux membres actuels, distinct du mécanisme de
+/// cartel automatique (prix plancher/détection).
+model GuildMessage {
+  id           String   @id @default(uuid())
+  guild        Guild    @relation(fields: [guildId], references: [id])
+  guildId      String
+  playerId     String
+  body         String
+  createdCycle Int
+  createdAt    DateTime @default(now())
+}
+
+/// Don à une cause reconnue (cf. domain/donations.ts) — sert uniquement à
+/// suivre le plafond annuel de réduction d'impôt (même pattern que
+/// l'épargne-pension, cf. SavingsAccount) ; les dons entre joueurs ne sont
+/// pas persistés ici (juste un transfert instantané + notification, cf.
+/// donations.service.ts).
+model CauseDonation {
+  id           String  @id @default(uuid())
+  player       Player  @relation(fields: [playerId], references: [id])
+  playerId     String
+  causeId      String
+  amount       Decimal @db.Decimal(12, 2)
+  donatedCycle Int
 }
 
 /// Un instantané par cycle et par joueur — alimente les classements de
@@ -140,6 +461,9 @@ model PlayerStatHistory {
   reputation Decimal @db.Decimal(5, 2)
   experience Decimal @db.Decimal(14, 2)
   wellbeing  Decimal @db.Decimal(5, 2)
+  /// cf. PlayerStats.netWorth — même valeur, journalisée à chaque cycle
+  /// pour calculer une croissance sur une fenêtre glissante (7/30/90 jours).
+  netWorth   Decimal @default(0) @db.Decimal(16, 2)
 
   @@unique([playerId, cycleId])
 }
@@ -151,10 +475,72 @@ model Employment {
   employerType EmployerType
   company      Company?     @relation(fields: [companyId], references: [id])
   companyId    String?
+  /// Référence au catalogue NPC_JOBS (packages/domain) — null pour les
+  /// emplois futurs en entreprise-joueur (employerType COMPANY), dont la
+  /// pression/réputation viendront de la Company elle-même.
+  jobId        String?
   role         String
   salary       Decimal      @db.Decimal(10, 2)
+  /// Pression du poste (cf. domain/employment.ts JobOffer.pressure) — pour
+  /// employerType COMPANY uniquement, fixée par l'employeur à la création de
+  /// l'offre (cf. CompanyJobPosting). Null pour SYSTEM_NPC, dont la
+  /// pression vient du catalogue NPC_JOBS.
+  pressure     Int?
+  /// Offre d'origine (cf. CompanyJobPosting) — permet de la remettre en
+  /// statut OPEN si l'employé démissionne ou est licencié.
+  postingId    String?
   startedCycle Int
   endedCycle   Int?
+}
+
+enum CompanyJobPostingStatus {
+  OPEN
+  FILLED
+  CLOSED
+}
+
+/// Employeur d'autres joueurs (cf. sections 11 et 12quinquies du document de
+/// conception) — une offre d'emploi publiée par l'actionnaire principal
+/// d'une entreprise, prenable immédiatement par n'importe quel autre joueur
+/// (même logique ouverte que les offres de prêt entre joueurs, cf.
+/// LoanOffer). Le salaire est payé depuis la trésorerie réelle de
+/// l'entreprise à chaque clôture de cycle (packages/game-engine/cycles.ts).
+model CompanyJobPosting {
+  id           String                  @id @default(uuid())
+  company      Company                 @relation(fields: [companyId], references: [id])
+  companyId    String
+  role         String
+  salary       Decimal                 @db.Decimal(10, 2)
+  pressure     Int
+  status       CompanyJobPostingStatus @default(OPEN)
+  createdCycle Int
+}
+
+/// Statut d'indépendant complémentaire (cf. domain/independent-activity.ts) —
+/// suppose un Employment actif (règle belge réelle : le complémentaire
+/// s'ajoute à une activité principale). Une seule activité à la fois
+/// (@unique) : le jeu ne simplifie pas jusqu'à permettre plusieurs activités
+/// annexes cumulées.
+model IndependentActivity {
+  id                   String  @id @default(uuid())
+  player               Player  @relation(fields: [playerId], references: [id])
+  playerId             String  @unique
+  grossRevenuePerCycle Decimal @db.Decimal(10, 2)
+  startedCycle         Int
+}
+
+/// Expérience accumulée par secteur d'activité (cf. section 9 du document de
+/// conception : "croissance plus rapide dans un secteur déjà connu"). Ne
+/// redescend jamais ; sert à la fois à réduire le coût en bien-être d'un
+/// métier exigeant (tolérance) et, plus tard, à bonifier une entreprise
+/// fondée dans le même secteur.
+model PlayerSectorExperience {
+  player   Player @relation(fields: [playerId], references: [id])
+  playerId String
+  sector   String
+  cycles   Int    @default(0)
+
+  @@id([playerId, sector])
 }
 
 // --- Immobilier ---------------------------------------------------------------
@@ -168,11 +554,17 @@ model Property {
   type           PropertyType
   baseRent       Decimal        @db.Decimal(10, 2)
   marketValue    Decimal        @db.Decimal(12, 2)
-  condition      Decimal        @db.Decimal(5, 2) @default(100)
+  condition      Decimal        @default(100) @db.Decimal(5, 2)
   status         PropertyStatus @default(VACANT)
+
+  /// Immobilier de prestige (cf. domain/property.ts) — réservé au type
+  /// LUXURY, purement cosmétique (statut social visible), aucun effet sur
+  /// baseRent/marketValue/condition.
+  customName String?
 
   listings Listing[]
   leases   Lease[]
+  loans    Loan[]
 }
 
 model Listing {
@@ -226,8 +618,73 @@ model Sector {
   parentSectorId String?
   childSectors   Sector[] @relation("SectorInputs")
 
-  companies Company[]
-  contracts SupplyContract[]
+  companies                  Company[]
+  contracts                  SupplyContract[]
+  competitors                SectorCompetitor[]
+  commodityMarket            CommodityMarket?
+  commodityHoldings          PlayerCommodityHolding[]
+  guilds                     Guild[]
+  sectoralEventsAsPrimary    SectoralEvent[]          @relation("SectoralEventPrimarySector")
+  sectoralEventsAsCorrelated SectoralEvent[]          @relation("SectoralEventCorrelatedSector")
+}
+
+/// Bourse des matières premières — un marché à liquidité automatique (AMM)
+/// par secteur niveau 0, cf. domain/commodity.ts et
+/// packages/game-engine/src/commodities.ts. commodityReserve et cashReserve
+/// forment le pool : prix courant = cashReserve / commodityReserve, une
+/// formule à produit constant régit chaque échange. Profondeur du pool
+/// recalculée à chaque clôture de cycle en fonction du nombre de joueurs
+/// (jamais réduite, seulement approfondie).
+model CommodityMarket {
+  id               String  @id @default(uuid())
+  sector           Sector  @relation(fields: [sectorId], references: [id])
+  sectorId         String  @unique
+  commodityReserve Decimal @db.Decimal(16, 2)
+  cashReserve      Decimal @db.Decimal(16, 2)
+
+  priceHistory CommodityPriceHistory[]
+}
+
+/// Instantané du prix (cashReserve/commodityReserve) à chaque clôture de
+/// cycle — permet d'afficher une évolution dans le temps sans avoir à
+/// journaliser chaque transaction individuelle.
+model CommodityPriceHistory {
+  id       String          @id @default(uuid())
+  market   CommodityMarket @relation(fields: [marketId], references: [id])
+  marketId String
+  cycle    Cycle           @relation(fields: [cycleId], references: [id])
+  cycleId  String
+  price    Decimal         @db.Decimal(10, 4)
+
+  @@unique([marketId, cycleId])
+}
+
+/// Quantité de matière première détenue par un joueur, achetée sur la
+/// bourse (cf. CommodityMarket) — revendable à tout moment sur le même
+/// marché.
+model PlayerCommodityHolding {
+  player   Player  @relation(fields: [playerId], references: [id])
+  playerId String
+  sector   Sector  @relation(fields: [sectorId], references: [id])
+  sectorId String
+  quantity Decimal @default(0) @db.Decimal(14, 2)
+
+  @@id([playerId, sectorId])
+}
+
+/// Concurrents IA statiques par secteur — donnent un plancher de concurrence
+/// réaliste même quand peu de joueurs sont présents, et un repère nommé pour
+/// le joueur. Leur compétitivité est fixe (pas de simulation IA pour ce
+/// MVP) ; elle n'affecte que le marché "core" (cf. domain/market.ts) — les
+/// IA ne lancent jamais les gammes issues de la R&D.
+model SectorCompetitor {
+  id              String  @id @default(uuid())
+  sector          Sector  @relation(fields: [sectorId], references: [id])
+  sectorId        String
+  name            String
+  competitiveness Decimal @db.Decimal(6, 2)
+
+  @@unique([sectorId, name])
 }
 
 model Company {
@@ -237,19 +694,219 @@ model Company {
   name                String
   municipality        Municipality  @relation(fields: [municipalityId], references: [id])
   municipalityId      String
-  marketingInvestment Decimal       @db.Decimal(12, 2) @default(0)
-  rdInvestment        Decimal       @db.Decimal(12, 2) @default(0)
-  attractivenessScore Decimal       @db.Decimal(6, 2)  @default(0)
+  marketingInvestment Decimal       @default(0) @db.Decimal(12, 2)
+  rdInvestment        Decimal       @default(0) @db.Decimal(12, 2)
+  attractivenessScore Decimal       @default(0) @db.Decimal(6, 2)
   status              CompanyStatus @default(ACTIVE)
   createdAt           DateTime      @default(now())
 
-  shares            CompanyShare[]
-  employments       Employment[]
-  cycleReports      CompanyCycleReport[]
-  leasesAsTenant    Lease[]
-  purchaseContracts SupplyContract[] @relation("SupplyBuyer")
-  saleContracts     SupplyContract[] @relation("SupplySeller")
-  loansAsLender     Loan[]
+  /// Un manager NPC absorbe la charge opérationnelle (moyennant salaire
+  /// récurrent) : sans lui, posséder plusieurs entreprises pénalise leur
+  /// rendement (attention divisée) — cf. packages/game-engine/companies.ts.
+  hasManager          Boolean @default(false)
+  /// Cycle de fondation — sert à mesurer la maturité avant de pouvoir fonder
+  /// une entreprise supplémentaire (des années de succès prouvé, pas juste
+  /// possible dès le départ).
+  foundedCycle        Int
+  /// Profit net cumulé depuis la fondation (jamais réinitialisé) — second
+  /// critère de maturité pour l'expansion.
+  cumulativeNetProfit Decimal @default(0) @db.Decimal(14, 2)
+
+  /// Investissements cumulés par levier — chacun a un effet mécanique
+  /// distinct et module l'effet des événements aléatoires du même domaine
+  /// (cf. packages/game-engine/companies.ts). marketingInvestment et
+  /// rdInvestment existaient déjà dans le schéma mais n'étaient pas encore
+  /// branchés à une formule.
+  equipmentInvestment              Decimal @default(0) @db.Decimal(12, 2)
+  /// Amortissement cumulé de l'équipement — seul levier traité comme un
+  /// actif physique (machines), les autres restent des programmes/de
+  /// l'expertise. Valeur comptable = equipmentInvestment - ce champ (cf.
+  /// packages/game-engine/src/finance.ts, computeEquipmentBookValue).
+  equipmentAccumulatedDepreciation Decimal @default(0) @db.Decimal(12, 2)
+  workConditionsInvestment         Decimal @default(0) @db.Decimal(12, 2)
+  /// Réserve de trésorerie — amortit une partie des pertes causées par un
+  /// événement négatif ; se consomme au fil des chocs, ne se régénère pas
+  /// seule.
+  cashReserve                      Decimal @default(0) @db.Decimal(12, 2)
+
+  /// Distribution des bénéfices (cf. domain/dividends.ts) : "dividend"
+  /// (par défaut) distribue le profit net aux actionnaires à chaque cycle,
+  /// taxé au précompte mobilier (30%) ; "reserve" l'accumule dans
+  /// liquidationReserve (taxé 10% à l'entrée, gelé) plutôt que de le
+  /// distribuer.
+  distributionPolicy           String  @default("dividend")
+  liquidationReserve           Decimal @default(0) @db.Decimal(14, 2)
+  /// Cycle de la première contribution à la réserve actuelle (remis à zéro
+  /// une fois la réserve totalement retirée) — détermine si un retrait est
+  /// encore soumis à la taxe de sortie anticipée (LIQUIDATION_RESERVE_HOLDING_CYCLES).
+  liquidationReserveSinceCycle Int?
+
+  /// Réinvestissement automatique des bénéfices (cf.
+  /// domain/default-rules.ts) — à chaque cycle, jusqu'à
+  /// autoReinvestCapPerCycle du profit net POSITIF est détourné vers ce
+  /// levier avant la distribution dividende/réserve habituelle. null =
+  /// désactivé (comportement historique inchangé).
+  autoReinvestAxis        String?
+  autoReinvestCapPerCycle Decimal? @db.Decimal(10, 2)
+
+  /// Six leviers supplémentaires (cf. packages/domain/src/company.ts pour le
+  /// détail de chaque effet) : automatisation (coûts de personnel),
+  /// branding (amortit tout événement négatif), innovation (amplifie tout
+  /// événement positif), formation (production par employé), sécurité
+  /// (protège spécifiquement l'événement employés), assurance (plafonne la
+  /// perte max d'un seul événement).
+  automationInvestment Decimal @default(0) @db.Decimal(12, 2)
+  brandingInvestment   Decimal @default(0) @db.Decimal(12, 2)
+  innovationInvestment Decimal @default(0) @db.Decimal(12, 2)
+  trainingInvestment   Decimal @default(0) @db.Decimal(12, 2)
+  safetyInvestment     Decimal @default(0) @db.Decimal(12, 2)
+  insuranceInvestment  Decimal @default(0) @db.Decimal(12, 2)
+
+  /// Organisation & RH (cf. domain/organization.ts) : les employés sont
+  /// désormais assignés à un département plutôt que comptés globalement, et
+  /// chaque département a son propre responsable et son propre moral
+  /// d'équipe — cf. CompanyDepartment, CompanyEmployeeCount.
+  departments    CompanyDepartment[]
+  employeeCounts CompanyEmployeeCount[]
+
+  /// Gammes de produits actives (cf. packages/game-engine/src/companies.ts,
+  /// runProductLine) — au moins une ("core", offerte à la fondation),
+  /// d'autres débloquées par le levier innovation (R&D) et lancées par le
+  /// joueur. Chacune a son propre prix, sa propre demande, son propre stock,
+  /// et se partage la capacité de production totale de l'entreprise.
+  products CompanyProduct[]
+
+  /// Prêts bancaires (cf. domain/finance.ts, packages/game-engine/src/finance.ts)
+  /// — taux fixé à l'origine selon le ratio dette/fonds propres du moment,
+  /// remboursement linéaire + intérêts prélevés comme un coût à chaque
+  /// cycle. Un défaut de paiement bloque tout nouvel emprunt tant qu'il
+  /// n'a pas été soldé (cf. companies.service.ts).
+  loans CompanyLoan[]
+
+  shares                     CompanyShare[]
+  employments                Employment[]
+  jobPostings                CompanyJobPosting[]
+  insuranceOffersAsInsurer   InsurancePolicy[]       @relation("InsurerCompany")
+  insurancePoliciesAsInsured InsurancePolicy[]       @relation("InsuredCompany")
+  saleListings               CompanySaleListing[]
+  capitalRaises              CompanyCapitalRaise[]
+  proposals                  CompanyProposal[]
+  cycleReports               CompanyCycleReport[]
+  leasesAsTenant             Lease[]
+  purchaseContracts          SupplyContract[]        @relation("SupplyBuyer")
+  saleContracts              SupplyContract[]        @relation("SupplySeller")
+  loansAsLender              Loan[]
+  loanOffers                 LoanOffer[]
+  actionCooldowns            CompanyActionCooldown[]
+  shareListings              CompanyShareListing[]
+
+  /// Banques-joueurs (section 12octies) : toute entreprise peut accepter des
+  /// dépôts de n'importe quel joueur, pas seulement prêter sa propre
+  /// trésorerie (cf. loanOffers, déjà existant) — les dépôts alimentent
+  /// cashReserve, augmentant d'autant sa capacité de prêt réelle. Le taux
+  /// offert (depositRate) est réglable par le propriétaire principal, mais
+  /// verrouillé sur chaque dépôt au moment où il est fait (cf.
+  /// BankDeposit.rate) — le changer n'affecte que les futurs dépôts.
+  depositRate Decimal       @default(0.02) @db.Decimal(5, 4)
+  deposits    BankDeposit[]
+
+  guildMemberships GuildMembership[]
+  tenderOffers     CompanyTenderOffer[]
+}
+
+/// Un département d'entreprise (cf. domain/organization.ts DEPARTMENT_CATALOG)
+/// — une ligne par (entreprise, département), créée à la fondation pour les
+/// 4 départements. Responsable dédié optionnel (en plus du dirigeant général
+/// de l'entreprise, cf. Company.hasManager) et moral d'équipe vivant, qui
+/// pilote l'efficacité des employés qui y sont assignés (cf.
+/// packages/game-engine/src/companies.ts, computeDepartmentEfficiency).
+model CompanyDepartment {
+  company    Company @relation(fields: [companyId], references: [id])
+  companyId  String
+  /// Clé dans DEPARTMENT_CATALOG ("sales" | "rd" | "production" | "hr").
+  department String
+  hasManager Boolean @default(false)
+  morale     Decimal @default(50) @db.Decimal(5, 2)
+
+  @@id([companyId, department])
+}
+
+/// Effectif par (entreprise, département, palier de qualification) —
+/// remplace les anciens compteurs plats unskilled/qualified/specialistEmployeeCount
+/// de Company : un employé est désormais assigné à un département, pas
+/// seulement compté globalement.
+model CompanyEmployeeCount {
+  company    Company @relation(fields: [companyId], references: [id])
+  companyId  String
+  department String
+  tier       String
+  count      Int     @default(0)
+
+  @@id([companyId, department, tier])
+}
+
+/// Une gamme de produit active pour une entreprise (cf. domain/company.ts
+/// PRODUCT_CATALOG pour l'économie de chaque type). "core" est unique et
+/// offerte à la fondation ; les autres types sont débloqués par le niveau de
+/// R&D (levier innovation) et lancés par le joueur moyennant PRODUCT_LAUNCH_COST.
+model CompanyProduct {
+  id                 String  @id @default(uuid())
+  company            Company @relation(fields: [companyId], references: [id])
+  companyId          String
+  /// Clé dans PRODUCT_CATALOG ("core" | "economique" | "premium" | "innovant").
+  type               String
+  /// Prix de vente, réglable librement par le joueur à chaque cycle.
+  unitPrice          Decimal @db.Decimal(10, 2)
+  /// Part (0-100) de la capacité de production totale de l'entreprise
+  /// allouée à cette gamme. Pour "core", ce champ est ignoré : sa part
+  /// réelle est toujours déduite (100 - somme des autres gammes actives),
+  /// elle absorbe automatiquement ce qui reste plutôt que d'être réglée
+  /// directement — impossible de retirer toute capacité à toutes les gammes
+  /// à la fois.
+  capacityAllocation Decimal @default(0) @db.Decimal(5, 2)
+  /// Unités produites mais non vendues, reportées d'un cycle à l'autre
+  /// (plafonné, au-delà ça périme) — propre à chaque gamme.
+  stockUnits         Decimal @default(0) @db.Decimal(12, 2)
+  launchedCycle      Int
+
+  cycleReports ProductCycleReport[]
+
+  @@unique([companyId, type])
+}
+
+model ProductCycleReport {
+  id                 String         @id @default(uuid())
+  product            CompanyProduct @relation(fields: [productId], references: [id])
+  productId          String
+  cycle              Cycle          @relation(fields: [cycleId], references: [id])
+  cycleId            String
+  unitsProduced      Decimal        @db.Decimal(12, 2)
+  unitsSold          Decimal        @db.Decimal(12, 2)
+  unitsLost          Decimal        @db.Decimal(12, 2)
+  stockUnits         Decimal        @db.Decimal(12, 2)
+  unitPrice          Decimal        @db.Decimal(10, 2)
+  unitCost           Decimal        @db.Decimal(10, 2)
+  revenue            Decimal        @db.Decimal(14, 2)
+  /// Part de marché captée sur ce cycle, dans le marché (secteur, gamme de
+  /// produit) — cf. domain/market.ts et game-engine computeCapturedDemand.
+  marketSharePercent Decimal        @default(0) @db.Decimal(5, 2)
+
+  @@unique([productId, cycleId])
+}
+
+/// Limite les investissements et l'embauche à une action par levier et par
+/// cycle : impossible d'accélérer une amélioration en y mettant plus
+/// d'argent d'un coup — seul le temps qui passe (des mois en vie réelle,
+/// vu le rythme hebdomadaire des cycles) fait progresser une entreprise.
+model CompanyActionCooldown {
+  company    Company @relation(fields: [companyId], references: [id])
+  companyId  String
+  /// "invest:marketing" | "invest:quality" | "invest:equipment" |
+  /// "invest:workConditions" | "invest:reserve" | "hire"
+  actionType String
+  lastCycle  Int
+
+  @@id([companyId, actionType])
 }
 
 /// Base de l'actionnariat et du rachat hostile (section 12septies) : la somme
@@ -265,16 +922,272 @@ model CompanyShare {
   @@id([companyId, playerId])
 }
 
+enum ShareListingStatus {
+  OPEN
+  SOLD
+  CANCELLED
+}
+
+enum TenderOfferStatus {
+  OPEN
+  COMPLETED
+  CANCELLED
+}
+
+/// OPA / rachat hostile (cf. domain/tender-offer.ts) — ouverte à TOUS les
+/// actionnaires actuels, pas seulement ceux qui choisissent de vendre
+/// (contrairement à CompanyShareListing) : chacun décide indépendamment de
+/// céder tout ou partie de ses parts au prix proposé. Le contrôle change
+/// de mains automatiquement dès que l'acquéreur dépasse les autres en
+/// parts détenues, aucun champ dédié à tenir à jour.
+model CompanyTenderOffer {
+  id               String            @id @default(uuid())
+  company          Company           @relation(fields: [companyId], references: [id])
+  companyId        String
+  acquirerPlayerId String
+  pricePerPercent  Decimal           @db.Decimal(12, 2)
+  status           TenderOfferStatus @default(OPEN)
+  createdCycle     Int
+  expiresCycle     Int
+}
+
+enum CompanySaleListingStatus {
+  OPEN
+  SOLD
+  CANCELLED
+}
+
+enum CompanySaleBidStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+}
+
+/// Rachat AMICAL d'entreprise (cf. domain/friendly-sale.ts) — à la
+/// différence de l'OPA hostile (CompanyTenderOffer, prix fixé par
+/// l'acheteur, ouverte à tous les actionnaires), c'est ici le VENDEUR qui
+/// ouvre l'annonce ; les acheteurs intéressés soumettent chacun leur propre
+/// offre (CompanySaleBid), visible seulement du vendeur, qui choisit
+/// librement laquelle accepter.
+model CompanySaleListing {
+  id                    String                   @id @default(uuid())
+  company               Company                  @relation(fields: [companyId], references: [id])
+  companyId             String
+  sellerId              String
+  sharePercentage       Decimal                  @db.Decimal(6, 2)
+  askingPricePerPercent Decimal?                 @db.Decimal(12, 2)
+  status                CompanySaleListingStatus @default(OPEN)
+  createdCycle          Int
+  expiresCycle          Int
+  bids                  CompanySaleBid[]
+}
+
+model CompanySaleBid {
+  id              String               @id @default(uuid())
+  listing         CompanySaleListing   @relation(fields: [listingId], references: [id])
+  listingId       String
+  buyerId         String
+  pricePerPercent Decimal              @db.Decimal(12, 2)
+  status          CompanySaleBidStatus @default(PENDING)
+  createdCycle    Int
+}
+
+enum CapitalRaiseStatus {
+  OPEN
+  FUNDED
+  CANCELLED
+}
+
+/// Capital-risque entre joueurs (cf. domain/venture-capital.ts) — à la
+/// différence de CompanyShareListing/CompanyTenderOffer/CompanySaleListing
+/// (qui transfèrent des parts déjà émises), l'argent va dans la trésorerie
+/// RÉELLE de l'entreprise et de NOUVELLES parts sont créées pour
+/// l'investisseur, diluant mécaniquement tous les actionnaires existants.
+model CompanyCapitalRaise {
+  id                 String             @id @default(uuid())
+  company            Company            @relation(fields: [companyId], references: [id])
+  companyId          String
+  targetAmount       Decimal            @db.Decimal(12, 2)
+  newSharePercentage Decimal            @db.Decimal(6, 2)
+  status             CapitalRaiseStatus @default(OPEN)
+  investorId         String?
+  createdCycle       Int
+  expiresCycle       Int
+}
+
+enum ProposalType {
+  SET_DISTRIBUTION_POLICY
+  INVEST
+}
+
+enum ProposalStatus {
+  OPEN
+  APPROVED
+  REJECTED
+}
+
+/// Partenariat d'investissement / AG à vote proportionnel (cf.
+/// domain/governance.ts) — une proposition APPROUVÉE s'applique
+/// automatiquement (cf. companies.service.ts, resolveProposal), même sans
+/// l'accord de l'actionnaire principal : c'est une décision collective, pas
+/// une action de pilotage unilatérale.
+model CompanyProposal {
+  id           String                @id @default(uuid())
+  company      Company               @relation(fields: [companyId], references: [id])
+  companyId    String
+  proposerId   String
+  type         ProposalType
+  payload      Json
+  status       ProposalStatus        @default(OPEN)
+  createdCycle Int
+  expiresCycle Int
+  votes        CompanyProposalVote[]
+}
+
+/// sharePercentage capturé au moment du vote — une proposition reste
+/// tranchée sur la répartition des parts telle qu'elle était quand chacun a
+/// voté, pas recalculée rétroactivement si les parts bougent ensuite.
+model CompanyProposalVote {
+  id              String          @id @default(uuid())
+  proposal        CompanyProposal @relation(fields: [proposalId], references: [id])
+  proposalId      String
+  voterId         String
+  inFavor         Boolean
+  sharePercentage Decimal         @db.Decimal(6, 2)
+  createdCycle    Int
+
+  @@unique([proposalId, voterId])
+}
+
+enum PressCategory {
+  BANKRUPTCY
+  CARTEL_BUST
+  HOSTILE_TAKEOVER
+  AUCTION_WON
+  SECTORAL_SHOCK_WARNING
+  SECTORAL_SHOCK
+  COUNCIL_DECISION
+}
+
+/// Presse économique (cf. sections 11 et 12bis du document de conception) —
+/// un fil public de titres relayant les scandales et réussites du jeu
+/// (faillites, démantèlements de cartels, rachats hostiles, enchères
+/// immobilières), visible par tous les joueurs sans lien avec un compte
+/// précis — à la différence de PlayerNotification qui reste privée par
+/// joueur.
+model PressArticle {
+  id        String        @id @default(uuid())
+  category  PressCategory
+  headline  String
+  cycle     Int
+  createdAt DateTime      @default(now())
+}
+
+enum SectoralEventTier {
+  MINOR
+  MODERATE
+  MAJOR
+  EXCEPTIONAL
+}
+
+enum SectoralEventScope {
+  REGIONAL
+  NATIONAL
+}
+
+/// Événements aléatoires sectoriels/régionaux (cf. domain/sectoral-events.ts)
+/// — un secteur primaire (+ parfois un second, corrélé) subit un
+/// multiplicateur de demande temporaire, appliqué au pool de marché entier
+/// (portée NATIONALE) ou à l'attractivité effective des seules entreprises
+/// de la région touchée (portée RÉGIONALE). warningPublishedCycle trace le
+/// signal faible publié en presse pour les MAJEURS, avant que l'effet ne
+/// démarre réellement à startCycle.
+model SectoralEvent {
+  id                   String             @id @default(uuid())
+  tier                 SectoralEventTier
+  scope                SectoralEventScope
+  region               Region?            @relation(fields: [regionId], references: [id])
+  regionId             String?
+  primarySector        Sector             @relation("SectoralEventPrimarySector", fields: [primarySectorId], references: [id])
+  primarySectorId      String
+  primaryMagnitude     Decimal            @db.Decimal(6, 4)
+  correlatedSector     Sector?            @relation("SectoralEventCorrelatedSector", fields: [correlatedSectorId], references: [id])
+  correlatedSectorId   String?
+  correlatedMagnitude  Decimal?           @db.Decimal(6, 4)
+  createdCycle         Int
+  startCycle           Int
+  endCycle             Int
+  impactPublishedCycle Int?
+}
+
+enum InsurancePolicyStatus {
+  OPEN
+  ACTIVE
+  CANCELLED
+  LAPSED
+}
+
+/// Assurance inter-joueurs (cf. domain/insurance.ts) — couvre les pertes des
+/// aléas d'entreprise négatifs (cf. company.ts rollCompanyEvent). Une offre
+/// non prise a insuredCompanyId nul (status OPEN, browsable comme LoanOffer)
+/// ; insurerCompanyId nul = assureur système (toujours solvable, termes
+/// fixes, pas d'offre à publier — souscription directe).
+model InsurancePolicy {
+  id               String                @id @default(uuid())
+  insurerCompany   Company?              @relation("InsurerCompany", fields: [insurerCompanyId], references: [id])
+  insurerCompanyId String?
+  insuredCompany   Company?              @relation("InsuredCompany", fields: [insuredCompanyId], references: [id])
+  insuredCompanyId String?
+  premiumPerCycle  Decimal               @db.Decimal(10, 2)
+  coverageCap      Decimal               @db.Decimal(12, 2)
+  status           InsurancePolicyStatus @default(OPEN)
+  createdCycle     Int
+  startedCycle     Int?
+}
+
+/// Marché des parts entre joueurs — un actionnaire (pas forcément
+/// l'actionnaire principal) met une partie de ses parts en vente à un prix
+/// fixé par lui ; n'importe quel autre joueur peut l'acheter. Le prix est
+/// laissé au marché plutôt que calculé par une formule de valorisation —
+/// c'est le jugement des joueurs qui fait la "meilleure valorisation", pas
+/// le système.
+model CompanyShareListing {
+  id              String             @id @default(uuid())
+  company         Company            @relation(fields: [companyId], references: [id])
+  companyId       String
+  seller          Player             @relation("ShareListingSeller", fields: [sellerId], references: [id])
+  sellerId        String
+  buyer           Player?            @relation("ShareListingBuyer", fields: [buyerId], references: [id])
+  buyerId         String?
+  sharePercentage Decimal            @db.Decimal(5, 2)
+  price           Decimal            @db.Decimal(12, 2)
+  status          ShareListingStatus @default(OPEN)
+  createdAt       DateTime           @default(now())
+  soldAt          DateTime?
+}
+
 model CompanyCycleReport {
-  id        String  @id @default(uuid())
-  company   Company @relation(fields: [companyId], references: [id])
-  companyId String
-  cycle     Cycle   @relation(fields: [cycleId], references: [id])
-  cycleId   String
-  revenue   Decimal @db.Decimal(14, 2)
-  costs     Decimal @db.Decimal(14, 2)
-  profit    Decimal @db.Decimal(14, 2)
-  taxPaid   Decimal @db.Decimal(14, 2)
+  id         String  @id @default(uuid())
+  company    Company @relation(fields: [companyId], references: [id])
+  companyId  String
+  cycle      Cycle   @relation(fields: [cycleId], references: [id])
+  cycleId    String
+  revenue    Decimal @db.Decimal(14, 2)
+  costs      Decimal @db.Decimal(14, 2)
+  profit     Decimal @db.Decimal(14, 2)
+  taxPaid    Decimal @db.Decimal(14, 2)
+  /// Description courte de l'événement aléatoire survenu ce cycle, s'il y en a eu un.
+  eventLabel String?
+
+  /// Somme, toutes gammes de produits confondues, de la chaîne production →
+  /// demande → vente de ce cycle (cf. ProductCycleReport pour le détail par
+  /// gamme — prix et coût unitaire n'ont plus de sens agrégés dès qu'une
+  /// entreprise a plusieurs gammes à des prix différents).
+  unitsProduced Decimal @default(0) @db.Decimal(12, 2)
+  unitsSold     Decimal @default(0) @db.Decimal(12, 2)
+  unitsLost     Decimal @default(0) @db.Decimal(12, 2)
+  stockUnits    Decimal @default(0) @db.Decimal(12, 2)
 
   @@unique([companyId, cycleId])
 }
@@ -302,23 +1215,65 @@ model Cycle {
   closedAt  DateTime?
   status    CycleStatus @default(OPEN)
 
-  statHistory     PlayerStatHistory[]
-  cycleReports    CompanyCycleReport[]
-  supplyContracts SupplyContract[]
+  statHistory           PlayerStatHistory[]
+  cycleReports          CompanyCycleReport[]
+  productCycleReports   ProductCycleReport[]
+  supplyContracts       SupplyContract[]
+  commodityPriceHistory CommodityPriceHistory[]
 }
 
+/// Prêt bancaire d'entreprise — distinct du modèle Loan (qui visait des
+/// prêts entre joueurs/entreprises-prêteuses, jamais branché) : ici la
+/// banque est toujours le système, jamais un autre joueur. Taux fixé une
+/// fois pour toutes à l'origine (cf. domain/finance.ts, computeLoanRate) ;
+/// remboursement linéaire du principal + intérêts sur le solde restant,
+/// prélevés comme un coût à chaque cycle de clôture.
+model CompanyLoan {
+  id               String     @id @default(uuid())
+  company          Company    @relation(fields: [companyId], references: [id])
+  companyId        String
+  principal        Decimal    @db.Decimal(12, 2)
+  rate             Decimal    @db.Decimal(6, 4)
+  termCycles       Int
+  remainingBalance Decimal    @db.Decimal(12, 2)
+  status           LoanStatus @default(ACTIVE)
+  originatedCycle  Int
+}
+
+/// Prêt — hypothécaire (lenderType SYSTEM, cf. domain/mortgage.ts) ou
+/// communautaire (lenderType COMPANY, cf. domain/community-lending.ts :
+/// une entreprise prête sa trésorerie à un autre joueur, à un taux fixé
+/// librement par son actionnaire principal). Même échéancier
+/// (amortissement + intérêts, computeLoanCyclePayment) et même traitement
+/// du défaut pour les deux : cf. packages/game-engine/cycles.ts.
 model Loan {
-  id                    String     @id @default(uuid())
-  borrower              Player     @relation(fields: [borrowerPlayerId], references: [id])
-  borrowerPlayerId      String
-  lenderType            LenderType
-  lenderCompany         Company?   @relation(fields: [lenderCompanyId], references: [id])
-  lenderCompanyId       String?
-  principal             Decimal    @db.Decimal(12, 2)
-  rate                  Decimal    @db.Decimal(6, 4)
-  termCycles            Int
-  remainingBalance      Decimal    @db.Decimal(12, 2)
-  collateralPropertyId  String?
-  status                LoanStatus @default(ACTIVE)
-  createdAt             DateTime   @default(now())
+  id                   String     @id @default(uuid())
+  borrower             Player     @relation(fields: [borrowerPlayerId], references: [id])
+  borrowerPlayerId     String
+  lenderType           LenderType
+  lenderCompany        Company?   @relation(fields: [lenderCompanyId], references: [id])
+  lenderCompanyId      String?
+  principal            Decimal    @db.Decimal(12, 2)
+  rate                 Decimal    @db.Decimal(6, 4)
+  termCycles           Int
+  remainingBalance     Decimal    @db.Decimal(12, 2)
+  collateralProperty   Property?  @relation(fields: [collateralPropertyId], references: [id])
+  collateralPropertyId String?
+  status               LoanStatus @default(ACTIVE)
+  createdAt            DateTime   @default(now())
+}
+
+/// Offre de prêt communautaire publiée par une entreprise (cf.
+/// domain/community-lending.ts) — marché ouvert à tous les joueurs, comme
+/// les annonces immobilières/parts d'entreprise : premier arrivé, premier
+/// servi (claim atomique). Financée par la trésorerie de l'entreprise
+/// (Company.cashReserve), débitée à la prise de l'offre.
+model LoanOffer {
+  id              String  @id @default(uuid())
+  lenderCompany   Company @relation(fields: [lenderCompanyId], references: [id])
+  lenderCompanyId String
+  principal       Decimal @db.Decimal(12, 2)
+  rate            Decimal @db.Decimal(6, 4)
+  termCycles      Int
+  createdCycle    Int
 }

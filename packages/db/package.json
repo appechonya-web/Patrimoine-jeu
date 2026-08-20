@@ -17,11 +17,14 @@
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@patrimoine-jeu/domain": "workspace:*",
     "@patrimoine-jeu/fiscal-be": "workspace:*",
-    "@prisma/client": "^6.1.0"
+    "@prisma/client": "^6.1.0",
+    "bcryptjs": "^3.0.3"
   },
   "devDependencies": {
     "@patrimoine-jeu/config": "workspace:*",
+    "@types/bcryptjs": "^3.0.0",
     "@types/node": "^22.10.0",
     "prisma": "^6.1.0",
     "tsx": "^4.19.0",

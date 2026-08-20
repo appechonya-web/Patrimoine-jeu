@@ -1,0 +1,1101 @@
+"use client";
+
+import { useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import {
+  ACTION_COOLDOWN_CYCLES,
+  DEPARTMENT_MANAGER_SALARY_PER_CYCLE,
+  EMPLOYEE_TIER_CATALOG,
+  EMPLOYEE_TIERS,
+  INVESTMENT_AXIS_LABELS,
+  LOAN_TERM_OPTIONS_CYCLES,
+  MAX_INVESTMENT_PER_CYCLE,
+  MAX_LOAN_PRINCIPAL_EQUITY_RATIO,
+  MAX_UNIT_PRICE_RATIO,
+  MANAGER_SALARY_PER_CYCLE,
+  MIN_INVESTMENT_AMOUNT,
+  MIN_LOAN_PRINCIPAL,
+  MIN_UNIT_PRICE,
+  REFERENCE_UNIT_PRICE,
+  type Department,
+  type LoanTermCycles,
+  type ProductType,
+} from "@patrimoine-jeu/domain";
+import type {
+  BankReliabilityView,
+  CapitalRaiseView,
+  Company,
+  CompanyDetail as CompanyDetailData,
+  CompanyInsuranceView,
+  CompanyStaffView,
+  InsuranceOfferView,
+  Product,
+  ExpansionRequirement,
+  ProposalView,
+  SaleBidView,
+  SaleListingView,
+  SupplyContractView,
+  TenderOfferView,
+} from "../../../lib/session";
+import {
+  GameError,
+  buyShareListing,
+  cancelListing,
+  fireDepartmentManager,
+  fireEmployee,
+  fireManager,
+  hireDepartmentManager,
+  hireEmployee,
+  hireManager,
+  investInCompany,
+  launchProduct,
+  listShareForSale,
+  requestLoan,
+  setProductAllocation,
+  setProductPrice,
+  type EmployeeTier,
+  type InvestmentAxis,
+} from "../../../lib/game-client";
+import { currencyFormatter } from "../../../lib/format";
+import { InfoTip } from "../../info-tip";
+import { LoanOffersSection } from "./loan-offers-section";
+import { DistributionSection } from "./distribution-section";
+import { BankingSection } from "./banking-section";
+import { SupplyChainSection } from "./supply-chain-section";
+import { TenderOfferSection } from "./tender-offer-section";
+import { StaffSection } from "./staff-section";
+import { InsuranceSection } from "./insurance-section";
+import { SaleSection } from "./sale-section";
+import { CapitalRaiseSection } from "./capital-raise-section";
+import { GovernanceSection } from "./governance-section";
+import styles from "../../page.module.css";
+
+const INVESTMENT_AXIS_ICONS: Record<InvestmentAxis, string> = {
+  marketing: "📣",
+  quality: "✨",
+  equipment: "🛠️",
+  workConditions: "😊",
+  reserve: "🏦",
+  automation: "🤖",
+  branding: "🎨",
+  innovation: "💡",
+  training: "🎓",
+  safety: "🦺",
+  insurance: "🛡️",
+};
+
+type CompanyTabId = "overview" | "production" | "team" | "finance" | "ownership";
+
+const COMPANY_TABS: { id: CompanyTabId; icon: string; label: string }[] = [
+  { id: "overview", icon: "📊", label: "Vue d'ensemble" },
+  { id: "production", icon: "📦", label: "Production" },
+  { id: "team", icon: "👥", label: "Équipe" },
+  { id: "finance", icon: "💰", label: "Finance" },
+  { id: "ownership", icon: "🤝", label: "Actionnariat" },
+];
+
+function ManagerButton({ company, onDone }: { company: Company; onDone: () => void }) {
+  const [pending, setPending] = useState(false);
+
+  async function handleClick() {
+    setPending(true);
+    try {
+      if (company.hasManager) {
+        await fireManager(company.id);
+      } else {
+        await hireManager(company.id);
+      }
+      onDone();
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <button className={styles.logout} type="button" disabled={pending} onClick={handleClick}>
+      {pending
+        ? "…"
+        : company.hasManager
+          ? "🚫 Renvoyer le manager"
+          : `🧑‍💼 Engager un manager (${currencyFormatter.format(MANAGER_SALARY_PER_CYCLE)}/cycle)`}
+    </button>
+  );
+}
+
+const DEPARTMENT_ICONS: Record<string, string> = {
+  sales: "📣",
+  rd: "🔬",
+  production: "🏭",
+  hr: "🤝",
+};
+
+function moraleEmoji(morale: number): string {
+  if (morale >= 70) return "😄";
+  if (morale < 35) return "😞";
+  return "😐";
+}
+
+function DepartmentManagerButton({
+  companyId,
+  department,
+  hasManager,
+  onDone,
+}: {
+  companyId: string;
+  department: string;
+  hasManager: boolean;
+  onDone: () => void;
+}) {
+  const [pending, setPending] = useState(false);
+
+  async function handleClick() {
+    setPending(true);
+    try {
+      if (hasManager) {
+        await fireDepartmentManager(companyId, department as Department);
+      } else {
+        await hireDepartmentManager(companyId, department as Department);
+      }
+      onDone();
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <button className={styles.logout} type="button" disabled={pending} onClick={handleClick}>
+      {pending
+        ? "…"
+        : hasManager
+          ? "🚫 Renvoyer le responsable"
+          : `🧑‍💼 Nommer un responsable (${currencyFormatter.format(DEPARTMENT_MANAGER_SALARY_PER_CYCLE)}/cycle)`}
+    </button>
+  );
+}
+
+function DepartmentCard({
+  company,
+  department,
+  onDone,
+}: {
+  company: CompanyDetailData;
+  department: CompanyDetailData["departments"][number];
+  onDone: () => void;
+}) {
+  const [tier, setTier] = useState<EmployeeTier>("unskilled");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleHire() {
+    setError(null);
+    setPending(true);
+    try {
+      await hireEmployee(company.id, tier, department.department as Department);
+      onDone();
+    } catch (err) {
+      setError(err instanceof GameError ? err.message : "Une erreur est survenue");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function handleFire() {
+    setError(null);
+    setPending(true);
+    try {
+      await fireEmployee(company.id, tier, department.department as Department);
+      onDone();
+    } catch (err) {
+      setError(err instanceof GameError ? err.message : "Une erreur est survenue");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  const tierDef = EMPLOYEE_TIER_CATALOG[tier];
+
+  return (
+    <div className={styles.jobCard}>
+      <div>
+        <div className={styles.jobTitle}>
+          {DEPARTMENT_ICONS[department.department] ?? "🏢"} {department.label}
+        </div>
+        <div className={styles.jobStats}>
+          <span>
+            {moraleEmoji(department.morale)} Moral {department.morale.toFixed(0)}/100
+          </span>
+          <span>{department.hasManager ? "🧑‍💼 Avec responsable" : "🚫 Sans responsable"}</span>
+          {EMPLOYEE_TIERS.map((t) => (
+            <span key={t}>
+              {EMPLOYEE_TIER_CATALOG[t].label} : {department.employeeCounts[t]}
+            </span>
+          ))}
+        </div>
+        {company.isPrimaryOwner && (
+          <>
+            <div className={styles.jobActions}>
+              <DepartmentManagerButton
+                companyId={company.id}
+                department={department.department}
+                hasManager={department.hasManager}
+                onDone={onDone}
+              />
+            </div>
+            <form className={styles.form} onSubmit={(e) => e.preventDefault()}>
+              <select className={styles.formInput} value={tier} onChange={(e) => setTier(e.target.value as EmployeeTier)}>
+                {EMPLOYEE_TIERS.map((t) => (
+                  <option key={t} value={t}>
+                    {EMPLOYEE_TIER_CATALOG[t].label} — {currencyFormatter.format(EMPLOYEE_TIER_CATALOG[t].salaryPerCycle)}/cycle
+                  </option>
+                ))}
+              </select>
+              <button className={styles.apply} type="button" disabled={pending} onClick={handleHire}>
+                {pending ? "…" : `👷 Embaucher (${currencyFormatter.format(tierDef.salaryPerCycle)}/cycle)`}
+              </button>
+              {department.employeeCounts[tier] > 0 && (
+                <button className={styles.logout} type="button" disabled={pending} onClick={handleFire}>
+                  🚫 Licencier
+                </button>
+              )}
+            </form>
+          </>
+        )}
+      </div>
+      {error && <p className={styles.error}>{error}</p>}
+    </div>
+  );
+}
+
+function InvestmentPanel({ companyId, onDone }: { companyId: string; onDone: () => void }) {
+  const [axis, setAxis] = useState<InvestmentAxis>("marketing");
+  const [amount, setAmount] = useState(MIN_INVESTMENT_AMOUNT);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    setError(null);
+    setPending(true);
+    try {
+      await investInCompany(companyId, axis, amount);
+      onDone();
+    } catch (err) {
+      setError(err instanceof GameError ? err.message : "Une erreur est survenue");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <>
+      <p className={styles.jobMeta}>
+        Un seul investissement par levier tous les {ACTION_COOLDOWN_CYCLES} cycles, plafonné à{" "}
+        {currencyFormatter.format(MAX_INVESTMENT_PER_CYCLE)} — impossible d'accélérer avec plus d'argent, seul le
+        temps fait progresser une entreprise.
+      </p>
+      <form className={styles.form} onSubmit={handleSubmit}>
+        <select className={styles.formInput} value={axis} onChange={(e) => setAxis(e.target.value as InvestmentAxis)}>
+          {Object.entries(INVESTMENT_AXIS_LABELS).map(([value, label]) => (
+            <option key={value} value={value}>
+              {INVESTMENT_AXIS_ICONS[value as InvestmentAxis]} {label}
+            </option>
+          ))}
+        </select>
+        <input
+          className={styles.formInput}
+          type="number"
+          min={MIN_INVESTMENT_AMOUNT}
+          max={MAX_INVESTMENT_PER_CYCLE}
+          step={50}
+          value={amount}
+          onChange={(e) => setAmount(Number(e.target.value))}
+        />
+        <button className={styles.apply} type="submit" disabled={pending}>
+          {pending ? "…" : "💸 Investir"}
+        </button>
+        {error && <p className={styles.error}>{error}</p>}
+      </form>
+    </>
+  );
+}
+
+function ProductPriceForm({
+  companyId,
+  productId,
+  unitPrice,
+  onDone,
+}: {
+  companyId: string;
+  productId: string;
+  unitPrice: number;
+  onDone: () => void;
+}) {
+  const [price, setPrice] = useState(unitPrice);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    setError(null);
+    setPending(true);
+    try {
+      await setProductPrice(companyId, productId, price);
+      onDone();
+    } catch (err) {
+      setError(err instanceof GameError ? err.message : "Une erreur est survenue");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <form className={styles.form} onSubmit={handleSubmit}>
+      <input
+        className={styles.formInput}
+        type="number"
+        min={MIN_UNIT_PRICE}
+        max={REFERENCE_UNIT_PRICE * MAX_UNIT_PRICE_RATIO * 3}
+        step={0.5}
+        value={price}
+        onChange={(e) => setPrice(Number(e.target.value))}
+      />
+      <button className={styles.apply} type="submit" disabled={pending}>
+        {pending ? "…" : "🏷️ Fixer le prix"}
+      </button>
+      {error && <p className={styles.error}>{error}</p>}
+    </form>
+  );
+}
+
+function ProductAllocationForm({
+  companyId,
+  productId,
+  capacityAllocation,
+  onDone,
+}: {
+  companyId: string;
+  productId: string;
+  capacityAllocation: number;
+  onDone: () => void;
+}) {
+  const [allocation, setAllocation] = useState(capacityAllocation);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    setError(null);
+    setPending(true);
+    try {
+      await setProductAllocation(companyId, productId, allocation);
+      onDone();
+    } catch (err) {
+      setError(err instanceof GameError ? err.message : "Une erreur est survenue");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <form className={styles.form} onSubmit={handleSubmit}>
+      <input
+        className={styles.formInput}
+        type="number"
+        min={0}
+        max={100}
+        step={1}
+        value={allocation}
+        onChange={(e) => setAllocation(Number(e.target.value))}
+      />
+      <span className={styles.jobMeta}>% de la capacité</span>
+      <button className={styles.apply} type="submit" disabled={pending}>
+        {pending ? "…" : "⚖️ Réallouer"}
+      </button>
+      {error && <p className={styles.error}>{error}</p>}
+    </form>
+  );
+}
+
+function ProductCard({
+  company,
+  product,
+  onDone,
+}: {
+  company: CompanyDetailData;
+  product: Product;
+  onDone: () => void;
+}) {
+  const report = product.latestCycleReport;
+
+  return (
+    <div className={styles.jobCard}>
+      <div>
+        <div className={styles.jobTitle}>
+          {product.label} {product.isCore && <span className={styles.jobMeta}>(gamme de fondation)</span>}
+        </div>
+        <div className={styles.jobStats}>
+          <span>⚖️ {product.capacityAllocation.toFixed(0)}% de la capacité</span>
+          <span>🗃️ Stock {product.stockUnits.toFixed(1)} unités</span>
+          {report && (
+            <>
+              <span>🥊 Part de marché {report.marketSharePercent.toFixed(1)}%</span>
+              <span>🏭 Produit {report.unitsProduced.toFixed(1)}</span>
+              <span>🛒 Vendu {report.unitsSold.toFixed(1)}</span>
+              {report.unitsLost > 0.05 && <span>😕 Perdu {report.unitsLost.toFixed(1)}</span>}
+              <span>⚙️ Coût {currencyFormatter.format(report.unitCost)}/unité</span>
+              <span>💵 Revenu {currencyFormatter.format(report.revenue)}</span>
+            </>
+          )}
+        </div>
+        {company.isPrimaryOwner && (
+          <>
+            <p className={styles.jobMeta}>Prix ({currencyFormatter.format(product.unitPrice)}/unité) :</p>
+            <ProductPriceForm companyId={company.id} productId={product.id} unitPrice={product.unitPrice} onDone={onDone} />
+            {!product.isCore && (
+              <>
+                <p className={styles.jobMeta}>
+                  Allocation de capacité — le reste revient automatiquement à la gamme de fondation :
+                </p>
+                <ProductAllocationForm
+                  companyId={company.id}
+                  productId={product.id}
+                  capacityAllocation={product.capacityAllocation}
+                  onDone={onDone}
+                />
+              </>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function LaunchProductPanel({ company, onDone }: { company: CompanyDetailData; onDone: () => void }) {
+  const [pendingType, setPendingType] = useState<ProductType | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleLaunch(type: ProductType) {
+    setError(null);
+    setPendingType(type);
+    try {
+      await launchProduct(company.id, type);
+      onDone();
+    } catch (err) {
+      setError(err instanceof GameError ? err.message : "Une erreur est survenue");
+    } finally {
+      setPendingType(null);
+    }
+  }
+
+  if (company.productCatalog.length === 0) return null;
+
+  return (
+    <div className={styles.jobList}>
+      {company.productCatalog.map((entry) => (
+        <div key={entry.type} className={styles.jobCard}>
+          <div>
+            <div className={styles.jobTitle}>{entry.isUnlocked ? "🔓" : "🔒"} {entry.label}</div>
+            <div className={styles.jobMeta}>{entry.description}</div>
+            <div className={styles.jobStats}>
+              <span>💡 R&D requise : niveau {entry.unlockInnovationLevel}</span>
+              <span>💰 Coût de lancement {currencyFormatter.format(entry.launchCost)}</span>
+            </div>
+          </div>
+          {company.isPrimaryOwner && (
+            <div className={styles.jobActions}>
+              <button
+                className={styles.apply}
+                type="button"
+                disabled={!entry.isUnlocked || pendingType !== null}
+                onClick={() => handleLaunch(entry.type as ProductType)}
+              >
+                {pendingType === entry.type ? "…" : entry.isUnlocked ? "🚀 Lancer" : "Verrouillée"}
+              </button>
+            </div>
+          )}
+        </div>
+      ))}
+      {error && <p className={styles.error}>{error}</p>}
+    </div>
+  );
+}
+
+function ShareListingForm({ companyId, maxPercentage, onDone }: { companyId: string; maxPercentage: number; onDone: () => void }) {
+  const [sharePercentage, setSharePercentage] = useState(Math.min(10, maxPercentage));
+  const [price, setPrice] = useState(1000);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    setError(null);
+    setPending(true);
+    try {
+      await listShareForSale(companyId, sharePercentage, price);
+      onDone();
+    } catch (err) {
+      setError(err instanceof GameError ? err.message : "Une erreur est survenue");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <form className={styles.form} onSubmit={handleSubmit}>
+      <input
+        className={styles.formInput}
+        type="number"
+        min={0.01}
+        max={maxPercentage}
+        step={0.01}
+        value={sharePercentage}
+        onChange={(e) => setSharePercentage(Number(e.target.value))}
+      />
+      <span className={styles.jobMeta}>% pour</span>
+      <input
+        className={styles.formInput}
+        type="number"
+        min={1}
+        step={100}
+        value={price}
+        onChange={(e) => setPrice(Number(e.target.value))}
+      />
+      <button className={styles.apply} type="submit" disabled={pending}>
+        {pending ? "…" : "🏷️ Mettre en vente"}
+      </button>
+      {error && <p className={styles.error}>{error}</p>}
+    </form>
+  );
+}
+
+function ListingRow({ listing, onDone }: { listing: CompanyDetailData["openListings"][number]; onDone: () => void }) {
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleAction() {
+    setError(null);
+    setPending(true);
+    try {
+      if (listing.isMine) {
+        await cancelListing(listing.id);
+      } else {
+        await buyShareListing(listing.id);
+      }
+      onDone();
+    } catch (err) {
+      setError(err instanceof GameError ? err.message : "Une erreur est survenue");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <div className={styles.jobCard}>
+      <div>
+        <div className={styles.jobTitle}>{listing.sharePercentage}% des parts</div>
+        <div className={styles.jobMeta}>Vendeur : {listing.sellerPseudo}</div>
+        {error && <p className={styles.error}>{error}</p>}
+      </div>
+      <div className={styles.jobActions}>
+        <div className={styles.jobSalary}>{currencyFormatter.format(listing.price)}</div>
+        <button className={listing.isMine ? styles.logout : styles.apply} type="button" disabled={pending} onClick={handleAction}>
+          {pending ? "…" : listing.isMine ? "🚫 Annuler" : "🛒 Acheter"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function LoanRow({ loan }: { loan: CompanyDetailData["loans"][number] }) {
+  const statusLabel =
+    loan.status === "ACTIVE" ? "🟢 En cours" : loan.status === "PAID" ? "✅ Soldé" : "❌ En défaut";
+
+  return (
+    <div className={styles.jobCard}>
+      <div>
+        <div className={styles.jobTitle}>{currencyFormatter.format(loan.principal)} emprunté</div>
+        <div className={styles.jobStats}>
+          <span>{statusLabel}</span>
+          <span>📈 Taux {(loan.rate * 100).toFixed(1)}%/an</span>
+          <span>⏳ Durée {loan.termCycles} cycles</span>
+          <span>💳 Reste à rembourser {currencyFormatter.format(loan.remainingBalance)}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LoanRequestForm({ companyId, maxPrincipal, onDone }: { companyId: string; maxPrincipal: number; onDone: () => void }) {
+  const [principal, setPrincipal] = useState(Math.min(MIN_LOAN_PRINCIPAL, Math.max(0, maxPrincipal)));
+  const [termCycles, setTermCycles] = useState<LoanTermCycles>(LOAN_TERM_OPTIONS_CYCLES[1]);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    setError(null);
+    setPending(true);
+    try {
+      await requestLoan(companyId, principal, termCycles);
+      onDone();
+    } catch (err) {
+      setError(err instanceof GameError ? err.message : "Une erreur est survenue");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <form className={styles.form} onSubmit={handleSubmit}>
+      <input
+        className={styles.formInput}
+        type="number"
+        min={MIN_LOAN_PRINCIPAL}
+        max={maxPrincipal}
+        step={100}
+        value={principal}
+        onChange={(e) => setPrincipal(Number(e.target.value))}
+      />
+      <select className={styles.formInput} value={termCycles} onChange={(e) => setTermCycles(Number(e.target.value) as LoanTermCycles)}>
+        {LOAN_TERM_OPTIONS_CYCLES.map((term) => (
+          <option key={term} value={term}>
+            {term} cycles
+          </option>
+        ))}
+      </select>
+      <button className={styles.apply} type="submit" disabled={pending || maxPrincipal < MIN_LOAN_PRINCIPAL}>
+        {pending ? "…" : "🏦 Emprunter"}
+      </button>
+      {error && <p className={styles.error}>{error}</p>}
+    </form>
+  );
+}
+
+export function CompanyDetail({
+  company,
+  expansionRequirement,
+  supplyContracts,
+  tenderOffers,
+  myPseudo,
+  staff,
+  insurance,
+  insuranceOffers,
+  saleListing,
+  saleBids,
+  capitalRaise,
+  proposals,
+  bankReliability,
+}: {
+  company: CompanyDetailData;
+  expansionRequirement: ExpansionRequirement | null;
+  supplyContracts: SupplyContractView[];
+  tenderOffers: TenderOfferView[];
+  myPseudo: string;
+  staff: CompanyStaffView | null;
+  insurance: CompanyInsuranceView | null;
+  insuranceOffers: InsuranceOfferView[];
+  saleListing: SaleListingView | null;
+  saleBids: SaleBidView[];
+  capitalRaise: CapitalRaiseView | null;
+  proposals: ProposalView[];
+  bankReliability: BankReliabilityView | null;
+}) {
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState<CompanyTabId>("overview");
+
+  function handleDone() {
+    router.refresh();
+  }
+
+  return (
+    <main className={styles.main}>
+      <header className={styles.header}>
+        <div>
+          <h1>🏢 {company.name}</h1>
+          <p className={styles.subtitle}>
+            {company.sector} — {company.municipality} — {company.sharePercentage}% des parts
+            {company.isPrimaryOwner ? " — 👑 actionnaire principal" : " — actionnaire minoritaire"}
+          </p>
+          {company.status === "BANKRUPT" && (
+            <p className={styles.error}>
+              💥 Cette entreprise a fait faillite — pertes cumulées trop lourdes, prêts effacés, elle a cessé toute
+              activité.
+            </p>
+          )}
+        </div>
+        <Link className={styles.logout} href="/">
+          ← Tableau de bord
+        </Link>
+      </header>
+
+      <section className={styles.grid}>
+        <div className={`${styles.card} ${styles.cardGold}`}>
+          <span className={styles.label}>💰 Profit net</span>
+          <span className={styles.value}>
+            {company.latestCycleReport ? currencyFormatter.format(company.latestCycleReport.netProfit) : "—"}
+          </span>
+        </div>
+        <div className={styles.card}>
+          <span className={styles.label}>⭐ Attractivité</span>
+          <span className={styles.value}>{company.attractivenessScore.toFixed(0)}/100</span>
+        </div>
+        <div className={`${styles.card} ${styles.cardGold}`}>
+          <span className={styles.label}>📈 Profit cumulé</span>
+          <span className={styles.value}>{currencyFormatter.format(company.cumulativeNetProfit)}</span>
+        </div>
+      </section>
+
+      <div className={styles.tabBar}>
+        {COMPANY_TABS.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            className={`${styles.tabButton} ${activeTab === tab.id ? styles.tabButtonActive : ""}`}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            {tab.icon} {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "overview" && (
+        <>
+          {company.latestCycleReport && (
+            <section className={styles.section}>
+              <h2 className={styles.sectionTitle}>
+                <InfoTip
+                  label="📅"
+                  title="Dernier cycle"
+                  mechanic="Le résumé financier du cycle qui vient de se clôturer : revenu généré par la vente de tes produits, coûts totaux (production, salaires, intérêts), et l'ISOC (impôt des sociétés) prélevé sur le profit avant qu'il ne soit distribué ou réinvesti."
+                  realWorld="L'ISOC est le vrai impôt belge sur les bénéfices des sociétés — calculé ici sur une base annualisée puis ramené au cycle, exactement comme un exercice comptable réel est ensuite décomposé en acomptes trimestriels."
+                />
+                <span>Dernier cycle</span>
+              </h2>
+              <div className={styles.jobStats}>
+                <span>💵 Revenu {currencyFormatter.format(company.latestCycleReport.revenue)}</span>
+                <span>💸 Coûts {currencyFormatter.format(company.latestCycleReport.costs)}</span>
+                <span>🧾 ISOC {currencyFormatter.format(company.latestCycleReport.taxPaid)}</span>
+              </div>
+              {company.latestCycleReport.eventLabel && (
+                <p className={styles.jobMeta}>🎲 Événement : {company.latestCycleReport.eventLabel}</p>
+              )}
+            </section>
+          )}
+
+          <section className={styles.section}>
+            <h2 className={styles.sectionTitle}>
+              <InfoTip
+                label="🥊"
+                title="Concurrence sectorielle"
+                mechanic="La demande pour la gamme de base de ton secteur est un gâteau partagé entre toutes les entreprises actives (joueurs et IA) — ta part dépend de ta compétitivité relative (prix, qualité, marketing) face aux autres, pas de ta valeur absolue. Le gâteau lui-même grossit avec le nombre de joueurs inscrits et l'investissement communal en infrastructure — ce n'est pas une taille figée."
+                realWorld="C'est le principe de la part de marché en concurrence oligopolistique : dans un marché mature, une entreprise ne grandit pas dans l'absolu, elle grandit en prenant des parts à ses concurrents directs — mais un marché en expansion démographique offre aussi une vraie croissance organique à tout le monde, sans qu'il y ait de perdant."
+              />
+              <span>Concurrence sectorielle — {company.sector}</span>
+            </h2>
+            <p className={styles.jobMeta}>
+              La demande "gamme de base" du secteur est un gâteau partagé, pas illimité —{" "}
+              {company.activePlayerCompetitorsCount} autre{company.activePlayerCompetitorsCount > 1 ? "s" : ""} entreprise
+              {company.activePlayerCompetitorsCount > 1 ? "s" : ""} joueur{company.activePlayerCompetitorsCount > 1 ? "s" : ""} et{" "}
+              {company.sectorCompetitors.length} concurrent{company.sectorCompetitors.length > 1 ? "s" : ""} IA s'en disputent une
+              part avec toi. Marketing et image de marque ne comptent que relativement à eux.
+            </p>
+            <div className={styles.jobStats}>
+              {company.sectorCompetitors.map((c) => (
+                <span key={c.name}>🤖 {c.name}</span>
+              ))}
+            </div>
+          </section>
+
+          {expansionRequirement && (
+            <section className={styles.section}>
+              <h2 className={styles.sectionTitle}>
+                <InfoTip
+                  label="🎯"
+                  title="Progression vers une entreprise supplémentaire"
+                  mechanic={`Fonder une deuxième entreprise exige d'avoir dirigé au moins une entreprise pendant ${expansionRequirement.minCyclesActive} cycles ET d'avoir cumulé ${currencyFormatter.format(expansionRequirement.minCumulativeNetProfit)} de profit net — les deux conditions ensemble, sur la même entreprise.`}
+                  realWorld="Comme un banquier qui exige un historique de rentabilité avant de financer une expansion, le jeu impose une preuve de succès réel avant de permettre de se diversifier — le temps, pas seulement l'argent, est la vraie contrainte."
+                  tip="Chaque entreprise supplémentaire coûte deux fois plus cher à fonder que la précédente — mieux vaut consolider une entreprise très rentable que multiplier les petites structures fragiles."
+                />
+                <span>Progression vers une entreprise supplémentaire</span>
+              </h2>
+              <p className={styles.jobMeta}>
+                {Math.max(0, company.cyclesActive)}/{expansionRequirement.minCyclesActive} cycles,{" "}
+                {currencyFormatter.format(Math.max(0, company.cumulativeNetProfit))}/
+                {currencyFormatter.format(expansionRequirement.minCumulativeNetProfit)} de profit cumulé
+              </p>
+            </section>
+          )}
+        </>
+      )}
+
+      {activeTab === "production" && (
+        <>
+          <p className={styles.jobMeta}>
+            Chaque gamme capte une part du marché de son secteur selon ta compétitivité — les leviers
+            d'investissement ci-dessous (marketing, qualité, automatisation...) et l'approvisionnement en matières
+            premières la déterminent.
+          </p>
+
+          <section className={styles.section}>
+            <h2 className={styles.sectionTitle}>
+              <InfoTip
+                label="📦"
+                title="Gammes de produits"
+                mechanic="Chaque gamme capte une part de la demande de son marché selon sa compétitivité (prix, qualité, marketing...) et produit selon la capacité de ton entreprise, répartie entre les gammes actives."
+                realWorld="C'est la logique d'un portefeuille de produits : la gamme de base assure un revenu stable à faible marge, les gammes déverrouillées par la R&D visent des marchés de niche à plus forte marge ou de masse à plus faible marge — diversifier réduit le risque de dépendre d'un seul produit."
+              />
+              <span>Gammes de produits</span>
+            </h2>
+            {!company.latestCycleReport && <p className={styles.jobMeta}>Pas encore de cycle clôturé pour cette entreprise.</p>}
+            <div className={styles.jobList}>
+              {company.products.map((product) => (
+                <ProductCard key={product.id} company={company} product={product} onDone={handleDone} />
+              ))}
+            </div>
+          </section>
+
+          <section className={styles.section}>
+            <h2 className={styles.sectionTitle}>
+              <InfoTip
+                label="💡"
+                title="R&D — nouvelles gammes"
+                mechanic="Le niveau du levier innovation débloque progressivement de nouvelles gammes de produits à lancer (aux paliers 15, 35 et 60) — chacune avec sa propre économie de prix et de coûts."
+                realWorld="Investir en recherche & développement pour élargir son offre est un choix stratégique réel : une entreprise qui n'investit jamais en R&D reste dépendante d'un seul marché, avec un risque de disruption si un concurrent innove plus vite."
+              />
+              <span>R&D — nouvelles gammes</span>
+            </h2>
+            <p className={styles.jobMeta}>
+              Le niveau de R&D (levier innovation) débloque de nouvelles gammes à lancer, chacune avec sa propre
+              économie — un marché de niche à forte marge, un marché de masse à faible marge, un produit qui
+              continue de profiter de chaque nouveau palier de R&D.
+            </p>
+            <LaunchProductPanel company={company} onDone={handleDone} />
+          </section>
+
+          <section className={styles.section}>
+            <h2 className={styles.sectionTitle}>
+              <InfoTip
+                label="📊"
+                title="Niveaux d'investissement"
+                mechanic={`10 leviers indépendants (marketing, qualité, automatisation...), chacun plafonné à ${currencyFormatter.format(MAX_INVESTMENT_PER_CYCLE)} investis par action et à une action tous les ${ACTION_COOLDOWN_CYCLES} cycles — impossible d'accélérer en y mettant plus d'argent d'un coup. Atteindre le niveau 100 d'un seul levier demande environ 100 actions, donc ~700 cycles minimum, quel que soit le capital disponible.`}
+                realWorld="Le plafonnement reproduit les rendements décroissants du capital : au-delà d'un certain seuil, injecter plus d'argent d'un coup dans une entreprise n'accélère pas sa croissance — l'organisation, la formation des équipes et l'adoption par le marché prennent du temps, pas seulement du capital."
+                tip="Chaque levier résout un problème différent : marketing/qualité/branding augmentent ta part de marché, équipement/formation augmentent ta capacité de production, sécurité/assurance amortissent les coups durs. Investir un peu partout n'est pas un mauvais réflexe — identifie plutôt lequel de ces trois blocs te limite vraiment avant d'y mettre plus d'argent."
+              />
+              <span>Niveaux d'investissement</span>
+            </h2>
+            <div className={styles.jobStats}>
+              <span>{INVESTMENT_AXIS_ICONS.marketing} {INVESTMENT_AXIS_LABELS.marketing} {company.levels.marketing.toFixed(0)}/100</span>
+              <span>{INVESTMENT_AXIS_ICONS.quality} {INVESTMENT_AXIS_LABELS.quality} {company.levels.quality.toFixed(0)}/100</span>
+              <span>{INVESTMENT_AXIS_ICONS.equipment} {INVESTMENT_AXIS_LABELS.equipment} {company.levels.equipment.toFixed(0)}/100</span>
+              <span>{INVESTMENT_AXIS_ICONS.workConditions} {INVESTMENT_AXIS_LABELS.workConditions} {company.levels.workConditions.toFixed(0)}/100</span>
+              <span>{INVESTMENT_AXIS_ICONS.automation} {INVESTMENT_AXIS_LABELS.automation} {company.levels.automation.toFixed(0)}/100</span>
+              <span>{INVESTMENT_AXIS_ICONS.branding} {INVESTMENT_AXIS_LABELS.branding} {company.levels.branding.toFixed(0)}/100</span>
+              <span>{INVESTMENT_AXIS_ICONS.innovation} {INVESTMENT_AXIS_LABELS.innovation} {company.levels.innovation.toFixed(0)}/100</span>
+              <span>{INVESTMENT_AXIS_ICONS.training} {INVESTMENT_AXIS_LABELS.training} {company.levels.training.toFixed(0)}/100</span>
+              <span>{INVESTMENT_AXIS_ICONS.safety} {INVESTMENT_AXIS_LABELS.safety} {company.levels.safety.toFixed(0)}/100</span>
+              <span>{INVESTMENT_AXIS_ICONS.insurance} {INVESTMENT_AXIS_LABELS.insurance} {company.levels.insurance.toFixed(0)}/100</span>
+              <span>{INVESTMENT_AXIS_ICONS.reserve} {INVESTMENT_AXIS_LABELS.reserve} {currencyFormatter.format(company.cashReserve)}</span>
+            </div>
+            {company.isPrimaryOwner ? (
+              <InvestmentPanel companyId={company.id} onDone={handleDone} />
+            ) : (
+              <p className={styles.jobMeta}>Seul l'actionnaire principal peut investir dans l'entreprise.</p>
+            )}
+          </section>
+
+          <SupplyChainSection contracts={supplyContracts} />
+        </>
+      )}
+
+      {activeTab === "team" && (
+        <>
+          <p className={styles.jobMeta}>
+            Managers et responsables de département réduisent le coût en bien-être de gérer l'entreprise ;
+            employés NPC et employés-joueurs déterminent ensemble la capacité de production.
+          </p>
+
+          <section className={styles.section}>
+            <h2 className={styles.sectionTitle}>
+              <InfoTip
+                label="👥"
+                title="Direction & effectif"
+                mechanic={`Un manager (${currencyFormatter.format(MANAGER_SALARY_PER_CYCLE)}/cycle) pilote l'entreprise à ta place et supprime le coût en bien-être de la gérer toi-même, en plus d'un bonus d'attractivité — utile si tu possèdes plusieurs entreprises et dois répartir ton attention.`}
+                realWorld="C'est l'arbitrage classique du dirigeant fondateur : rester aux commandes soi-même use l'énergie personnelle, déléguer à un directeur général professionnel coûte un salaire mais libère du temps et de l'attention pour d'autres priorités."
+              />
+              <span>Direction & effectif</span>
+            </h2>
+            <p className={styles.jobMeta}>
+              {company.totalEmployeeCount} employé{company.totalEmployeeCount > 1 ? "s" : ""} —{" "}
+              {company.hasManager ? "avec" : "sans"} dirigeant général
+            </p>
+            <p className={styles.jobMeta}>
+              Un manager pilote l'entreprise en ton absence : +attractivité, plus de pénalité d'attention divisée
+              si tu possèdes plusieurs entreprises, et — surtout — plus de coût en bien-être à la gérer toi-même
+              chaque cycle.
+            </p>
+            {company.isPrimaryOwner ? (
+              <div className={styles.jobActions}>
+                <ManagerButton company={company} onDone={handleDone} />
+              </div>
+            ) : (
+              <p className={styles.jobMeta}>Seul l'actionnaire principal peut gérer le personnel.</p>
+            )}
+          </section>
+
+          <section className={styles.section}>
+            <h2 className={styles.sectionTitle}>
+              <InfoTip
+                label="🏢"
+                title="Départements"
+                mechanic="Chaque département (ventes, R&D, production, RH) a son propre moral d'équipe, qui dérive vers une base fixée par ton levier 'conditions de travail' — un responsable dédié en amortit les baisses. Le moral pilote directement l'efficacité de production des employés qui y sont assignés."
+                realWorld="Le lien entre moral d'équipe et productivité est un résultat classique de la psychologie du travail : une équipe démotivée produit nettement moins qu'une équipe engagée, à effectif identique — d'où l'intérêt réel des politiques RH et du management de proximité."
+              />
+              <span>Départements</span>
+            </h2>
+            <p className={styles.jobMeta}>
+              Chaque département a son propre moral d'équipe — un responsable dédié en amortit les baisses, en
+              plus du dirigeant général de l'entreprise. Le moral pilote directement l'efficacité des employés qui
+              y sont assignés.
+            </p>
+            <div className={styles.jobList}>
+              {company.departments.map((department) => (
+                <DepartmentCard key={department.department} company={company} department={department} onDone={handleDone} />
+              ))}
+            </div>
+          </section>
+
+          <StaffSection companyId={company.id} isPrimaryOwner={company.isPrimaryOwner} staff={staff} onDone={handleDone} />
+        </>
+      )}
+
+      {activeTab === "finance" && (
+        <>
+          <p className={styles.jobMeta}>
+            Le bilan de l'entreprise, comment elle emprunte, comment le profit est partagé (ou réinvesti), et ses
+            activités bancaires.
+          </p>
+
+          <section className={styles.section}>
+            <h2 className={styles.sectionTitle}>
+              <InfoTip
+                label="💰"
+                title="Finance & bilan"
+                mechanic={`Le bilan simplifié (actif = passif + capitaux propres) détermine ta capacité d'emprunt : un prêt est plafonné à ${MAX_LOAN_PRINCIPAL_EQUITY_RATIO}× tes fonds propres actuels, et son taux dépend du ratio dette/fonds propres au moment de l'emprunt.`}
+                realWorld="C'est exactement la logique d'évaluation du risque de crédit d'une vraie banque : plus une entreprise est déjà endettée par rapport à ses fonds propres (effet de levier élevé), plus le prêteur exige un taux élevé pour compenser le risque de défaut."
+                tip="Un ratio dette/fonds propres proche de 1 ou en dessous garde ton taux d'emprunt proche du taux de base — au-delà, chaque euro emprunté coûte plus cher."
+              />
+              <span>Finance & bilan</span>
+            </h2>
+            <div className={styles.jobStats}>
+              <span>🏛️ Actif total {currencyFormatter.format(company.balanceSheet.totalAssets)}</span>
+              <span>📉 Dettes {currencyFormatter.format(company.balanceSheet.totalLiabilities)}</span>
+              <span>💎 Capitaux propres {currencyFormatter.format(company.balanceSheet.equity)}</span>
+              <span>⚖️ Ratio dette/fonds propres {company.balanceSheet.debtToEquityRatio.toFixed(2)}</span>
+            </div>
+
+            {company.loans.length > 0 && (
+              <div className={styles.jobList}>
+                {company.loans.map((loan) => (
+                  <LoanRow key={loan.id} loan={loan} />
+                ))}
+              </div>
+            )}
+
+            {company.isPrimaryOwner ? (
+              company.hasDefaultedLoan ? (
+                <p className={styles.jobWarning}>
+                  ⚠ Un prêt de cette entreprise est en défaut de paiement — impossible d'emprunter à nouveau tant
+                  qu'il n'est pas soldé.
+                </p>
+              ) : (
+                <>
+                  <p className={styles.jobMeta}>
+                    Emprunt bancaire — taux fixé selon le ratio dette/fonds propres au moment de l'emprunt,
+                    plafonné à {MAX_LOAN_PRINCIPAL_EQUITY_RATIO}× les fonds propres actuels ({currencyFormatter.format(
+                      Math.max(0, company.balanceSheet.equity * MAX_LOAN_PRINCIPAL_EQUITY_RATIO),
+                    )}
+                    ) :
+                  </p>
+                  <LoanRequestForm
+                    companyId={company.id}
+                    maxPrincipal={Math.max(0, company.balanceSheet.equity * MAX_LOAN_PRINCIPAL_EQUITY_RATIO)}
+                    onDone={handleDone}
+                  />
+                </>
+              )
+            ) : (
+              <p className={styles.jobMeta}>Seul l'actionnaire principal peut emprunter au nom de l'entreprise.</p>
+            )}
+          </section>
+
+          <DistributionSection company={company} onDone={handleDone} />
+
+          <BankingSection company={company} bankReliability={bankReliability} onDone={handleDone} />
+
+          <LoanOffersSection company={company} onDone={handleDone} />
+
+          <InsuranceSection
+            companyId={company.id}
+            isPrimaryOwner={company.isPrimaryOwner}
+            insurance={insurance}
+            offers={insuranceOffers}
+            onDone={handleDone}
+          />
+        </>
+      )}
+
+      {activeTab === "ownership" && (
+        <>
+          <p className={styles.jobMeta}>
+            Qui possède l'entreprise, comment lever du capital, voter une résolution, ou en céder tout ou partie du
+            contrôle.
+          </p>
+
+          <section className={styles.section}>
+            <h2 className={styles.sectionTitle}>
+              <InfoTip
+                label="🤝"
+                title="Actionnariat"
+                mechanic="Chaque actionnaire détient un pourcentage de parts de l'entreprise ; tu peux en mettre une partie en vente librement sur le marché public, à un prix que tu fixes toi-même."
+                realWorld="C'est un marché d'actions simplifié : contrairement à une bourse cotée où le prix est fixé en continu par l'offre et la demande, ici chaque vendeur fixe son propre prix — plus proche d'un marché de gré à gré (over-the-counter) pour une PME non cotée."
+              />
+              <span>Actionnariat</span>
+            </h2>
+            <div className={styles.jobStats}>
+              {company.shareholders.map((s) => (
+                <span key={s.pseudo}>
+                  {s.pseudo} : {s.sharePercentage}%
+                </span>
+              ))}
+            </div>
+
+            {company.sharePercentage > 0 && (
+              <>
+                <p className={styles.jobMeta}>🏷️ Mettre une partie de tes parts en vente sur le marché :</p>
+                <ShareListingForm companyId={company.id} maxPercentage={company.sharePercentage} onDone={handleDone} />
+              </>
+            )}
+
+            {company.openListings.length > 0 && (
+              <div className={styles.jobList}>
+                {company.openListings.map((listing) => (
+                  <ListingRow key={listing.id} listing={listing} onDone={handleDone} />
+                ))}
+              </div>
+            )}
+          </section>
+
+          <GovernanceSection company={company} proposals={proposals} onDone={handleDone} />
+
+          <CapitalRaiseSection company={company} raise={capitalRaise} onDone={handleDone} />
+
+          <SaleSection company={company} listing={saleListing} bids={saleBids} onDone={handleDone} />
+
+          <TenderOfferSection company={company} offers={tenderOffers} myPseudo={myPseudo} onDone={handleDone} />
+        </>
+      )}
+    </main>
+  );
+}

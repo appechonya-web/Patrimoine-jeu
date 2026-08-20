@@ -1,0 +1,5 @@
+-- AlterEnum
+ALTER TYPE "PropertyType" ADD VALUE 'PARKING';
+ALTER TYPE "PropertyType" ADD VALUE 'APARTMENT';
+ALTER TYPE "PropertyType" ADD VALUE 'HOUSE';
+ALTER TYPE "PropertyType" ADD VALUE 'LUXURY';

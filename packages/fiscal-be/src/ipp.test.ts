@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { IPP_2026, applySocialContributions, calculateIpp } from "./ipp.js";
+import { IPP_2026, applySocialContributions, calculateIpp, calculateNetAnnualIncome } from "./ipp.js";
 
 describe("calculateIpp", () => {
   it("applies the tax-free allowance before the first bracket", () => {
@@ -25,5 +25,15 @@ describe("calculateIpp", () => {
 describe("applySocialContributions", () => {
   it("deducts the employee social contribution rate", () => {
     expect(applySocialContributions(1000, IPP_2026)).toBeCloseTo(869.3, 2);
+  });
+});
+
+describe("calculateNetAnnualIncome", () => {
+  it("chains social contributions and IPP into a net annual figure", () => {
+    const result = calculateNetAnnualIncome(30_000, IPP_2026, 0.07);
+    const expectedTaxable = 30_000 * (1 - IPP_2026.socialContributionRate);
+    expect(result.netTaxableIncome).toBeCloseTo(expectedTaxable, 2);
+    expect(result.netAnnualIncome).toBeCloseTo(expectedTaxable - result.totalTax, 2);
+    expect(result.netAnnualIncome).toBeLessThan(expectedTaxable);
   });
 });

@@ -11,9 +11,9 @@
   },
   "dependencies": {
     "@patrimoine-jeu/db": "workspace:*",
-    "@patrimoine-jeu/domain": "workspace:*",
-    "@patrimoine-jeu/fiscal-be": "workspace:*",
+    "@patrimoine-jeu/game-engine": "workspace:*",
     "bullmq": "^5.34.0",
+    "dotenv": "^17.4.2",
     "ioredis": "^5.4.0"
   },
   "devDependencies": {

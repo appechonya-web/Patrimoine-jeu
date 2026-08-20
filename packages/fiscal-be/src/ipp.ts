@@ -58,3 +58,14 @@ export function calculateIpp(
 
   return { federalTax, communalTax, totalTax: federalTax + communalTax };
 }
+
+export function calculateNetAnnualIncome(
+  grossAnnualIncome: number,
+  ruleSet: IppRuleSet,
+  communalSurchargeRate: number,
+): { netTaxableIncome: number; totalTax: number; netAnnualIncome: number } {
+  const netTaxableIncome = applySocialContributions(grossAnnualIncome, ruleSet);
+  const { totalTax } = calculateIpp(netTaxableIncome, ruleSet, communalSurchargeRate);
+
+  return { netTaxableIncome, totalTax, netAnnualIncome: netTaxableIncome - totalTax };
+}

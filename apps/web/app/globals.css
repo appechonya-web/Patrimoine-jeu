@@ -1,0 +1,86 @@
+:root {
+  color-scheme: dark light;
+
+  /* Base sombre "tycoon premium" — utilisée par défaut, y compris en
+     préférence système claire, pour garder l'identité du jeu cohérente. */
+  --bg: #0f1116;
+  --bg-elevated: #14171e;
+  --surface: #1a1d25;
+  --surface-raised: #20242e;
+  --border: #2d323d;
+  --border-strong: #3a4050;
+  --text: #f4efe4;
+  --text-muted: #9a9488;
+
+  /* Or — richesse, actions principales. */
+  --gold: #e0b563;
+  --gold-strong: #f2cb82;
+  --gold-soft: #3a2f1c;
+
+  /* Couleurs de statistiques, une par catégorie pour un vrai "HUD" de jeu. */
+  --reputation: #7c9cf0;
+  --reputation-track: #232a42;
+  --wellbeing: #5fcdb8;
+  --wellbeing-track: #1c3733;
+  --danger: #ff6e5c;
+  --danger-soft: #3a221e;
+
+  /* Répartition du patrimoine — une couleur par catégorie d'actif, le liquide
+     et l'épargne réutilisent respectivement l'or et le bien-être déjà définis
+     pour rester cohérents avec le reste du HUD. */
+  --wealth-property: #d98a5f;
+  --wealth-company: #9b8cf0;
+  --wealth-commodity: #d97b3f;
+  --wealth-goods: #e08cc0;
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px -12px rgba(0, 0, 0, 0.6);
+  --shadow-card-hover: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 32px -10px rgba(224, 181, 99, 0.25);
+  --radius: 14px;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f3ede0;
+    --bg-elevated: #ece4d2;
+    --surface: #fffdf8;
+    --surface-raised: #fff8ec;
+    --border: #e2d7ba;
+    --border-strong: #d3c49c;
+    --text: #241f14;
+    --text-muted: #6e6350;
+
+    --gold: #a9762c;
+    --gold-strong: #8f6323;
+    --gold-soft: #f1e2bd;
+
+    --reputation: #3f57b8;
+    --reputation-track: #dfe4f7;
+    --wellbeing: #1f8f78;
+    --wellbeing-track: #dcf0ea;
+    --danger: #b3261e;
+    --danger-soft: #f7e0dd;
+
+    --wealth-property: #b5623a;
+    --wealth-company: #6b58c9;
+    --wealth-commodity: #b5701f;
+    --wealth-goods: #b5548f;
+
+    --shadow-card: 0 1px 2px rgba(40, 30, 10, 0.06), 0 8px 20px -12px rgba(40, 30, 10, 0.18);
+    --shadow-card-hover: 0 1px 2px rgba(40, 30, 10, 0.08), 0 12px 28px -10px rgba(169, 118, 44, 0.28);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(1200px 600px at 50% -10%, var(--bg-elevated), transparent),
+    var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
