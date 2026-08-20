@@ -1,0 +1,32 @@
+name: Close game cycle
+
+# Remplace le worker BullMQ/Redis (supprimé pour rester déployable
+# gratuitement, sans processus permanent) — déclenche la clôture de cycle en
+# tapant une route interne de l'API. La route elle-même ne fait rien si le
+# cycle en cours n'a pas encore atteint sa durée normale (cf.
+# apps/api/src/cycles/cycles.service.ts, closeCycleIfDue) : le cron peut
+# tourner plus souvent que la vraie cadence du jeu sans casser quoi que ce
+# soit, ça sert de filet de sécurité contre un déclenchement GitHub Actions
+# en retard (le planning "schedule" n'est pas garanti à la minute près).
+#
+# Secrets de dépôt requis (Settings > Secrets and variables > Actions) :
+#   API_URL               — l'URL publique de l'API (ex. Render)
+#   INTERNAL_CYCLE_SECRET — doit correspondre exactement à la variable
+#                           d'environnement du même nom côté API
+
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  close-cycle:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Appeler /cycles/internal-close
+        run: |
+          curl --fail-with-body -sS -X POST "${API_URL}/cycles/internal-close" \
+            -H "x-internal-secret: ${INTERNAL_CYCLE_SECRET}"
+        env:
+          API_URL: ${{ secrets.API_URL }}
+          INTERNAL_CYCLE_SECRET: ${{ secrets.INTERNAL_CYCLE_SECRET }}
