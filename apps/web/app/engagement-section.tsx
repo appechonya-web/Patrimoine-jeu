@@ -72,6 +72,9 @@ export function EngagementSection({
   dailyBonus: DailyBonusStatus | null;
   achievements: AchievementView[];
 }) {
+  const [expanded, setExpanded] = useState(false);
+  const unlockedCount = achievements.filter((achievement) => achievement.unlocked).length;
+
   return (
     <section className={styles.section}>
       <h2 className={styles.sectionTitle}>
@@ -84,11 +87,24 @@ export function EngagementSection({
         <span>Défis & bonus</span>
       </h2>
       {dailyBonus && <DailyBonusCard status={dailyBonus} />}
-      <div className={styles.jobList}>
-        {achievements.map((achievement) => (
-          <AchievementCard key={achievement.id} achievement={achievement} />
-        ))}
-      </div>
+      <button
+        type="button"
+        className={styles.collapsibleToggle}
+        aria-expanded={expanded}
+        onClick={() => setExpanded((value) => !value)}
+      >
+        <span>
+          🏅 Défis ({unlockedCount}/{achievements.length} débloqués)
+        </span>
+        <span className={`${styles.collapsibleChevron} ${expanded ? styles.collapsibleChevronOpen : ""}`}>▾</span>
+      </button>
+      {expanded && (
+        <div className={styles.jobList} style={{ marginTop: "0.75rem" }}>
+          {achievements.map((achievement) => (
+            <AchievementCard key={achievement.id} achievement={achievement} />
+          ))}
+        </div>
+      )}
     </section>
   );
 }
