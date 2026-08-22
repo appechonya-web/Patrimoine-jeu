@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { MAX_INDEPENDENT_ACTIVITY_REVENUE_PER_CYCLE } from "@patrimoine-jeu/domain";
 import type { EmploymentView, IndependentActivityView } from "../lib/session";
 import {
   GameError,
@@ -69,10 +70,15 @@ function StartActivityForm({ onDone }: { onDone: () => void }) {
         className={styles.formInput}
         type="number"
         min={1}
+        max={MAX_INDEPENDENT_ACTIVITY_REVENUE_PER_CYCLE}
         step={5}
         value={grossRevenuePerCycle}
         onChange={(e) => setGrossRevenuePerCycle(Number(e.target.value))}
       />
+      <p className={styles.jobMeta}>
+        Plafonné à {currencyFormatter.format(MAX_INDEPENDENT_ACTIVITY_REVENUE_PER_CYCLE)}/cycle brut — un à-côté
+        florissant reste possible, pas une source de revenu illimitée.
+      </p>
       {estimate && (
         <p className={styles.jobMeta}>
           Cotisations sociales ~{currencyFormatter.format(estimate.socialContributionsPerCycle)}/cycle — taux

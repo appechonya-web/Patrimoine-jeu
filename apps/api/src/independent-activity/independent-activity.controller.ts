@@ -1,5 +1,5 @@
 import { BadRequestException, Controller, Delete, Get, Post, Query, UseGuards, Body } from "@nestjs/common";
-import { startIndependentActivityInputSchema } from "@patrimoine-jeu/domain";
+import { MAX_INDEPENDENT_ACTIVITY_REVENUE_PER_CYCLE, startIndependentActivityInputSchema } from "@patrimoine-jeu/domain";
 import { CurrentPlayer } from "../auth/current-player.decorator.js";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard.js";
 import { IndependentActivityService } from "./independent-activity.service.js";
@@ -17,7 +17,7 @@ export class IndependentActivityController {
   @Get("estimate")
   estimate(@CurrentPlayer() playerId: string, @Query("grossRevenuePerCycle") grossRevenuePerCycle: string) {
     const parsed = Number(grossRevenuePerCycle);
-    if (!Number.isFinite(parsed) || parsed <= 0) {
+    if (!Number.isFinite(parsed) || parsed <= 0 || parsed > MAX_INDEPENDENT_ACTIVITY_REVENUE_PER_CYCLE) {
       throw new BadRequestException("grossRevenuePerCycle invalide");
     }
     return this.independentActivityService.estimate(playerId, parsed);
