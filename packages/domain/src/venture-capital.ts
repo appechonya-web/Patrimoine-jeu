@@ -24,3 +24,16 @@ export const createCapitalRaiseInputSchema = z.object({
   newSharePercentage: z.number().min(MIN_NEW_SHARE_PERCENTAGE).max(MAX_NEW_SHARE_PERCENTAGE),
 });
 export type CreateCapitalRaiseInput = z.infer<typeof createCapitalRaiseInputSchema>;
+
+/**
+ * Plus petite contribution acceptée sur un tour déjà ouvert — plus bas que
+ * MIN_CAPITAL_RAISE_AMOUNT (qui borne le montant CIBLE du tour) pour
+ * qu'un tour de 100€ reste finançable par plusieurs petits investisseurs
+ * plutôt qu'un seul obligé de tout apporter.
+ */
+export const MIN_CAPITAL_RAISE_CONTRIBUTION = 20;
+
+export const contributeToCapitalRaiseInputSchema = z.object({
+  amount: z.number().min(MIN_CAPITAL_RAISE_CONTRIBUTION),
+});
+export type ContributeToCapitalRaiseInput = z.infer<typeof contributeToCapitalRaiseInputSchema>;

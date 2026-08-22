@@ -1,6 +1,7 @@
 import { BadRequestException, Body, Controller, Delete, Get, Param, Post, UseGuards } from "@nestjs/common";
 import {
   castVoteInputSchema,
+  contributeToCapitalRaiseInputSchema,
   createCapitalRaiseInputSchema,
   createCompanyInputSchema,
   createInsuranceOfferInputSchema,
@@ -433,14 +434,23 @@ export class CompaniesController {
     return this.companiesService.listCapitalRaises();
   }
 
+  @Get("capital-raises/:raiseId/contributions")
+  getCapitalRaiseContributions(@Param("raiseId") raiseId: string) {
+    return this.companiesService.getCapitalRaiseContributions(raiseId);
+  }
+
   @Delete("capital-raises/:raiseId")
   cancelCapitalRaise(@CurrentPlayer() playerId: string, @Param("raiseId") raiseId: string) {
     return this.companiesService.cancelCapitalRaise(playerId, raiseId);
   }
 
   @Post("capital-raises/:raiseId/fund")
-  fundCapitalRaise(@CurrentPlayer() playerId: string, @Param("raiseId") raiseId: string) {
-    return this.companiesService.fundCapitalRaise(playerId, raiseId);
+  contributeToCapitalRaise(@CurrentPlayer() playerId: string, @Param("raiseId") raiseId: string, @Body() body: unknown) {
+    const parsed = contributeToCapitalRaiseInputSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.companiesService.contributeToCapitalRaise(playerId, raiseId, parsed.data);
   }
 
   @Post("companies/:id/proposals")

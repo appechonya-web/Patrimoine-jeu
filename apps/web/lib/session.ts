@@ -482,6 +482,15 @@ export interface CapitalRaiseView {
   cumulativeNetProfit: number;
   cashReserve: number;
   attractivenessScore: number;
+  amountRaised: number;
+  remainingAmount: number;
+}
+
+export interface CapitalRaiseContributionView {
+  investorPseudo: string;
+  amount: number;
+  sharePercentage: number;
+  cycle: number;
 }
 
 export async function getCapitalRaises(): Promise<CapitalRaiseView[]> {

@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import type {
   CastVoteInput,
+  ContributeToCapitalRaiseInput,
   CreateCapitalRaiseInput,
   CreateCompanyInput,
   CreateInsuranceOfferInput,
@@ -1902,10 +1903,36 @@ export class CompaniesService {
       cumulativeNetProfit: raise.company.cumulativeNetProfit.toNumber(),
       cashReserve: raise.company.cashReserve.toNumber(),
       attractivenessScore: raise.company.attractivenessScore.toNumber(),
+      amountRaised: raise.amountRaised.toNumber(),
+      remainingAmount: Math.max(0, raise.targetAmount.toNumber() - raise.amountRaised.toNumber()),
     }));
   }
 
-  async fundCapitalRaise(playerId: string, raiseId: string) {
+  async getCapitalRaiseContributions(raiseId: string) {
+    const contributions = await this.prisma.client.capitalRaiseContribution.findMany({
+      where: { raiseId },
+      include: { investor: { select: { pseudo: true } } },
+      orderBy: { cycle: "asc" },
+    });
+    return contributions.map((c) => ({
+      investorPseudo: c.investor.pseudo,
+      amount: c.amount.toNumber(),
+      sharePercentage: c.sharePercentage.toNumber(),
+      cycle: c.cycle,
+    }));
+  }
+
+  /**
+   * Financement partiel : plusieurs investisseurs peuvent chacun combler une
+   * partie du montant cible, au lieu d'un seul qui rafle tout en premier. La
+   * part de nouvelles actions attribuée est proportionnelle à la fraction du
+   * montant cible que CETTE contribution représente — un investisseur qui
+   * apporte 20% du montant cible reçoit 20% des nouvelles parts offertes,
+   * pas une part égale entre investisseurs. Le tour passe FUNDED dès que le
+   * cumul atteint le montant cible (verrou optimiste sur amountRaised pour
+   * éviter un dépassement si deux contributions arrivent en même temps).
+   */
+  async contributeToCapitalRaise(playerId: string, raiseId: string, input: ContributeToCapitalRaiseInput) {
     const raise = await this.prisma.client.companyCapitalRaise.findUnique({ where: { id: raiseId } });
     if (!raise || raise.status !== "OPEN") {
       throw new NotFoundException("Cette levée de fonds n'est plus disponible");
@@ -1926,38 +1953,65 @@ export class CompaniesService {
       throw new BadRequestException("Tu ne peux pas financer ta propre levée de fonds");
     }
 
+    const targetAmount = raise.targetAmount.toNumber();
+    const alreadyRaised = raise.amountRaised.toNumber();
+    const remaining = targetAmount - alreadyRaised;
+    if (remaining <= 0.01) {
+      throw new BadRequestException("Cette levée de fonds est déjà entièrement financée");
+    }
+    const amount = Math.min(input.amount, remaining);
+
     const investorStats = await this.prisma.client.playerStats.findUnique({ where: { playerId } });
-    if (!investorStats || investorStats.wealthLiquid.toNumber() < raise.targetAmount.toNumber()) {
-      throw new BadRequestException("Fonds insuffisants pour financer cette levée");
+    if (!investorStats || investorStats.wealthLiquid.toNumber() < amount) {
+      throw new BadRequestException("Fonds insuffisants pour ce montant");
     }
 
-    const targetAmount = raise.targetAmount.toNumber();
     const newSharePercentage = raise.newSharePercentage.toNumber();
+    const shareForContribution = newSharePercentage * (amount / targetAmount);
+    const newAmountRaised = alreadyRaised + amount;
+    const isFullyFunded = newAmountRaised >= targetAmount - 0.01;
 
     await this.prisma.client.$transaction(async (tx) => {
       const claimed = await tx.companyCapitalRaise.updateMany({
-        where: { id: raiseId, status: "OPEN" },
-        data: { status: "FUNDED", investorId: playerId },
+        where: { id: raiseId, status: "OPEN", amountRaised: raise.amountRaised },
+        data: { amountRaised: newAmountRaised, status: isFullyFunded ? "FUNDED" : "OPEN" },
       });
       if (claimed.count === 0) {
-        throw new BadRequestException("Cette levée de fonds vient d'être financée par quelqu'un d'autre");
+        throw new BadRequestException("Cette levée de fonds vient de changer, réessaie");
       }
 
-      await tx.playerStats.update({ where: { playerId }, data: { wealthLiquid: { decrement: targetAmount } } });
-      await tx.company.update({ where: { id: raise.companyId }, data: { cashReserve: { increment: targetAmount } } });
+      await tx.playerStats.update({ where: { playerId }, data: { wealthLiquid: { decrement: amount } } });
+      await tx.company.update({ where: { id: raise.companyId }, data: { cashReserve: { increment: amount } } });
 
       for (const existingShare of company.shares) {
         await tx.companyShare.update({
           where: { companyId_playerId: { companyId: raise.companyId, playerId: existingShare.playerId } },
           data: {
-            sharePercentage: computeDilutedSharePercentage(existingShare.sharePercentage.toNumber(), newSharePercentage),
+            sharePercentage: computeDilutedSharePercentage(
+              existingShare.sharePercentage.toNumber(),
+              shareForContribution,
+            ),
           },
         });
       }
       await tx.companyShare.upsert({
         where: { companyId_playerId: { companyId: raise.companyId, playerId } },
-        create: { companyId: raise.companyId, playerId, sharePercentage: newSharePercentage },
-        update: { sharePercentage: { increment: newSharePercentage } },
+        create: { companyId: raise.companyId, playerId, sharePercentage: shareForContribution },
+        update: { sharePercentage: { increment: shareForContribution } },
+      });
+      await tx.capitalRaiseContribution.upsert({
+        where: { raiseId_investorId: { raiseId, investorId: playerId } },
+        create: {
+          raiseId,
+          investorId: playerId,
+          amount,
+          sharePercentage: shareForContribution,
+          cycle: currentCycle.number,
+        },
+        update: {
+          amount: { increment: amount },
+          sharePercentage: { increment: shareForContribution },
+        },
       });
 
       if (previousPrimaryOwnerId) {
@@ -1965,7 +2019,9 @@ export class CompaniesService {
           data: {
             playerId: previousPrimaryOwnerId,
             type: "capital-raise-funded",
-            message: `${company.name} a levé ${targetAmount.toFixed(0)} € en échange de ${newSharePercentage}% de nouvelles parts.`,
+            message: isFullyFunded
+              ? `${company.name} a levé ${targetAmount.toFixed(0)} € en échange de ${newSharePercentage}% de nouvelles parts.`
+              : `${company.name} a reçu ${amount.toFixed(0)} € (${newAmountRaised.toFixed(0)} € / ${targetAmount.toFixed(0)} €) sur sa levée de fonds en cours.`,
             cycle: currentCycle.number,
           },
         });
@@ -1985,7 +2041,7 @@ export class CompaniesService {
       }
     });
 
-    return { funded: true };
+    return { contributed: amount, fullyFunded: isFullyFunded };
   }
 
   /**

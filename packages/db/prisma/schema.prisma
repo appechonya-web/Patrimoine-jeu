@@ -207,6 +207,7 @@ model Player {
   personalGoods         PersonalGood[]
   independentActivity   IndependentActivity?
   achievements          PlayerAchievement[]
+  capitalRaiseContributions CapitalRaiseContribution[]
   assetHoldings         PlayerAssetHolding[]
   bankDeposits          BankDeposit[]
   causeDonations        CauseDonation[]
@@ -1014,6 +1015,29 @@ model CompanyCapitalRaise {
   investorId         String?
   createdCycle       Int
   expiresCycle       Int
+
+  /// Cumul des contributions reçues (cf. CapitalRaiseContribution) — le tour
+  /// reste OPEN tant que amountRaised < targetAmount, plusieurs joueurs
+  /// pouvant chacun financer une partie plutôt qu'un seul qui rafle tout.
+  amountRaised  Decimal                    @default(0) @db.Decimal(12, 2)
+  contributions CapitalRaiseContribution[]
+}
+
+/// Une ligne par investisseur ayant contribué à ce tour — sa part de
+/// nouvelles actions est proportionnelle à sa part du montant cible
+/// (amount / targetAmount du tour au moment de sa contribution), pas une
+/// part égale entre investisseurs.
+model CapitalRaiseContribution {
+  id              String              @id @default(uuid())
+  raise           CompanyCapitalRaise @relation(fields: [raiseId], references: [id])
+  raiseId         String
+  investor        Player              @relation(fields: [investorId], references: [id])
+  investorId      String
+  amount          Decimal             @db.Decimal(12, 2)
+  sharePercentage Decimal             @db.Decimal(6, 2)
+  cycle           Int
+
+  @@unique([raiseId, investorId])
 }
 
 enum ProposalType {

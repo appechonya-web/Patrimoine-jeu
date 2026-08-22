@@ -10,6 +10,7 @@ import type {
 } from "@patrimoine-jeu/domain";
 import { deleteJson, getJson, postJson } from "./api-client";
 import type {
+  CapitalRaiseContributionView,
   Company,
   CompanyLoanOffer,
   EmploymentView,
@@ -115,8 +116,12 @@ export function cancelCapitalRaise(raiseId: string): Promise<{ cancelled: boolea
   return deleteJson(`/capital-raises/${raiseId}`);
 }
 
-export function fundCapitalRaise(raiseId: string): Promise<{ funded: boolean }> {
-  return postJson(`/capital-raises/${raiseId}/fund`);
+export function fundCapitalRaise(raiseId: string, amount: number): Promise<{ contributed: number; fullyFunded: boolean }> {
+  return postJson(`/capital-raises/${raiseId}/fund`, { amount });
+}
+
+export function getCapitalRaiseContributions(raiseId: string): Promise<CapitalRaiseContributionView[]> {
+  return getJson(`/capital-raises/${raiseId}/contributions`);
 }
 
 export function createDistributionPolicyProposal(

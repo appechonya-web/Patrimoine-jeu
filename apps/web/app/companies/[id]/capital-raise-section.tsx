@@ -32,6 +32,10 @@ function ActiveRaiseCard({ raise, onDone }: { raise: CapitalRaiseView; onDone: (
         <div className={styles.jobStats}>
           <span>🧩 {raise.newSharePercentage}% de nouvelles parts offertes</span>
           <span>⏳ {raise.cyclesRemaining} cycles restants</span>
+          <span>
+            💰 {currencyFormatter.format(raise.amountRaised)} déjà reçus (
+            {currencyFormatter.format(raise.remainingAmount)} restants)
+          </span>
         </div>
         {error && <p className={styles.error}>{error}</p>}
       </div>
