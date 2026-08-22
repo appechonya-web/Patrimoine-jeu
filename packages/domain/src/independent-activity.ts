@@ -16,13 +16,25 @@ import { z } from "zod";
 export const MIN_INDEPENDENT_ACTIVITY_REVENUE_PER_CYCLE = 1;
 /**
  * Plafond volontaire — sans lui, ce champ déclaratif libre revient à de
- * l'argent illimité (aucun coût, aucun effort, aucun risque associés à ce
- * chiffre, contrairement à un emploi ou une entreprise). Calibré à un peu
- * plus du double du meilleur salaire brut/cycle du jeu (cadre commercial,
- * 68 000 €/an ≈ 186 €/cycle, cf. NPC_JOBS) : un vrai à-côté florissant reste
- * possible, mais jamais une fontaine à argent.
+ * l'argent illimité. Le vrai garde-fou contre l'abus est le coût en
+ * bien-être ci-dessous (qui grimpe au carré du revenu déclaré) ; ce plafond
+ * n'est qu'un filet de sécurité technique au-dessus duquel ce coût ne suffit
+ * plus à dissuader.
  */
-export const MAX_INDEPENDENT_ACTIVITY_REVENUE_PER_CYCLE = 400;
+export const MAX_INDEPENDENT_ACTIVITY_REVENUE_PER_CYCLE = 250;
+
+/**
+ * Coût en bien-être par cycle, croissant avec le carré du revenu déclaré
+ * (cf. game-engine/wellbeing.ts, computeIndependentActivityWellbeingDrain) —
+ * contrairement à un emploi (pression fixe, cf. NPC_JOBS), cette activité
+ * n'a par nature aucun coût structurel : sans ce mécanisme, rien n'empêche
+ * de la pousser au maximum sans contrepartie. La courbe quadratique reste
+ * quasi gratuite pour un petit à-côté modeste, mais devient plus coûteuse
+ * que N'IMPORTE quel emploi du jeu (cf. NPC_JOBS, pression max 85 ≈ 1.82/cycle
+ * pour un vétéran non expérimenté) une fois proche du plafond — l'exact
+ * inverse d'un emploi, où plus tu restes, moins ça coûte.
+ */
+export const INDEPENDENT_ACTIVITY_MAX_WELLBEING_DRAIN_PER_CYCLE = 2.5;
 
 export const startIndependentActivityInputSchema = z.object({
   grossRevenuePerCycle: z

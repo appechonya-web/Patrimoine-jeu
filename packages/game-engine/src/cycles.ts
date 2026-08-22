@@ -92,6 +92,7 @@ import { computeInfrastructureAttractivenessBonus } from "./municipality.js";
 import {
   clampStat,
   computeBaselineWellbeingRegen,
+  computeIndependentActivityWellbeingDrain,
   computePressureDrain,
   computeUnmanagedCompanyWellbeingDrain,
   computeWellbeingIncomeMultiplier,
@@ -330,7 +331,12 @@ export async function estimateIndependentActivityNetPerCycle(
   prisma: PrismaClient,
   mainAnnualGrossSalary: number,
   sideGrossRevenuePerCycle: number,
-): Promise<{ netPerCycle: number; socialContributionsPerCycle: number; marginalTaxRateOnSide: number }> {
+): Promise<{
+  netPerCycle: number;
+  socialContributionsPerCycle: number;
+  marginalTaxRateOnSide: number;
+  wellbeingDrainPerCycle: number;
+}> {
   const { ipp, selfEmployed } = await getLatestTaxRuleSet(prisma);
 
   const salaryNetTaxable = applySocialContributions(mainAnnualGrossSalary, ipp);
@@ -351,6 +357,7 @@ export async function estimateIndependentActivityNetPerCycle(
     netPerCycle: sideNetAnnual / CYCLES_PER_YEAR,
     socialContributionsPerCycle: sideSocialContributions / CYCLES_PER_YEAR,
     marginalTaxRateOnSide: sideNetTaxable > 0 ? marginalTaxOnSide / sideNetTaxable : 0,
+    wellbeingDrainPerCycle: computeIndependentActivityWellbeingDrain(sideGrossRevenuePerCycle),
   };
 }
 
@@ -1760,6 +1767,7 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
           wealthDelta +=
             ((totalNet * salaryShare) / CYCLES_PER_YEAR) * incomeMultiplier +
             (totalNet * (1 - salaryShare)) / CYCLES_PER_YEAR;
+          wellbeingDelta -= computeIndependentActivityWellbeingDrain(independentActivity.grossRevenuePerCycle.toNumber());
         } else {
           const { netAnnualIncome } = calculateNetAnnualIncome(annualGross, ipp, DEFAULT_COMMUNAL_SURCHARGE_RATE);
           wealthDelta += (netAnnualIncome / CYCLES_PER_YEAR) * incomeMultiplier;

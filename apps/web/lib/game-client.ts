@@ -158,6 +158,7 @@ export interface IndependentActivityEstimate {
   netPerCycle: number;
   socialContributionsPerCycle: number;
   marginalTaxRateOnSide: number;
+  wellbeingDrainPerCycle: number;
 }
 
 export function estimateIndependentActivity(grossRevenuePerCycle: number): Promise<IndependentActivityEstimate> {

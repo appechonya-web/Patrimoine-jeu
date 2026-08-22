@@ -1,5 +1,7 @@
 import {
+  INDEPENDENT_ACTIVITY_MAX_WELLBEING_DRAIN_PER_CYCLE,
   MAX_COMFORT_BURNOUT_REDUCTION,
+  MAX_INDEPENDENT_ACTIVITY_REVENUE_PER_CYCLE,
   MAX_NUTRITION_DRAIN_REDUCTION,
   MAX_SOCIAL_BOOM_THRESHOLD_REDUCTION,
   MAX_SPORT_REGEN_BONUS,
@@ -81,6 +83,19 @@ export function computeBaselineWellbeingRegen(sportLevel = 0): number {
  */
 export function computeUnmanagedCompanyWellbeingDrain(unmanagedActiveCompanyCount: number): number {
   return unmanagedActiveCompanyCount * UNMANAGED_COMPANY_WELLBEING_DRAIN_PER_CYCLE;
+}
+
+/**
+ * Coût en bien-être de l'activité d'indépendant complémentaire (cf.
+ * domain/independent-activity.ts) — croissant avec le CARRÉ du revenu
+ * déclaré, contrairement à la pression fixe d'un emploi : un petit à-côté
+ * modeste ne coûte presque rien, mais s'approcher du plafond déclaratif
+ * devient plus coûteux que n'importe quel emploi du jeu. C'est le vrai
+ * garde-fou contre l'abus, pas seulement le plafond en euros.
+ */
+export function computeIndependentActivityWellbeingDrain(grossRevenuePerCycle: number): number {
+  const ratio = grossRevenuePerCycle / MAX_INDEPENDENT_ACTIVITY_REVENUE_PER_CYCLE;
+  return INDEPENDENT_ACTIVITY_MAX_WELLBEING_DRAIN_PER_CYCLE * ratio * ratio;
 }
 
 /**

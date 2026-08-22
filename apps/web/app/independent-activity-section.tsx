@@ -2,7 +2,10 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { MAX_INDEPENDENT_ACTIVITY_REVENUE_PER_CYCLE } from "@patrimoine-jeu/domain";
+import {
+  INDEPENDENT_ACTIVITY_MAX_WELLBEING_DRAIN_PER_CYCLE,
+  MAX_INDEPENDENT_ACTIVITY_REVENUE_PER_CYCLE,
+} from "@patrimoine-jeu/domain";
 import type { EmploymentView, IndependentActivityView } from "../lib/session";
 import {
   GameError,
@@ -20,8 +23,8 @@ function IndependentActivityInfoTip() {
     <InfoTip
       label="💼"
       title="Indépendant complémentaire"
-      mechanic="Revenu annexe en plus de ton emploi principal, sans forfait minimum trimestriel — mais agrégé à ton salaire pour le calcul de l'impôt : chaque euro gagné en plus est taxé à ta tranche marginale actuelle, pas à un taux forfaitaire à part."
-      realWorld="C'est exactement le statut belge d'indépendant à titre complémentaire : contrairement à l'indépendant à titre principal (cotisations sociales minimales obligatoires même sans revenu), le complémentaire ne paie des cotisations que sur ce qu'il gagne réellement — mais son revenu s'ajoute à son salaire pour l'impôt des personnes physiques, ce qui peut faire grimper vite le taux marginal réel."
+      mechanic="Revenu annexe en plus de ton emploi principal, sans forfait minimum trimestriel — mais agrégé à ton salaire pour le calcul de l'impôt : chaque euro gagné en plus est taxé à ta tranche marginale actuelle, pas à un taux forfaitaire à part. Coûte aussi du bien-être chaque cycle, au carré du montant déclaré : un petit à-côté ne coûte presque rien, mais s'approcher du plafond devient plus fatigant que n'importe quel emploi du jeu."
+      realWorld="C'est exactement le statut belge d'indépendant à titre complémentaire : contrairement à l'indépendant à titre principal (cotisations sociales minimales obligatoires même sans revenu), le complémentaire ne paie des cotisations que sur ce qu'il gagne réellement — mais son revenu s'ajoute à son salaire pour l'impôt des personnes physiques, ce qui peut faire grimper vite le taux marginal réel. Le cumul emploi + à-côté ambitieux, ça épuise aussi dans la vraie vie — le jeu le reflète directement en bien-être plutôt qu'en abstraction."
     />
   );
 }
@@ -83,7 +86,8 @@ function StartActivityForm({ onDone }: { onDone: () => void }) {
         <p className={styles.jobMeta}>
           Cotisations sociales ~{currencyFormatter.format(estimate.socialContributionsPerCycle)}/cycle — taux
           marginal réel {(estimate.marginalTaxRateOnSide * 100).toFixed(0)}% (s'ajoute à ton salaire) — net estimé{" "}
-          {currencyFormatter.format(estimate.netPerCycle)}/cycle.
+          {currencyFormatter.format(estimate.netPerCycle)}/cycle — 💔{" "}
+          {estimate.wellbeingDrainPerCycle.toFixed(2)} de bien-être/cycle.
         </p>
       )}
       <button className={styles.apply} type="submit" disabled={pending}>
@@ -154,6 +158,14 @@ export function IndependentActivitySection({
           <div>
             <div className={styles.jobTitle}>Activité en cours</div>
             <div className={styles.jobMeta}>Démarrée au cycle n°{activity.startedCycle}</div>
+            <div className={styles.jobMeta}>
+              💔{" "}
+              {(
+                INDEPENDENT_ACTIVITY_MAX_WELLBEING_DRAIN_PER_CYCLE *
+                (activity.grossRevenuePerCycle / MAX_INDEPENDENT_ACTIVITY_REVENUE_PER_CYCLE) ** 2
+              ).toFixed(2)}{" "}
+              de bien-être/cycle
+            </div>
           </div>
           <div className={styles.jobActions}>
             <div className={styles.jobSalary}>
