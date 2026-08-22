@@ -13,10 +13,17 @@ name: Close game cycle
 #   API_URL               — l'URL publique de l'API (ex. Render)
 #   INTERNAL_CYCLE_SECRET — doit correspondre exactement à la variable
 #                           d'environnement du même nom côté API
+#
+# Fréquence à 15 min (pas 1h) : le déclencheur "schedule" de GitHub Actions
+# n'est pas garanti à l'heure près et peut sauter des créneaux entiers
+# (observé : jusqu'à 3h de trou une nuit). Comme ce dépôt est public, les
+# minutes Actions sont gratuites et illimitées, et la route est un no-op
+# tant que la durée réelle du cycle n'est pas écoulée — tourner plus souvent
+# réduit juste la marge d'erreur sans rien casser.
 
 on:
   schedule:
-    - cron: "0 * * * *"
+    - cron: "*/15 * * * *"
   workflow_dispatch: {}
 
 jobs:
