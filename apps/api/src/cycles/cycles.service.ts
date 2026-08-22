@@ -8,15 +8,15 @@ import {
 import { PrismaService } from "../prisma/prisma.service.js";
 
 /**
- * Durée d'un cycle en ms — 1 heure par défaut. Anciennement une constante du
- * worker BullMQ (supprimé pour rester déployable gratuitement, cf.
+ * Durée d'un cycle en ms — 30 minutes par défaut. Anciennement une constante
+ * du worker BullMQ (supprimé pour rester déployable gratuitement, cf.
  * .github/workflows/close-cycle.yml) : la clôture est maintenant déclenchée
  * par un cron externe qui appelle POST /cycles/internal-close à intervalle
  * régulier, mais CETTE valeur reste la source de vérité sur la cadence
  * réelle du jeu — un appel plus fréquent que ça est un no-op (cf.
  * closeCycleIfDue), jamais une clôture en avance.
  */
-const CYCLE_DURATION_MS = Number(process.env.CYCLE_DURATION_MS ?? 60 * 60 * 1000);
+const CYCLE_DURATION_MS = Number(process.env.CYCLE_DURATION_MS ?? 30 * 60 * 1000);
 
 @Injectable()
 export class CyclesService {
