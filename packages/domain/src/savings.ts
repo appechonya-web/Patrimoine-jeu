@@ -64,3 +64,13 @@ export const withdrawSavingsInputSchema = z.object({
   amount: z.number().min(0.01).optional(),
 });
 export type WithdrawSavingsInput = z.infer<typeof withdrawSavingsInputSchema>;
+
+/**
+ * Réservé au livret (cf. SavingsService.deposit) : contrairement au compte à
+ * terme et à la pension, un vrai livret d'épargne reste alimentable à tout
+ * moment après ouverture, pas de montant figé une fois pour toutes.
+ */
+export const depositSavingsInputSchema = z.object({
+  amount: z.number().min(MIN_SAVINGS_DEPOSIT),
+});
+export type DepositSavingsInput = z.infer<typeof depositSavingsInputSchema>;

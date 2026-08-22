@@ -12,7 +12,7 @@ import {
   type SavingsProductType,
 } from "@patrimoine-jeu/domain";
 import type { PensionSavingsStatus, SavingsAccountView } from "../../lib/session";
-import { GameError, openSavingsAccount, withdrawSavings } from "../../lib/game-client";
+import { GameError, depositSavings, openSavingsAccount, withdrawSavings } from "../../lib/game-client";
 import { currencyFormatter } from "../../lib/format";
 import { InfoTip } from "../info-tip";
 import styles from "../page.module.css";
@@ -117,6 +117,7 @@ function OpenAccountForm({
 
 function AccountCard({ account, onDone }: { account: SavingsAccountView; onDone: () => void }) {
   const [partialAmount, setPartialAmount] = useState(account.balance);
+  const [depositAmount, setDepositAmount] = useState(MIN_SAVINGS_DEPOSIT);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -125,6 +126,20 @@ function AccountCard({ account, onDone }: { account: SavingsAccountView; onDone:
     setPending(true);
     try {
       await withdrawSavings(account.id, amount);
+      onDone();
+    } catch (err) {
+      setError(err instanceof GameError ? err.message : "Une erreur est survenue");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function handleDeposit(event: FormEvent) {
+    event.preventDefault();
+    setError(null);
+    setPending(true);
+    try {
+      await depositSavings(account.id, depositAmount);
       onDone();
     } catch (err) {
       setError(err instanceof GameError ? err.message : "Une erreur est survenue");
@@ -152,26 +167,41 @@ function AccountCard({ account, onDone }: { account: SavingsAccountView; onDone:
       <div className={styles.jobActions}>
         <div className={styles.jobSalary}>{currencyFormatter.format(account.balance)}</div>
         {isLivret ? (
-          <form
-            className={styles.form}
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleWithdraw(partialAmount);
-            }}
-          >
-            <input
-              className={styles.formInput}
-              type="number"
-              min={0.01}
-              max={account.balance}
-              step={10}
-              value={partialAmount}
-              onChange={(e) => setPartialAmount(Number(e.target.value))}
-            />
-            <button className={styles.logout} type="submit" disabled={pending}>
-              {pending ? "…" : "💵 Retirer"}
-            </button>
-          </form>
+          <>
+            <form className={styles.form} onSubmit={handleDeposit}>
+              <input
+                className={styles.formInput}
+                type="number"
+                min={MIN_SAVINGS_DEPOSIT}
+                step={10}
+                value={depositAmount}
+                onChange={(e) => setDepositAmount(Number(e.target.value))}
+              />
+              <button className={styles.apply} type="submit" disabled={pending}>
+                {pending ? "…" : "➕ Ajouter"}
+              </button>
+            </form>
+            <form
+              className={styles.form}
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleWithdraw(partialAmount);
+              }}
+            >
+              <input
+                className={styles.formInput}
+                type="number"
+                min={0.01}
+                max={account.balance}
+                step={10}
+                value={partialAmount}
+                onChange={(e) => setPartialAmount(Number(e.target.value))}
+              />
+              <button className={styles.logout} type="submit" disabled={pending}>
+                {pending ? "…" : "💵 Retirer"}
+              </button>
+            </form>
+          </>
         ) : (
           <button className={styles.logout} type="button" disabled={pending} onClick={() => handleWithdraw()}>
             {pending
@@ -206,7 +236,7 @@ export function SavingsList({
           <InfoTip
             label="🐷"
             title="Mes comptes"
-            mechanic="Trois produits, un vrai arbitrage liquidité/rendement : le livret se retire à tout moment mais rapporte peu, le compte à terme bloque l'argent pour un taux plus élevé (retrait anticipé = perte des intérêts courus), l'épargne-pension rapporte le plus et est exonérée d'impôt mais bloquée le plus longtemps avec une vraie pénalité de sortie anticipée."
+            mechanic="Trois produits, un vrai arbitrage liquidité/rendement : le livret se retire (et s'alimente) à tout moment mais rapporte peu, le compte à terme bloque l'argent pour un taux plus élevé (retrait anticipé = perte des intérêts courus) et n'accepte qu'un seul versement à l'ouverture, l'épargne-pension rapporte le plus et est exonérée d'impôt mais bloquée le plus longtemps avec une vraie pénalité de sortie anticipée."
             realWorld="C'est exactement l'arbitrage réel entre un livret d'épargne, un compte à terme et une épargne-pension belge : plus tu acceptes de bloquer ton argent, plus le rendement est élevé — la pension bénéficiant en plus d'un vrai avantage fiscal à l'entrée."
           />
           <span>Mes comptes</span>

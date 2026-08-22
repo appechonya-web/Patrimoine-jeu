@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from "@nestjs/comm
 import {
   CYCLES_PER_YEAR,
   PENSION_TERM_CYCLES,
+  type DepositSavingsInput,
   type OpenSavingsAccountInput,
   type SavingsProductType,
   type WithdrawSavingsInput,
@@ -85,6 +86,37 @@ export class SavingsService {
     await this.achievementsService.tryUnlock(playerId, "first-savings");
 
     return { ...this.toView(account, currentCycle.number), taxReduction };
+  }
+
+  /**
+   * Réservé au livret — un compte à terme/pension a un montant figé à
+   * l'ouverture (cf. domain/savings.ts depositSavingsInputSchema), pas
+   * alimentable ensuite.
+   */
+  async deposit(playerId: string, accountId: string, input: DepositSavingsInput) {
+    const account = await this.prisma.client.savingsAccount.findUnique({ where: { id: accountId } });
+    if (!account || account.playerId !== playerId || account.withdrawnCycle !== null) {
+      throw new NotFoundException("Compte d'épargne introuvable");
+    }
+    if (account.productType !== "livret") {
+      throw new BadRequestException("Seul un livret peut être alimenté après ouverture");
+    }
+
+    const stats = await this.prisma.client.playerStats.findUnique({ where: { playerId } });
+    if (!stats || stats.wealthLiquid.toNumber() < input.amount) {
+      throw new BadRequestException("Fonds insuffisants pour ce dépôt");
+    }
+
+    const currentCycle = await this.cyclesService.getOrCreateOpenCycle();
+    const updated = await this.prisma.client.$transaction(async (tx) => {
+      await tx.playerStats.update({ where: { playerId }, data: { wealthLiquid: { decrement: input.amount } } });
+      return tx.savingsAccount.update({
+        where: { id: accountId },
+        data: { principal: { increment: input.amount }, balance: { increment: input.amount } },
+      });
+    });
+
+    return this.toView(updated, currentCycle.number);
   }
 
   async getPensionSavingsStatus(playerId: string) {

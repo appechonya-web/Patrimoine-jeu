@@ -1,5 +1,5 @@
 import { BadRequestException, Body, Controller, Get, Param, Post, UseGuards } from "@nestjs/common";
-import { openSavingsAccountInputSchema, withdrawSavingsInputSchema } from "@patrimoine-jeu/domain";
+import { depositSavingsInputSchema, openSavingsAccountInputSchema, withdrawSavingsInputSchema } from "@patrimoine-jeu/domain";
 import { CurrentPlayer } from "../auth/current-player.decorator.js";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard.js";
 import { SavingsService } from "./savings.service.js";
@@ -26,6 +26,15 @@ export class SavingsController {
       throw new BadRequestException(parsed.error.flatten());
     }
     return this.savingsService.open(playerId, parsed.data);
+  }
+
+  @Post(":id/deposit")
+  deposit(@CurrentPlayer() playerId: string, @Param("id") accountId: string, @Body() body: unknown) {
+    const parsed = depositSavingsInputSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.savingsService.deposit(playerId, accountId, parsed.data);
   }
 
   @Post(":id/withdraw")

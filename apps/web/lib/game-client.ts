@@ -397,6 +397,10 @@ export function withdrawSavings(accountId: string, amount?: number): Promise<{ w
   return postJson(`/savings/${accountId}/withdraw`, amount === undefined ? {} : { amount });
 }
 
+export function depositSavings(accountId: string, amount: number): Promise<SavingsAccountView> {
+  return postJson(`/savings/${accountId}/deposit`, { amount });
+}
+
 export function createLoanOffer(
   companyId: string,
   principal: number,
