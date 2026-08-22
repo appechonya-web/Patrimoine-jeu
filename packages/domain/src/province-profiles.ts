@@ -75,3 +75,29 @@ export const PROVINCE_PROPERTY_PROFILES: Record<string, ProvinceProfile> = {
     propertyCounts: { PARKING: 1, APARTMENT: 3, COMMERCIAL: 3, LUXURY: 2 },
   },
 };
+
+/**
+ * Spécialisation économique historique par province, pour les secteurs
+ * réellement modelés dans le jeu (packages/db/prisma/seed.ts,
+ * LEVEL_0_SECTORS/LEVEL_1_SECTORS) — pas de tech/port/finance, ces
+ * secteurs-là n'existent pas encore côté entreprises. Une entreprise dont le
+ * secteur figure dans la liste de SA province reçoit un bonus permanent
+ * d'attractivité effective (cf. PROVINCE_SECTOR_AFFINITY_BONUS,
+ * game-engine/cycles.ts) — même logique qu'un manager ou des
+ * infrastructures communales : un avantage structurel, pas un aléa
+ * temporaire comme les événements sectoriels. Certaines provinces
+ * (Anvers, Brabant flamand/wallon, Bruxelles-Capitale) n'ont volontairement
+ * aucune affinité : leur vraie spécialité (port, tech, finance, services)
+ * ne correspond à aucun des sept secteurs du jeu.
+ */
+export const PROVINCE_SECTOR_AFFINITY_BONUS = 12;
+
+export const PROVINCE_SECTOR_AFFINITIES: Record<string, string[]> = {
+  Luxembourg: ["Bois", "Menuiserie"],
+  Namur: ["Bois", "Menuiserie", "Extraction"],
+  Liège: ["Métaux", "Métallurgie", "Extraction"],
+  Hainaut: ["Métaux", "Métallurgie", "Extraction", "Agriculture"],
+  "Flandre-Occidentale": ["Agriculture", "Textile brut"],
+  "Flandre-Orientale": ["Textile brut"],
+  Limbourg: ["Agriculture"],
+};

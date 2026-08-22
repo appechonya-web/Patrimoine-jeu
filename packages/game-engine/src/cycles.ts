@@ -23,6 +23,8 @@ import {
   MANAGER_SALARY_PER_CYCLE,
   NPC_JOBS,
   PERSONAL_GOOD_CATALOG,
+  PROVINCE_SECTOR_AFFINITIES,
+  PROVINCE_SECTOR_AFFINITY_BONUS,
   REFERENCE_UNIT_PRICE,
   RESIDENTIAL_PROPERTY_TYPES,
   SAVINGS_PRODUCT_LABELS,
@@ -415,7 +417,7 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
         deposits: { where: { withdrawnCycle: null } },
         departments: true,
         employeeCounts: true,
-        municipality: { select: { regionId: true, infrastructureFund: true } },
+        municipality: { select: { name: true, regionId: true, infrastructureFund: true } },
       },
     }),
     prisma.sector.findMany(),
@@ -815,8 +817,20 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
     // collectivement (cf. companies bonus additif, pas multiplicatif comme
     // le manager pour rester cohérent avec MANAGER_ATTRACTIVENESS_BONUS).
     const infrastructureBonus = computeInfrastructureAttractivenessBonus(company.municipality.infrastructureFund.toNumber());
+    // Spécialisation économique provinciale (cf. domain/province-profiles.ts)
+    // — un avantage structurel permanent, pas un aléa temporaire comme le
+    // multiplicateur sectoriel régional ci-dessus : une entreprise Métaux à
+    // Liège ou Bois en province de Luxembourg profite de l'ancrage
+    // historique réel de la province dans ce secteur.
+    const provinceAffinityBonus = PROVINCE_SECTOR_AFFINITIES[company.municipality.name]?.includes(
+      sectorById.get(company.sectorId)?.name ?? "",
+    )
+      ? PROVINCE_SECTOR_AFFINITY_BONUS
+      : 0;
     const effectiveAttractiveness =
-      (computeEffectiveAttractiveness(company.attractivenessScore.toNumber(), company.hasManager) + infrastructureBonus) *
+      (computeEffectiveAttractiveness(company.attractivenessScore.toNumber(), company.hasManager) +
+        infrastructureBonus +
+        provinceAffinityBonus) *
       regionalSectoralMultiplier;
     const attentionMultiplier = computeAttentionMultiplier(ownerCompanyCount, company.hasManager);
 

@@ -17,6 +17,8 @@ import {
   MIN_INVESTMENT_AMOUNT,
   MIN_LOAN_PRINCIPAL,
   MIN_UNIT_PRICE,
+  PROVINCE_SECTOR_AFFINITIES,
+  PROVINCE_SECTOR_AFFINITY_BONUS,
   REFERENCE_UNIT_PRICE,
   type Department,
   type LoanTermCycles,
@@ -738,7 +740,20 @@ export function CompanyDetail({
           </span>
         </div>
         <div className={styles.card}>
-          <span className={styles.label}>⭐ Attractivité</span>
+          <span className={styles.label}>
+            <InfoTip
+              label="⭐"
+              title="Attractivité"
+              mechanic={`Score de base amélioré par tes investissements, plus des bonus additifs (manager +10, infrastructures de la province jusqu'à +15, et +${PROVINCE_SECTOR_AFFINITY_BONUS} si ton secteur est historiquement ancré dans ta province), puis multiplié par les aléas sectoriels du moment.`}
+              realWorld="Un vrai pôle économique donne un avantage structurel permanent (main-d'œuvre qualifiée, fournisseurs à proximité) — indépendant des aléas conjoncturels qui, eux, vont et viennent."
+              tip={
+                PROVINCE_SECTOR_AFFINITIES[company.municipality]?.includes(company.sector)
+                  ? `✅ Cette entreprise profite du bonus provincial : ${company.sector} est un secteur historiquement ancré en ${company.municipality}.`
+                  : undefined
+              }
+            />{" "}
+            Attractivité
+          </span>
           <span className={styles.value}>{company.attractivenessScore.toFixed(0)}/100</span>
         </div>
         <div className={`${styles.card} ${styles.cardGold}`}>

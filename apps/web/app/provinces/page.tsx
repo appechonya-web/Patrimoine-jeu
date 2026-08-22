@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { PROVINCE_PROPERTY_PROFILES } from "@patrimoine-jeu/domain";
+import { PROVINCE_PROPERTY_PROFILES, PROVINCE_SECTOR_AFFINITIES } from "@patrimoine-jeu/domain";
 import { getCurrentPlayer, getMunicipalities } from "../../lib/session";
 import { InfoTip } from "../info-tip";
 import styles from "../page.module.css";
@@ -27,8 +27,8 @@ export default async function ProvincesPage() {
             <InfoTip
               label="🏛️"
               title="Provinces"
-              mechanic="Contribue au fonds d'infrastructure d'une province — le bénéfice (bonus d'attractivité, à rendement décroissant) profite à TOUTES les entreprises qui y sont installées, pas seulement toi. En échange, ton statut de contributeur est visible publiquement et tu pèses dans les votes du conseil provincial."
-              realWorld="C'est un vrai bien public local : comme des impôts communaux qui financent des routes ou des équipements dont profitent toutes les entreprises de la zone, avec le même problème du 'passager clandestin' — tu peux profiter du fonds sans y avoir contribué toi-même."
+              mechanic="Contribue au fonds d'infrastructure d'une province — le bénéfice (bonus d'attractivité, à rendement décroissant) profite à TOUTES les entreprises qui y sont installées, pas seulement toi. En échange, ton statut de contributeur est visible publiquement et tu pèses dans les votes du conseil provincial. Certaines provinces offrent aussi un bonus permanent aux entreprises dont le secteur y est historiquement ancré (ex. Métaux à Liège), indépendant de toute contribution."
+              realWorld="C'est un vrai bien public local : comme des impôts communaux qui financent des routes ou des équipements dont profitent toutes les entreprises de la zone, avec le même problème du 'passager clandestin' — tu peux profiter du fonds sans y avoir contribué toi-même. Le bonus sectoriel, lui, reflète une vraie logique de pôle économique : s'installer dans la région où ton secteur est déjà enraciné (bassin industriel, main-d'œuvre qualifiée, fournisseurs à proximité) donne un vrai avantage compétitif."
             />{" "}
             Provinces
           </h1>
@@ -52,6 +52,11 @@ export default async function ProvincesPage() {
                   <div className={styles.jobTitle}>{m.name}</div>
                   {PROVINCE_PROPERTY_PROFILES[m.name] && (
                     <div className={styles.jobMeta}>{PROVINCE_PROPERTY_PROFILES[m.name].description}</div>
+                  )}
+                  {PROVINCE_SECTOR_AFFINITIES[m.name] && (
+                    <div className={styles.jobStats}>
+                      <span>🏭 Secteurs favorisés : {PROVINCE_SECTOR_AFFINITIES[m.name].join(", ")}</span>
+                    </div>
                   )}
                 </div>
                 <div className={styles.jobActions}>
