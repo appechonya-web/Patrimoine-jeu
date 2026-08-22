@@ -18,7 +18,7 @@ export default async function ImmobilierPage() {
         <div>
           <h1>🏘️ Immobilier</h1>
           <p className={styles.subtitle}>
-            Achète des biens par commune, loue-les à des locataires pour un revenu passif, entretiens-les — négliger
+            Achète des biens par province, loue-les à des locataires pour un revenu passif, entretiens-les — négliger
             l'entretien réduit directement le loyer perçu.
           </p>
         </div>

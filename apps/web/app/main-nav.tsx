@@ -17,7 +17,7 @@ const NAV_LINKS = [
   { href: "/rachat-amical", label: "🤝 Rachats amicaux", primary: false },
   { href: "/capital-risque", label: "💰 Capital-risque", primary: false },
   { href: "/prestige", label: "🏰 Immobilier de prestige", primary: false },
-  { href: "/communes", label: "🏛️ Communes", primary: false },
+  { href: "/provinces", label: "🏛️ Provinces", primary: false },
   { href: "/presse", label: "📰 Presse économique", primary: false },
 ] as const;
 

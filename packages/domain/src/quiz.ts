@@ -287,17 +287,17 @@ export const QUIZ_QUESTIONS: QuizQuestion[] = [
   },
   {
     id: "commune-bien-public",
-    topic: "Communes",
-    prompt: "Le bonus d'attractivité d'un fonds d'infrastructure communal ne profite qu'aux entreprises qui ont contribué.",
+    topic: "Provinces",
+    prompt: "Le bonus d'attractivité d'un fonds d'infrastructure provincial ne profite qu'aux entreprises qui ont contribué.",
     correctAnswer: false,
-    explanation: "Faux — c'est un bénéfice PARTAGÉ par toutes les entreprises de la commune, contributrices ou non.",
+    explanation: "Faux — c'est un bénéfice PARTAGÉ par toutes les entreprises de la province, contributrices ou non.",
   },
   {
     id: "commune-vote",
-    topic: "Communes",
-    prompt: "Au conseil communal, le poids de vote dépend de ta contribution cumulée au fonds d'infrastructure.",
+    topic: "Provinces",
+    prompt: "Au conseil provincial, le poids de vote dépend de ta contribution cumulée au fonds d'infrastructure.",
     correctAnswer: true,
-    explanation: "Vrai — plus tu as contribué à cette commune, plus ton vote pèse dans les décisions du conseil.",
+    explanation: "Vrai — plus tu as contribué à cette province, plus ton vote pèse dans les décisions du conseil.",
   },
   {
     id: "bourse-amm",

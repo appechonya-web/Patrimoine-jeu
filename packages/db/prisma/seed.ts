@@ -6,17 +6,21 @@ import { CASH_POOL_PER_PLAYER, COMMODITY_POOL_PER_PLAYER, FINANCIAL_ASSET_LIST }
 const prisma = new PrismaClient();
 
 /**
- * Jeu de communes de démarrage — un échantillon représentatif des 3 régions,
- * pas les ~580 communes belges. La couverture complète (section 7 du document
- * de conception) sera importée depuis une source officielle dans un script
- * séparé, pas saisie à la main ici.
+ * Provinces belges (niveau géographique intermédiaire entre Région et le
+ * modèle "Municipality" — Bruxelles-Capitale n'a pas de province propre en
+ * réalité, elle est donc représentée par une entrée unique pour compléter
+ * les 11). Remplace l'ancien échantillon de communes : la granularité
+ * commune (~580 en Belgique) n'était de toute façon qu'un échantillon de
+ * démarrage, pas une couverture complète (section 7 du document de
+ * conception) — les provinces donnent une couverture nationale réelle sans
+ * viser les communes une par une.
  *
- * Taux d'additionnels communaux : valeurs approximatives à reconfirmer.
- * Droits d'enregistrement : taux standard par région (section 7). Pour
- * Bruxelles, l'abattement réel sur résidence principale est une déduction de
- * base taxable (jusqu'à ~25 000 € d'économie), pas un second taux fixe comme
- * en Flandre/Wallonie — approximé ici par le même taux que le standard en
- * attendant un modèle dédié.
+ * Taux additionnels : valeurs approximatives à reconfirmer, du même ordre de
+ * grandeur que les anciens taux communaux. Droits d'enregistrement : taux
+ * standard par région (section 7). Pour Bruxelles, l'abattement réel sur
+ * résidence principale est une déduction de base taxable (jusqu'à ~25 000 €
+ * d'économie), pas un second taux fixe comme en Flandre/Wallonie — approximé
+ * ici par le même taux que le standard en attendant un modèle dédié.
  */
 const REGIONS = [
   {
@@ -25,8 +29,10 @@ const REGIONS = [
     registrationDutyRateOwnHome: 0.02,
     municipalities: [
       { name: "Anvers", additionalTaxRate: 0.08 },
-      { name: "Gand", additionalTaxRate: 0.067 },
-      { name: "Bruges", additionalTaxRate: 0.0685 },
+      { name: "Brabant flamand", additionalTaxRate: 0.075 },
+      { name: "Flandre-Occidentale", additionalTaxRate: 0.0685 },
+      { name: "Flandre-Orientale", additionalTaxRate: 0.067 },
+      { name: "Limbourg", additionalTaxRate: 0.073 },
     ],
   },
   {
@@ -34,8 +40,10 @@ const REGIONS = [
     registrationDutyRate: 0.125,
     registrationDutyRateOwnHome: 0.03,
     municipalities: [
+      { name: "Brabant wallon", additionalTaxRate: 0.07 },
+      { name: "Hainaut", additionalTaxRate: 0.09 },
       { name: "Liège", additionalTaxRate: 0.08 },
-      { name: "Charleroi", additionalTaxRate: 0.09 },
+      { name: "Luxembourg", additionalTaxRate: 0.075 },
       { name: "Namur", additionalTaxRate: 0.0755 },
     ],
   },
@@ -43,11 +51,7 @@ const REGIONS = [
     name: "Bruxelles-Capitale",
     registrationDutyRate: 0.125,
     registrationDutyRateOwnHome: 0.125,
-    municipalities: [
-      { name: "Bruxelles-Ville", additionalTaxRate: 0.07 },
-      { name: "Ixelles", additionalTaxRate: 0.065 },
-      { name: "Schaerbeek", additionalTaxRate: 0.0715 },
-    ],
+    municipalities: [{ name: "Bruxelles-Capitale", additionalTaxRate: 0.07 }],
   },
 ];
 

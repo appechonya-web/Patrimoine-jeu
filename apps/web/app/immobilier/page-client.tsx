@@ -39,7 +39,7 @@ export function PropertyMarketPageClient({
           <InfoTip
             label="🏘️"
             title="Marché immobilier"
-            mechanic="Achète directement au prix affiché, ou emprunte via une hypothèque (jusqu'à 80% de la valeur du bien, le reste en apport). Chaque achat déclenche des droits d'enregistrement fixés par la commune, prélevés immédiatement."
+            mechanic="Achète directement au prix affiché, ou emprunte via une hypothèque (jusqu'à 80% de la valeur du bien, le reste en apport). Chaque achat déclenche des droits d'enregistrement fixés par la province, prélevés immédiatement."
             realWorld="C'est le vrai parcours d'achat immobilier belge : apport personnel + prêt hypothécaire + droits d'enregistrement communaux, souvent 10-12,5% du prix — une charge non négligeable à prévoir en plus du prix affiché."
           />
           <span>Marché immobilier</span>

@@ -140,7 +140,7 @@ function CreateProposalForm({
   );
 }
 
-export function CommuneDetail({
+export function ProvinceDetail({
   municipalityId,
   summary,
   contributors,
@@ -169,14 +169,14 @@ export function CommuneDetail({
           <InfoTip
             label="🏗️"
             title="Fonds d'infrastructure"
-            mechanic="Le fonds cumulé de la commune relève l'attractivité de TOUTES les entreprises qui y sont installées, à rendement décroissant (les premiers euros comptent plus que les suivants) — un bonus partagé, pas individuel à ta contribution. Le total investi dans TOUTES les communes du jeu contribue aussi à faire grossir la demande nationale elle-même, pas seulement la part que chacun en capte."
-            realWorld="C'est un vrai bien public local financé collectivement : personne n'est exclu du bénéfice même sans contribuer, mais plus la commune investit collectivement, plus la zone devient attractive pour toutes les entreprises qui s'y trouvent — et à l'échelle du pays, plus d'infrastructures signifie une économie qui grossit vraiment, pas juste des parts de marché qui changent de mains."
+            mechanic="Le fonds cumulé de la province relève l'attractivité de TOUTES les entreprises qui y sont installées, à rendement décroissant (les premiers euros comptent plus que les suivants) — un bonus partagé, pas individuel à ta contribution. Le total investi dans TOUTES les provinces du jeu contribue aussi à faire grossir la demande nationale elle-même, pas seulement la part que chacun en capte."
+            realWorld="C'est un vrai bien public local financé collectivement : personne n'est exclu du bénéfice même sans contribuer, mais plus la province investit collectivement, plus la zone devient attractive pour toutes les entreprises qui s'y trouvent — et à l'échelle du pays, plus d'infrastructures signifie une économie qui grossit vraiment, pas juste des parts de marché qui changent de mains."
           />
           <span>Fonds d'infrastructure</span>
         </h2>
         <div className={styles.jobStats}>
           <span>💰 Fonds cumulé {currencyFormatter.format(summary.infrastructureFund)}</span>
-          <span>⭐ Bonus d'attractivité +{summary.attractivenessBonus.toFixed(1)} pour toutes les entreprises de la commune</span>
+          <span>⭐ Bonus d'attractivité +{summary.attractivenessBonus.toFixed(1)} pour toutes les entreprises de la province</span>
           <span>📋 Droits d'enregistrement {(summary.registrationDutyRate * 100).toFixed(1)}%</span>
         </div>
         <ContributeForm municipalityId={municipalityId} onDone={handleDone} />
@@ -187,7 +187,7 @@ export function CommuneDetail({
           <InfoTip
             label="🏆"
             title="Contributeurs"
-            mechanic="Liste publique de qui a contribué au fonds, et combien — visible par tous les joueurs consultant cette commune."
+            mechanic="Liste publique de qui a contribué au fonds, et combien — visible par tous les joueurs consultant cette province."
             realWorld="Comme les listes de donateurs affichées par certaines institutions publiques ou associations : la reconnaissance publique fait partie de l'incitation à contribuer, en plus du bénéfice économique direct."
           />
           <span>Contributeurs (statut visible)</span>
@@ -209,15 +209,15 @@ export function CommuneDetail({
         <h2 className={styles.sectionTitle}>
           <InfoTip
             label="🏛️"
-            title="Conseil communal"
-            mechanic="Réservé aux contributeurs du fonds — le poids de vote est ta contribution cumulée à CETTE commune. Le levier votable est le taux des droits d'enregistrement (immobilier), plafonné à ±2 points de pourcentage par proposition."
+            title="Conseil provincial"
+            mechanic="Réservé aux contributeurs du fonds — le poids de vote est ta contribution cumulée à CETTE province. Le levier votable est le taux des droits d'enregistrement (immobilier), plafonné à ±2 points de pourcentage par proposition."
             realWorld="Un vrai mécanisme de démocratie censitaire locale : le pouvoir de décision est proportionnel à l'investissement dans la collectivité, pas une voix par habitant — comme certains conseils de copropriété où le poids de vote suit les parts détenues."
           />
-          <span>Conseil communal</span>
+          <span>Conseil provincial</span>
         </h2>
         <p className={styles.jobMeta}>
           Réservé aux contributeurs du fonds d'infrastructure — le poids de vote est ta contribution cumulée à cette
-          commune.
+          province.
         </p>
         {proposals.length > 0 && (
           <div className={styles.jobList}>
