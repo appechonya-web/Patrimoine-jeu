@@ -32,7 +32,30 @@ export interface FinancialAssetDefinition {
   drift: number;
   /** Volatilité par cycle, en proportion — écart-type approximatif de la marche aléatoire. */
   volatility: number;
+  /**
+   * Nom du Sector (packages/db) auquel cette action est rattachée, ou null
+   * pour un actif non corrélé (les deux actions "généralistes" existantes,
+   * la crypto, l'art). Une action rattachée subit un supplément de dérive
+   * quand un aléa sectoriel NATIONAL (MAJEUR/EXCEPTIONNEL, cf.
+   * domain/sectoral-events.ts) touche ce secteur — cf.
+   * FINANCIAL_ASSET_SECTORAL_DRIFT_SENSITIVITY et
+   * game-engine/cycles.ts. Les aléas RÉGIONAUX (mineurs/moyens) ne
+   * touchent jamais la bourse, seulement l'attractivité locale des
+   * entreprises : il n'existe pas d'action "régionale".
+   */
+  sectorName: string | null;
 }
+
+/**
+ * Fraction de l'écart du multiplicateur sectoriel national (cf.
+ * computeSectoralDemandMultiplier) répercutée chaque cycle sur la dérive
+ * d'une action rattachée à ce secteur, tant que l'aléa est actif. Calibré
+ * pour qu'un MAJEUR (magnitude ~0.2 à 0.45, ~40 cycles) déplace le cours
+ * de l'ordre de +/-25 à 45% sur toute sa durée, et qu'un EXCEPTIONNEL
+ * (magnitude ~0.45 à 0.9, ~80 cycles) puisse le doubler ou l'effondrer —
+ * un vrai choc de marché, pas un bruit de fond.
+ */
+export const FINANCIAL_ASSET_SECTORAL_DRIFT_SENSITIVITY = 0.015;
 
 export const FINANCIAL_ASSET_CATALOG: Record<string, FinancialAssetDefinition> = {
   nordtech: {
@@ -42,6 +65,7 @@ export const FINANCIAL_ASSET_CATALOG: Record<string, FinancialAssetDefinition> =
     startPrice: 48,
     drift: 0.0004,
     volatility: 0.015,
+    sectorName: null,
   },
   "wallonie-energie": {
     key: "wallonie-energie",
@@ -50,6 +74,7 @@ export const FINANCIAL_ASSET_CATALOG: Record<string, FinancialAssetDefinition> =
     startPrice: 22,
     drift: 0.0002,
     volatility: 0.008,
+    sectorName: null,
   },
   bitbe: {
     key: "bitbe",
@@ -58,6 +83,7 @@ export const FINANCIAL_ASSET_CATALOG: Record<string, FinancialAssetDefinition> =
     startPrice: 310,
     drift: 0.0006,
     volatility: 0.05,
+    sectorName: null,
   },
   etherbrux: {
     key: "etherbrux",
@@ -66,6 +92,7 @@ export const FINANCIAL_ASSET_CATALOG: Record<string, FinancialAssetDefinition> =
     startPrice: 95,
     drift: 0.0003,
     volatility: 0.045,
+    sectorName: null,
   },
   "toile-magritte": {
     key: "toile-magritte",
@@ -74,6 +101,140 @@ export const FINANCIAL_ASSET_CATALOG: Record<string, FinancialAssetDefinition> =
     startPrice: 2_400,
     drift: 0.0003,
     volatility: 0.006,
+    sectorName: null,
+  },
+  // Actions sectorielles — deux par secteur réel (packages/db Sector, cf.
+  // packages/db/prisma/seed.ts LEVEL_0_SECTORS/LEVEL_1_SECTORS) : une
+  // "grande entreprise" plus stable, une "PME/coopérative" plus spéculative.
+  // Leur cours réagit aux aléas sectoriels nationaux du même secteur (cf.
+  // FINANCIAL_ASSET_SECTORAL_DRIFT_SENSITIVITY) en plus de leur propre
+  // marche aléatoire — contrairement aux deux actions généralistes
+  // ci-dessus, qui restent hors de portée de ces aléas.
+  "ardenne-bois": {
+    key: "ardenne-bois",
+    name: "Ardenne Bois SA",
+    type: "stock",
+    startPrice: 35,
+    drift: 0.0003,
+    volatility: 0.009,
+    sectorName: "Bois",
+  },
+  "sylva-forets": {
+    key: "sylva-forets",
+    name: "Sylva Forêts Coopérative",
+    type: "stock",
+    startPrice: 14,
+    drift: 0.0005,
+    volatility: 0.02,
+    sectorName: "Bois",
+  },
+  "wallonie-metaux": {
+    key: "wallonie-metaux",
+    name: "Wallonie Métaux SA",
+    type: "stock",
+    startPrice: 40,
+    drift: 0.0003,
+    volatility: 0.01,
+    sectorName: "Métaux",
+  },
+  "forge-hainaut": {
+    key: "forge-hainaut",
+    name: "Forge du Hainaut",
+    type: "stock",
+    startPrice: 16,
+    drift: 0.0005,
+    volatility: 0.022,
+    sectorName: "Métaux",
+  },
+  agrowallonie: {
+    key: "agrowallonie",
+    name: "AgroWallonie SA",
+    type: "stock",
+    startPrice: 30,
+    drift: 0.0003,
+    volatility: 0.008,
+    sectorName: "Agriculture",
+  },
+  "ferme-brabant": {
+    key: "ferme-brabant",
+    name: "Ferme Coopérative Brabant",
+    type: "stock",
+    startPrice: 12,
+    drift: 0.0004,
+    volatility: 0.017,
+    sectorName: "Agriculture",
+  },
+  "flandre-textile": {
+    key: "flandre-textile",
+    name: "Flandre Textile SA",
+    type: "stock",
+    startPrice: 26,
+    drift: 0.0002,
+    volatility: 0.007,
+    sectorName: "Textile brut",
+  },
+  "lin-fibres": {
+    key: "lin-fibres",
+    name: "Lin & Fibres Coopérative",
+    type: "stock",
+    startPrice: 10,
+    drift: 0.0004,
+    volatility: 0.016,
+    sectorName: "Textile brut",
+  },
+  "carrieres-condroz": {
+    key: "carrieres-condroz",
+    name: "Carrières du Condroz SA",
+    type: "stock",
+    startPrice: 38,
+    drift: 0.0003,
+    volatility: 0.011,
+    sectorName: "Extraction",
+  },
+  "mines-wallonie": {
+    key: "mines-wallonie",
+    name: "Mines de Wallonie",
+    type: "stock",
+    startPrice: 15,
+    drift: 0.0006,
+    volatility: 0.025,
+    sectorName: "Extraction",
+  },
+  "menuiserie-ardennaise": {
+    key: "menuiserie-ardennaise",
+    name: "Menuiserie Ardennaise SA",
+    type: "stock",
+    startPrice: 32,
+    drift: 0.0003,
+    volatility: 0.008,
+    sectorName: "Menuiserie",
+  },
+  "atelier-bois": {
+    key: "atelier-bois",
+    name: "Atelier du Bois Group",
+    type: "stock",
+    startPrice: 13,
+    drift: 0.0004,
+    volatility: 0.018,
+    sectorName: "Menuiserie",
+  },
+  "metallurgie-liegeoise": {
+    key: "metallurgie-liegeoise",
+    name: "Métallurgie Liégeoise SA",
+    type: "stock",
+    startPrice: 45,
+    drift: 0.0003,
+    volatility: 0.01,
+    sectorName: "Métallurgie",
+  },
+  "acier-sambre": {
+    key: "acier-sambre",
+    name: "Acier Sambre",
+    type: "stock",
+    startPrice: 17,
+    drift: 0.0005,
+    volatility: 0.021,
+    sectorName: "Métallurgie",
   },
 };
 export const FINANCIAL_ASSET_LIST: FinancialAssetDefinition[] = Object.values(FINANCIAL_ASSET_CATALOG);

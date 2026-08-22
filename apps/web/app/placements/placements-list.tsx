@@ -62,6 +62,7 @@ function AssetCard({ asset, onDone }: { asset: FinancialAssetView; onDone: () =>
         <div className={styles.jobMeta}>{variationLabel(asset.price, asset.previousPrice)}</div>
         <div className={styles.jobStats}>
           <span>💰 {currencyFormatter.format(asset.price)}</span>
+          {asset.sectorName && <span>🏭 {asset.sectorName}</span>}
           {asset.quantity > 0 && (
             <>
               <span>📦 {asset.quantity.toFixed(4)} détenues</span>
@@ -123,6 +124,43 @@ function AssetCard({ asset, onDone }: { asset: FinancialAssetView; onDone: () =>
   );
 }
 
+function AssetTypeSection({
+  type,
+  list,
+  onDone,
+}: {
+  type: FinancialAssetType;
+  list: FinancialAssetView[];
+  onDone: () => void;
+}) {
+  const [expanded, setExpanded] = useState(list.length <= 4);
+  const sorted = [...list].sort((a, b) => (a.sectorName ?? "").localeCompare(b.sectorName ?? ""));
+
+  return (
+    <section className={styles.section}>
+      <h2 className={styles.sectionTitle}>{FINANCIAL_ASSET_TYPE_LABELS[type]}</h2>
+      {list.length > 4 && (
+        <button
+          type="button"
+          className={styles.collapsibleToggle}
+          aria-expanded={expanded}
+          onClick={() => setExpanded((value) => !value)}
+        >
+          <span>{expanded ? "Replier" : `Afficher les ${list.length} actifs`}</span>
+          <span className={`${styles.collapsibleChevron} ${expanded ? styles.collapsibleChevronOpen : ""}`}>▾</span>
+        </button>
+      )}
+      {expanded && (
+        <div className={styles.jobList} style={{ marginTop: list.length > 4 ? "0.75rem" : 0 }}>
+          {sorted.map((asset) => (
+            <AssetCard key={asset.id} asset={asset} onDone={onDone} />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 export function PlacementsList({ assets }: { assets: FinancialAssetView[] }) {
   const router = useRouter();
 
@@ -141,14 +179,7 @@ export function PlacementsList({ assets }: { assets: FinancialAssetView[] }) {
   return (
     <>
       {[...byType.entries()].map(([type, list]) => (
-        <section key={type} className={styles.section}>
-          <h2 className={styles.sectionTitle}>{FINANCIAL_ASSET_TYPE_LABELS[type]}</h2>
-          <div className={styles.jobList}>
-            {list.map((asset) => (
-              <AssetCard key={asset.id} asset={asset} onDone={handleDone} />
-            ))}
-          </div>
-        </section>
+        <AssetTypeSection key={type} type={type} list={list} onDone={handleDone} />
       ))}
     </>
   );

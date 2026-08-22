@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { FINANCIAL_ASSET_CATALOG } from "@patrimoine-jeu/domain";
 import { computeCapitalGainsTax, getCapitalGainsRules } from "@patrimoine-jeu/game-engine";
 import { AchievementsService } from "../engagement/achievements.service.js";
 import { PrismaService } from "../prisma/prisma.service.js";
@@ -112,6 +113,7 @@ export class FinancialAssetsService {
       key: asset.key,
       name: asset.name,
       type: asset.type,
+      sectorName: FINANCIAL_ASSET_CATALOG[asset.key]?.sectorName ?? null,
       price,
       previousPrice: asset.previousPrice.toNumber(),
       quantity,

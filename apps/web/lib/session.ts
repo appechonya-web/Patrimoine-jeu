@@ -730,6 +730,7 @@ export interface FinancialAssetView {
   key: string;
   name: string;
   type: string;
+  sectorName: string | null;
   price: number;
   previousPrice: number;
   quantity: number;

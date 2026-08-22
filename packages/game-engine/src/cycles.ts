@@ -12,6 +12,7 @@ import {
   NET_WORTH_MILESTONES,
   DEPARTMENTS,
   FINANCIAL_ASSET_CATALOG,
+  FINANCIAL_ASSET_SECTORAL_DRIFT_SENSITIVITY,
   GUILD_FINE_PER_MEMBER,
   GUILD_REPUTATION_PENALTY,
   DEPARTMENT_MANAGER_SALARY_PER_CYCLE,
@@ -472,6 +473,7 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
   }
 
   const sectorById = new Map(sectors.map((sector) => [sector.id, sector]));
+  const sectorIdByName = new Map(sectors.map((sector) => [sector.name, sector.id]));
   const regionById = new Map(regions.map((region) => [region.id, region]));
 
   // Aléas sectoriels/régionaux (cf. domain/sectoral-events.ts) — un tirage
@@ -595,10 +597,23 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
   // Bourse d'actifs financiers : marche aléatoire propre à chaque actif
   // (cf. domain/financial-assets.ts, computeNextAssetPrice) — indépendante
   // des échanges joueurs, contrairement au marché de matières premières.
+  // Les actions rattachées à un secteur (definition.sectorName) reçoivent en
+  // plus un supplément de dérive quand ce secteur subit un aléa NATIONAL
+  // (MAJEUR/EXCEPTIONNEL) — même multiplicateur composé que celui utilisé
+  // pour le pool de marché des entreprises du secteur, cf.
+  // computeSectoralDemandMultiplier plus haut.
   const financialAssetUpdates = financialAssets.map((asset) => {
     const definition = FINANCIAL_ASSET_CATALOG[asset.key];
+    let sectoralDriftBump = 0;
+    if (definition?.sectorName) {
+      const sectorId = sectorIdByName.get(definition.sectorName);
+      if (sectorId) {
+        const sectoralMultiplier = computeSectoralDemandMultiplier(activeSectoralEffects, sectorId, "NATIONAL", null);
+        sectoralDriftBump = (sectoralMultiplier - 1) * FINANCIAL_ASSET_SECTORAL_DRIFT_SENSITIVITY;
+      }
+    }
     const nextPrice = definition
-      ? computeNextAssetPrice(asset.price.toNumber(), definition.drift, definition.volatility)
+      ? computeNextAssetPrice(asset.price.toNumber(), definition.drift, definition.volatility, sectoralDriftBump)
       : asset.price.toNumber();
     return { asset, previousPrice: asset.price.toNumber(), nextPrice };
   });

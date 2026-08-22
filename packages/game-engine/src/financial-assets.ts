@@ -4,10 +4,18 @@ import { MIN_ASSET_PRICE } from "@patrimoine-jeu/domain";
  * Marche aléatoire propre à chaque actif — dérive + volatilité (cf.
  * domain/financial-assets.ts) — plafonnée à un prix plancher pour éviter
  * qu'un actif tombe à zéro ou en négatif après beaucoup de cycles.
+ * sectoralDriftBump (défaut 0) s'ajoute à la dérive pour les actions
+ * rattachées à un secteur en pleine crise/boom national (cf.
+ * FINANCIAL_ASSET_SECTORAL_DRIFT_SENSITIVITY, appliqué côté cycles.ts).
  */
-export function computeNextAssetPrice(currentPrice: number, drift: number, volatility: number): number {
+export function computeNextAssetPrice(
+  currentPrice: number,
+  drift: number,
+  volatility: number,
+  sectoralDriftBump = 0,
+): number {
   const randomShock = (Math.random() - 0.5) * 2 * volatility;
-  const nextPrice = currentPrice * (1 + drift + randomShock);
+  const nextPrice = currentPrice * (1 + drift + sectoralDriftBump + randomShock);
   return Math.max(MIN_ASSET_PRICE, nextPrice);
 }
 
