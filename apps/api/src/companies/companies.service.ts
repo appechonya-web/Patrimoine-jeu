@@ -1895,6 +1895,13 @@ export class CompaniesService {
       createdCycle: raise.createdCycle,
       expiresCycle: raise.expiresCycle,
       cyclesRemaining: Math.max(0, raise.expiresCycle - currentCycle.number),
+      // Due diligence — de quoi juger le pari avant de financer à l'aveugle :
+      // ancienneté, rentabilité cumulée depuis la fondation, trésorerie
+      // actuelle, et le score compétitif utilisé pour l'attractivité.
+      companyAgeCycles: currentCycle.number - raise.company.foundedCycle,
+      cumulativeNetProfit: raise.company.cumulativeNetProfit.toNumber(),
+      cashReserve: raise.company.cashReserve.toNumber(),
+      attractivenessScore: raise.company.attractivenessScore.toNumber(),
     }));
   }
 

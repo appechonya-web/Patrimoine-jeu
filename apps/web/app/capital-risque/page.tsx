@@ -21,8 +21,8 @@ export default async function CapitalRisquePage() {
             <InfoTip
               label="💰"
               title="Capital-risque"
-              mechanic="Vue d'ensemble des levées de fonds en cours — finance l'entreprise d'un autre joueur en échange de NOUVELLES parts émises, qui diluent mécaniquement tous les actionnaires existants au prorata."
-              realWorld="Le tableau de bord d'un investisseur en capital-risque : repérer les entreprises qui cherchent du financement et juger si la dilution proposée pour les actionnaires actuels vaut le potentiel de l'entreprise."
+              mechanic="Vue d'ensemble des levées de fonds en cours — finance l'entreprise d'un autre joueur en échange de NOUVELLES parts émises, qui diluent mécaniquement tous les actionnaires existants au prorata. Aucun rendement garanti : ton seul retour, c'est la valeur future de cette part (dividendes + revente), identique à n'importe quel actionnaire."
+              realWorld="Le tableau de bord d'un investisseur en capital-risque : ancienneté, profit cumulé, trésorerie et attractivité sont ta due diligence avant de miser — une jeune entreprise en perte avec peu de trésorerie est un pari bien plus risqué qu'une entreprise établie et rentable, exactement comme en vrai capital-risque."
             />{" "}
             Capital-risque
           </h1>

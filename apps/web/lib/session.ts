@@ -478,6 +478,10 @@ export interface CapitalRaiseView {
   createdCycle: number;
   expiresCycle: number;
   cyclesRemaining: number;
+  companyAgeCycles: number;
+  cumulativeNetProfit: number;
+  cashReserve: number;
+  attractivenessScore: number;
 }
 
 export async function getCapitalRaises(): Promise<CapitalRaiseView[]> {

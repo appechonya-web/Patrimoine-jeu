@@ -39,6 +39,15 @@ function RaiseCard({ raise }: { raise: CapitalRaiseView }) {
           <span>🧩 {raise.newSharePercentage}% de nouvelles parts</span>
           <span>⏳ {raise.cyclesRemaining} cycles restants</span>
         </div>
+        <div className={styles.jobStats}>
+          <span>📅 {raise.companyAgeCycles} cycles d'ancienneté</span>
+          <span>
+            {raise.cumulativeNetProfit >= 0 ? "📈" : "📉"} {currencyFormatter.format(raise.cumulativeNetProfit)} de
+            profit cumulé
+          </span>
+          <span>🏦 {currencyFormatter.format(raise.cashReserve)} de trésorerie</span>
+          <span>⭐ Attractivité {raise.attractivenessScore.toFixed(1)}</span>
+        </div>
         {error && <p className={styles.error}>{error}</p>}
       </div>
       <div className={styles.jobActions}>
