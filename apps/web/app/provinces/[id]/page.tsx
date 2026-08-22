@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { PROVINCE_PROPERTY_PROFILES } from "@patrimoine-jeu/domain";
 import {
   getCouncilProposals,
   getCurrentPlayer,
@@ -34,7 +35,10 @@ export default async function ProvincePage({ params }: { params: Promise<{ id: s
       <header className={styles.header}>
         <div>
           <h1>🏛️ {municipality.name}</h1>
-          <p className={styles.subtitle}>{municipality.region.name}</p>
+          <p className={styles.subtitle}>
+            {municipality.region.name}
+            {PROVINCE_PROPERTY_PROFILES[municipality.name] && ` — ${PROVINCE_PROPERTY_PROFILES[municipality.name].description}`}
+          </p>
         </div>
         <Link className={styles.logout} href="/provinces">
           ← Provinces

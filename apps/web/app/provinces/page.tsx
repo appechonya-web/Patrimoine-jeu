@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { PROVINCE_PROPERTY_PROFILES } from "@patrimoine-jeu/domain";
 import { getCurrentPlayer, getMunicipalities } from "../../lib/session";
 import { InfoTip } from "../info-tip";
 import styles from "../page.module.css";
@@ -49,6 +50,9 @@ export default async function ProvincesPage() {
               <div key={m.id} className={styles.jobCard}>
                 <div>
                   <div className={styles.jobTitle}>{m.name}</div>
+                  {PROVINCE_PROPERTY_PROFILES[m.name] && (
+                    <div className={styles.jobMeta}>{PROVINCE_PROPERTY_PROFILES[m.name].description}</div>
+                  )}
                 </div>
                 <div className={styles.jobActions}>
                   <Link className={styles.apply} href={`/provinces/${m.id}`}>

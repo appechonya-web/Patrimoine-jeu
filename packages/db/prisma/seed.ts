@@ -1,7 +1,13 @@
 import { Prisma, PrismaClient } from "@prisma/client";
 import * as bcrypt from "bcryptjs";
 import { IPP_2026 } from "@patrimoine-jeu/fiscal-be";
-import { CASH_POOL_PER_PLAYER, COMMODITY_POOL_PER_PLAYER, FINANCIAL_ASSET_LIST } from "@patrimoine-jeu/domain";
+import {
+  CASH_POOL_PER_PLAYER,
+  COMMODITY_POOL_PER_PLAYER,
+  FINANCIAL_ASSET_LIST,
+  PROVINCE_PROPERTY_PROFILES,
+  type ProvincePropertyType,
+} from "@patrimoine-jeu/domain";
 
 const prisma = new PrismaClient();
 
@@ -71,42 +77,31 @@ const LEVEL_1_SECTORS: Array<{ name: string; parentSectorName: string }> = [
 ];
 
 /**
- * Immobilier — multiplicateur de prix par région, simple reflet de la
- * réalité belge (Bruxelles plus cher, Wallonie moins) plutôt qu'un indice
- * précis. Un vrai écart de gamme, du parking accessible dès les premiers
- * cycles jusqu'au bien de luxe hors de portée sans des années de jeu — le
- * rendement locatif (% de la valeur perçu en loyer par cycle) décroît avec
+ * Immobilier — plage de valeur/rendement de base par TYPE de bien, combinée
+ * au profil propre à chaque province (cf. domain/province-profiles.ts,
+ * PROVINCE_PROPERTY_PROFILES) qui fixe son propre multiplicateur de prix ET
+ * combien de biens de chaque type y sont générés — remplace l'ancien système
+ * où les 6 mêmes gabarits étaient dupliqués identiquement dans chaque
+ * commune, avec pour seule variation un multiplicateur par RÉGION (trop
+ * grossier pour distinguer, par exemple, le Brabant wallon aisé du Hainaut
+ * post-industriel, tous deux en Wallonie). Le rendement locatif décroît avec
  * la gamme : les biens d'entrée de gamme rapportent proportionnellement
  * plus, le luxe est surtout un objectif de prestige à long terme.
  */
-const REGION_PROPERTY_PRICE_MULTIPLIER: Record<string, number> = {
-  Flandre: 1.1,
-  Wallonie: 0.9,
-  "Bruxelles-Capitale": 1.3,
+const PROPERTY_TYPE_RANGES: Record<ProvincePropertyType, { minValue: number; maxValue: number; rentYieldPerCycle: number }> = {
+  PARKING: { minValue: 300, maxValue: 900, rentYieldPerCycle: 0.012 },
+  APARTMENT: { minValue: 3_000, maxValue: 12_000, rentYieldPerCycle: 0.0055 },
+  HOUSE: { minValue: 15_000, maxValue: 50_000, rentYieldPerCycle: 0.0045 },
+  COMMERCIAL: { minValue: 10_000, maxValue: 35_000, rentYieldPerCycle: 0.006 },
+  LUXURY: { minValue: 200_000, maxValue: 2_000_000, rentYieldPerCycle: 0.0025 },
 };
-
-interface PropertyTemplate {
-  type: "PARKING" | "APARTMENT" | "HOUSE" | "COMMERCIAL" | "LUXURY";
-  minValue: number;
-  maxValue: number;
-  rentYieldPerCycle: number;
-}
-
-const PROPERTY_TEMPLATES: PropertyTemplate[] = [
-  { type: "PARKING", minValue: 300, maxValue: 900, rentYieldPerCycle: 0.012 },
-  { type: "APARTMENT", minValue: 3_000, maxValue: 12_000, rentYieldPerCycle: 0.0055 },
-  { type: "APARTMENT", minValue: 3_000, maxValue: 12_000, rentYieldPerCycle: 0.0055 },
-  { type: "HOUSE", minValue: 15_000, maxValue: 50_000, rentYieldPerCycle: 0.0045 },
-  { type: "COMMERCIAL", minValue: 10_000, maxValue: 35_000, rentYieldPerCycle: 0.006 },
-  { type: "LUXURY", minValue: 200_000, maxValue: 2_000_000, rentYieldPerCycle: 0.0025 },
-];
 
 function randomInRange(min: number, max: number): number {
   return min + Math.random() * (max - min);
 }
 
 async function main() {
-  const createdMunicipalities: { id: string; name: string; regionName: string }[] = [];
+  const createdMunicipalities: { id: string; name: string }[] = [];
 
   for (const region of REGIONS) {
     const createdRegion = await prisma.region.upsert({
@@ -127,7 +122,7 @@ async function main() {
         },
         update: {},
       });
-      createdMunicipalities.push({ id: createdMunicipality.id, name: createdMunicipality.name, regionName: region.name });
+      createdMunicipalities.push({ id: createdMunicipality.id, name: createdMunicipality.name });
     }
   }
 
@@ -136,27 +131,32 @@ async function main() {
   const existingPropertyCount = await prisma.property.count();
   if (existingPropertyCount === 0) {
     for (const municipality of createdMunicipalities) {
-      const priceMultiplier = REGION_PROPERTY_PRICE_MULTIPLIER[municipality.regionName] ?? 1;
-      for (const template of PROPERTY_TEMPLATES) {
-        const marketValue = Math.round(randomInRange(template.minValue, template.maxValue) * priceMultiplier);
-        const baseRent = Math.round(marketValue * template.rentYieldPerCycle * 100) / 100;
-        const property = await prisma.property.create({
-          data: {
-            municipalityId: municipality.id,
-            type: template.type,
-            marketValue,
-            baseRent,
-            status: "VACANT",
-          },
-        });
-        await prisma.listing.create({
-          data: {
-            propertyId: property.id,
-            price: property.marketValue,
-            isAuction: false,
-            expiresAt: new Date("2099-01-01"),
-          },
-        });
+      const profile = PROVINCE_PROPERTY_PROFILES[municipality.name];
+      if (!profile) continue;
+
+      for (const [type, count] of Object.entries(profile.propertyCounts) as [ProvincePropertyType, number][]) {
+        const range = PROPERTY_TYPE_RANGES[type];
+        for (let i = 0; i < count; i++) {
+          const marketValue = Math.round(randomInRange(range.minValue, range.maxValue) * profile.priceMultiplier);
+          const baseRent = Math.round(marketValue * range.rentYieldPerCycle * 100) / 100;
+          const property = await prisma.property.create({
+            data: {
+              municipalityId: municipality.id,
+              type,
+              marketValue,
+              baseRent,
+              status: "VACANT",
+            },
+          });
+          await prisma.listing.create({
+            data: {
+              propertyId: property.id,
+              price: property.marketValue,
+              isAuction: false,
+              expiresAt: new Date("2099-01-01"),
+            },
+          });
+        }
       }
     }
   }
