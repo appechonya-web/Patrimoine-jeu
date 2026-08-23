@@ -422,10 +422,24 @@ export async function estimateIndependentActivityNetPerCycle(
  * - expérience sectorielle cumulée (jamais réinitialisée)
  * - un instantané PlayerStatHistory par joueur et CompanyCycleReport par
  *   entreprise
- * puis ouvre le cycle suivant. Déclenché uniquement par le scheduler du
- * worker (cf. apps/worker) — jamais à la demande du joueur, sous peine de
- * lui permettre de générer du patrimoine à l'infini en boucle.
+ * puis ouvre le cycle suivant. Déclenché uniquement par le cron externe (cf.
+ * apps/api/src/cycles/cycles.controller.ts POST /cycles/internal-close) —
+ * jamais à la demande du joueur, sous peine de lui permettre de générer du
+ * patrimoine à l'infini en boucle.
  */
+/**
+ * Le corps de la fonction ci-dessous fait un aller-retour base de données
+ * séquentiel PAR JOUEUR et PAR ENTREPRISE (pas de createMany/updateMany
+ * groupé) — largement suffisant à l'échelle d'un petit groupe, mais le
+ * timeout par défaut de Prisma (5s) serait dépassé bien avant d'atteindre
+ * des centaines de joueurs. Relevé explicitement avec une marge confortable
+ * plutôt que de laisser la transaction échouer silencieusement le jour où
+ * le groupe grandit — si le jeu doit un jour supporter des milliers de
+ * joueurs, la vraie solution sera de regrouper ces écritures, pas de
+ * repousser encore ce plafond.
+ */
+const CYCLE_CLOSE_TRANSACTION_OPTIONS = { maxWait: 10_000, timeout: 300_000 };
+
 export async function closeCurrentCycle(prisma: PrismaClient) {
   const { ipp, isoc, capitalGains, selfEmployed } = await getLatestTaxRuleSet(prisma);
   const openCycle = await getOrCreateOpenCycle(prisma);
@@ -2219,5 +2233,5 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
       nextCycle: nextCycle.number,
       noteworthyEvents,
     };
-  });
+  }, CYCLE_CLOSE_TRANSACTION_OPTIONS);
 }
