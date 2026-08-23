@@ -10,7 +10,6 @@ const NAV_LINKS = [
   { href: "/immobilier", label: "🏘️ Immobilier", primary: false },
   { href: "/bourse", label: "💹 Bourse", primary: false },
   { href: "/placements", label: "📈 Placements", primary: false },
-  { href: "/guildes", label: "🤝 Cartels", primary: false },
   { href: "/dons", label: "🎁 Dons", primary: false },
   { href: "/market", label: "📊 Marché des parts", primary: false },
   { href: "/rachat", label: "⚔️ Rachats hostiles", primary: false },
