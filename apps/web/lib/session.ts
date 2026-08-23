@@ -105,6 +105,19 @@ export async function getWealthBreakdown(): Promise<WealthBreakdownView | null> 
   return res.json();
 }
 
+export interface WealthHistoryPoint {
+  cycleNumber: number;
+  netWorth: number;
+  reputation: number;
+  wellbeing: number;
+}
+
+export async function getWealthHistory(): Promise<WealthHistoryPoint[]> {
+  const res = await fetchWithSessionCookie("/players/me/wealth-history");
+  if (!res.ok) return [];
+  return res.json();
+}
+
 export interface JobOffer {
   id: string;
   title: string;

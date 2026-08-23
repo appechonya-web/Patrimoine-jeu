@@ -17,4 +17,9 @@ export class PlayersController {
   async wealthBreakdown(@CurrentPlayer() playerId: string) {
     return this.playersService.getWealthBreakdown(playerId);
   }
+
+  @Get("me/wealth-history")
+  async wealthHistory(@CurrentPlayer() playerId: string) {
+    return this.playersService.getWealthHistory(playerId);
+  }
 }

@@ -9,8 +9,10 @@ import {
   getPersonalGoods,
   getSavingsAccounts,
   getWealthBreakdown,
+  getWealthHistory,
 } from "../../lib/session";
 import { WealthBreakdownSection } from "../wealth-breakdown-section";
+import { WealthHistoryChart } from "../wealth-history-chart";
 import { PortfolioSections } from "./portfolio-sections";
 import { InfoTip } from "../info-tip";
 import styles from "../page.module.css";
@@ -21,8 +23,9 @@ export default async function PortefeuillePage() {
     redirect("/login");
   }
 
-  const [breakdown, assets, savings, myCompanies, properties, commodities, personalGoods] = await Promise.all([
+  const [breakdown, history, assets, savings, myCompanies, properties, commodities, personalGoods] = await Promise.all([
     getWealthBreakdown(),
+    getWealthHistory(),
     getFinancialAssets(),
     getSavingsAccounts(),
     getMyCompanies(),
@@ -52,6 +55,8 @@ export default async function PortefeuillePage() {
       </header>
 
       <WealthBreakdownSection breakdown={breakdown} />
+
+      <WealthHistoryChart history={history} />
 
       <PortfolioSections
         assets={assets.filter((asset) => asset.quantity > 0)}

@@ -138,4 +138,28 @@ export class PlayersService {
       total,
     };
   }
+
+  /**
+   * Série temporelle du patrimoine net — un point par cycle clôturé, déjà
+   * journalisé dans PlayerStatHistory à chaque clôture (cf. cycles.ts). Ne
+   * recalcule rien : simple lecture de l'historique, contrairement à
+   * getWealthBreakdown qui reflète l'instant présent.
+   */
+  async getWealthHistory(playerId: string, limit = 90) {
+    const history = await this.prisma.client.playerStatHistory.findMany({
+      where: { playerId },
+      include: { cycle: true },
+      orderBy: { cycle: { number: "desc" } },
+      take: limit,
+    });
+
+    return history
+      .map((entry) => ({
+        cycleNumber: entry.cycle.number,
+        netWorth: entry.netWorth.toNumber(),
+        reputation: entry.reputation.toNumber(),
+        wellbeing: entry.wellbeing.toNumber(),
+      }))
+      .reverse();
+  }
 }
