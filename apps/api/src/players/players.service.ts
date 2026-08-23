@@ -53,23 +53,34 @@ export class PlayersService {
    * ce que la clôture de cycle calculera au prochain passage.
    */
   async getWealthBreakdown(playerId: string) {
-    const [stats, currentCycle, properties, mortgageLoans, shares, commodityHoldings, commodityMarkets, savingsAccounts, personalGoods] =
-      await Promise.all([
-        this.prisma.client.playerStats.findUnique({ where: { playerId } }),
-        this.cyclesService.getOrCreateOpenCycle(),
-        this.prisma.client.property.findMany({ where: { ownerId: playerId } }),
-        this.prisma.client.loan.findMany({
-          where: { borrowerPlayerId: playerId, status: "ACTIVE", collateralPropertyId: { not: null } },
-        }),
-        this.prisma.client.companyShare.findMany({
-          where: { playerId, sharePercentage: { gt: 0 } },
-          include: { company: { include: { loans: true, products: true, loansAsLender: true, deposits: { where: { withdrawnCycle: null } } } } },
-        }),
-        this.prisma.client.playerCommodityHolding.findMany({ where: { playerId } }),
-        this.prisma.client.commodityMarket.findMany(),
-        this.prisma.client.savingsAccount.findMany({ where: { playerId, withdrawnCycle: null } }),
-        this.prisma.client.personalGood.findMany({ where: { playerId, soldCycle: null } }),
-      ]);
+    const [
+      stats,
+      currentCycle,
+      properties,
+      mortgageLoans,
+      shares,
+      commodityHoldings,
+      commodityMarkets,
+      savingsAccounts,
+      personalGoods,
+      assetHoldings,
+    ] = await Promise.all([
+      this.prisma.client.playerStats.findUnique({ where: { playerId } }),
+      this.cyclesService.getOrCreateOpenCycle(),
+      this.prisma.client.property.findMany({ where: { ownerId: playerId } }),
+      this.prisma.client.loan.findMany({
+        where: { borrowerPlayerId: playerId, status: "ACTIVE", collateralPropertyId: { not: null } },
+      }),
+      this.prisma.client.companyShare.findMany({
+        where: { playerId, sharePercentage: { gt: 0 } },
+        include: { company: { include: { loans: true, products: true, loansAsLender: true, deposits: { where: { withdrawnCycle: null } } } } },
+      }),
+      this.prisma.client.playerCommodityHolding.findMany({ where: { playerId } }),
+      this.prisma.client.commodityMarket.findMany(),
+      this.prisma.client.savingsAccount.findMany({ where: { playerId, withdrawnCycle: null } }),
+      this.prisma.client.personalGood.findMany({ where: { playerId, soldCycle: null } }),
+      this.prisma.client.playerAssetHolding.findMany({ where: { playerId, quantity: { gt: 0 } }, include: { asset: true } }),
+    ]);
 
     const wealthLiquid = stats?.wealthLiquid.toNumber() ?? 0;
 
@@ -108,8 +119,23 @@ export class PlayersService {
       );
     }, 0);
 
-    const total = wealthLiquid + propertyEquity + companyEquity + commodityValue + savingsValue + personalGoodsValue;
+    const financialAssetsValue = assetHoldings.reduce(
+      (sum, holding) => sum + holding.quantity.toNumber() * holding.asset.price.toNumber(),
+      0,
+    );
 
-    return { wealthLiquid, propertyEquity, companyEquity, commodityValue, savingsValue, personalGoodsValue, total };
+    const total =
+      wealthLiquid + propertyEquity + companyEquity + commodityValue + savingsValue + personalGoodsValue + financialAssetsValue;
+
+    return {
+      wealthLiquid,
+      propertyEquity,
+      companyEquity,
+      commodityValue,
+      savingsValue,
+      personalGoodsValue,
+      financialAssetsValue,
+      total,
+    };
   }
 }

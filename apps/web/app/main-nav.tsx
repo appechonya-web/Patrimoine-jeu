@@ -3,6 +3,7 @@ import styles from "./page.module.css";
 
 const NAV_LINKS = [
   { href: "/classement", label: "🏆 Classement", primary: true },
+  { href: "/portefeuille", label: "💼 Portefeuille", primary: true },
   { href: "/notifications", label: "🔔 Journal", primary: false },
   { href: "/bien-etre", label: "💗 Bien-être", primary: false },
   { href: "/epargne", label: "🐷 Épargne", primary: false },

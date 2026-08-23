@@ -14,6 +14,7 @@ const CATEGORIES: Category[] = [
   { key: "wealthLiquid", icon: "💰", label: "Liquide", color: "var(--gold)" },
   { key: "propertyEquity", icon: "🏠", label: "Immobilier", color: "var(--wealth-property)" },
   { key: "companyEquity", icon: "🏢", label: "Entreprises", color: "var(--wealth-company)" },
+  { key: "financialAssetsValue", icon: "📈", label: "Placements", color: "var(--wealth-placements)" },
   { key: "commodityValue", icon: "🌾", label: "Matières premières", color: "var(--wealth-commodity)" },
   { key: "savingsValue", icon: "🐷", label: "Épargne", color: "var(--wellbeing)" },
   { key: "personalGoodsValue", icon: "🛍️", label: "Biens personnels", color: "var(--wealth-goods)" },

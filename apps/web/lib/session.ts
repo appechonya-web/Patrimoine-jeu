@@ -95,6 +95,7 @@ export interface WealthBreakdownView {
   commodityValue: number;
   savingsValue: number;
   personalGoodsValue: number;
+  financialAssetsValue: number;
   total: number;
 }
 

@@ -32,6 +32,7 @@
   --wealth-company: #9b8cf0;
   --wealth-commodity: #d97b3f;
   --wealth-goods: #e08cc0;
+  --wealth-placements: #5fa8e0;
 
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px -12px rgba(0, 0, 0, 0.6);
   --shadow-card-hover: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 32px -10px rgba(224, 181, 99, 0.25);
@@ -64,6 +65,7 @@
     --wealth-company: #6b58c9;
     --wealth-commodity: #b5701f;
     --wealth-goods: #b5548f;
+    --wealth-placements: #2a6fb5;
 
     --shadow-card: 0 1px 2px rgba(40, 30, 10, 0.06), 0 8px 20px -12px rgba(40, 30, 10, 0.18);
     --shadow-card-hover: 0 1px 2px rgba(40, 30, 10, 0.08), 0 12px 28px -10px rgba(169, 118, 44, 0.28);
