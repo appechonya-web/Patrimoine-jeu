@@ -340,6 +340,12 @@ a.jobCard:hover {
   white-space: nowrap;
 }
 
+.jobStats .careerTierBadge {
+  border-color: color-mix(in srgb, var(--gold) 45%, var(--border));
+  color: var(--gold-strong);
+  font-weight: 700;
+}
+
 .jobWarning {
   margin-top: 0.5rem;
   font-size: 0.78rem;

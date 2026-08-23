@@ -39,3 +39,4 @@ export * from "./notification-preferences.js";
 export * from "./municipality-governance.js";
 export * from "./province-profiles.js";
 export * from "./starting-profile.js";
+export * from "./career-progression.js";

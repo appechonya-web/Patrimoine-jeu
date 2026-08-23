@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { EmploymentView, JobOffer } from "../lib/session";
+import type { CareerTierView, EmploymentView, JobOffer } from "../lib/session";
 import { GameError, quitJob, takeJob } from "../lib/game-client";
 import { currencyFormatter } from "../lib/format";
 import { InfoTip } from "./info-tip";
@@ -13,9 +13,9 @@ function EmploymentInfoTip() {
     <InfoTip
       label="💼"
       title="Emploi"
-      mechanic="Un seul emploi actif à la fois — le salaire est versé automatiquement à chaque clôture de cycle, sans action de ta part. La pression du poste draine ton bien-être chaque cycle (atténuée par ton expérience dans ce secteur, qui augmente ta tolérance avec le temps), et ton revenu net varie avec ton multiplicateur bien-être (bonus si épanoui, malus en burnout)."
-      realWorld="C'est le revenu salarié classique : régulier et prévisible, mais qui use une ressource personnelle (le stress, l'usure) proportionnellement à l'intensité du poste — un vrai arbitrage entre salaire élevé et soutenabilité à long terme, comme dans la vraie vie professionnelle."
-      tip="Changer de secteur d'activité coûte une pénalité de bien-être ponctuelle (jusqu'à 8 points), qui diminue avec ton expérience dans le NOUVEAU secteur — mieux vaut ne pas changer de métier trop souvent au début."
+      mechanic="Un seul emploi actif à la fois — le salaire est versé automatiquement à chaque clôture de cycle, sans action de ta part. La pression du poste draine ton bien-être chaque cycle (atténuée par ton expérience dans ce secteur, qui augmente ta tolérance avec le temps), et ton revenu net varie avec ton multiplicateur bien-être (bonus si épanoui, malus en burnout). Ton ancienneté dans un même secteur te fait aussi progresser à travers 5 paliers de carrière (Débutant → Expert), chacun augmentant ton salaire — un changement de secteur repart de zéro sur ce compteur."
+      realWorld="C'est le revenu salarié classique : régulier et prévisible, mais qui use une ressource personnelle (le stress, l'usure) proportionnellement à l'intensité du poste — un vrai arbitrage entre salaire élevé et soutenabilité à long terme, comme dans la vraie vie professionnelle. Les paliers de carrière reflètent une réalité simple : l'ancienneté dans un même métier finit par se traduire en augmentations."
+      tip="Changer de secteur d'activité coûte une pénalité de bien-être ponctuelle (jusqu'à 8 points) ET remet ton palier de carrière à zéro dans le nouveau secteur — mieux vaut ne pas papillonner si tu vises le palier Expert (+32% de salaire à 700 cycles d'ancienneté)."
     />
   );
 }
@@ -25,11 +25,13 @@ function JobStats({
   reputationPerCycle,
   wellbeingDrainPerCycle,
   sectorExperienceCycles,
+  careerTier,
 }: {
   pressure: number;
   reputationPerCycle: number;
   wellbeingDrainPerCycle: number;
   sectorExperienceCycles: number;
+  careerTier: CareerTierView;
 }) {
   const wellbeingSign = wellbeingDrainPerCycle > 0 ? "−" : "+";
   const wellbeingLabel = `Bien-être ${wellbeingSign}${Math.abs(wellbeingDrainPerCycle).toFixed(1)}/cycle`;
@@ -40,6 +42,13 @@ function JobStats({
       <span>💗 {wellbeingLabel}</span>
       {reputationPerCycle > 0 && <span>⭐ Réputation +{reputationPerCycle}/cycle</span>}
       {sectorExperienceCycles > 0 && <span>📈 XP secteur : {sectorExperienceCycles} cycles</span>}
+      <span className={styles.careerTierBadge}>
+        🎖️ {careerTier.label}
+        {careerTier.salaryMultiplier > 1 && ` (+${((careerTier.salaryMultiplier - 1) * 100).toFixed(0)}% salaire)`}
+      </span>
+      {careerTier.nextTierLabel && careerTier.cyclesToNextTier !== null && (
+        <span>→ {careerTier.nextTierLabel} dans {careerTier.cyclesToNextTier} cycles</span>
+      )}
     </div>
   );
 }
@@ -110,6 +119,7 @@ export function EmploymentSection({
                 reputationPerCycle={employment.reputationPerCycle ?? 0}
                 wellbeingDrainPerCycle={employment.estimatedWellbeingDrainPerCycle}
                 sectorExperienceCycles={employment.sectorExperienceCycles}
+                careerTier={employment.careerTier}
               />
             )}
           </div>
@@ -146,6 +156,7 @@ export function EmploymentSection({
                 reputationPerCycle={job.reputationPerCycle}
                 wellbeingDrainPerCycle={job.estimatedWellbeingDrainPerCycle}
                 sectorExperienceCycles={job.sectorExperienceCycles}
+                careerTier={job.careerTier}
               />
               {job.reconversionPenalty > 0 && (
                 <div className={styles.jobWarning}>

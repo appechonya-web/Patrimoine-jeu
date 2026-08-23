@@ -9,6 +9,14 @@ export interface PlayerStats {
   wellbeing: number;
 }
 
+export interface CareerTierView {
+  id: string;
+  label: string;
+  salaryMultiplier: number;
+  nextTierLabel: string | null;
+  cyclesToNextTier: number | null;
+}
+
 export interface EmploymentView {
   role: string;
   sector: string | null;
@@ -21,6 +29,7 @@ export interface EmploymentView {
   estimatedWellbeingDrainPerCycle: number;
   sectorExperienceCycles: number;
   startedCycle: number;
+  careerTier: CareerTierView;
 }
 
 export interface IndependentActivityView {
@@ -129,6 +138,7 @@ export interface JobOffer {
   estimatedWellbeingDrainPerCycle: number;
   sectorExperienceCycles: number;
   reconversionPenalty: number;
+  careerTier: CareerTierView;
 }
 
 export interface CurrentCycle {

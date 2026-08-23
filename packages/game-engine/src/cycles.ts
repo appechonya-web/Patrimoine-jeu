@@ -8,6 +8,7 @@ import {
   COMPANY_PROFIT_MILESTONES,
   COMPANY_BANKRUPTCY_REPUTATION_PENALTY,
   CYCLES_PER_YEAR,
+  getCareerTier,
   INVESTMENT_LEVEL_MILESTONES,
   NET_WORTH_MILESTONES,
   DEPARTMENTS,
@@ -1818,7 +1819,8 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
 
       if (employment && hasActiveJob) {
         const incomeMultiplier = computeWellbeingIncomeMultiplier(stats.wellbeing.toNumber(), socialLevel, comfortLevel);
-        const annualGross = employment.salary.toNumber() * CYCLES_PER_YEAR;
+        const careerTier = getCareerTier(sectorCycles);
+        const annualGross = employment.salary.toNumber() * CYCLES_PER_YEAR * careerTier.salaryMultiplier;
         const independentActivity = independentActivityByPlayer.get(player.id);
 
         if (independentActivity) {
@@ -1856,6 +1858,18 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
             create: { playerId: player.id, sector: effectiveSector, cycles: 1 },
             update: { cycles: { increment: 1 } },
           });
+
+          const newTier = getCareerTier(sectorCycles + 1).tier;
+          if (newTier.id !== careerTier.tier.id) {
+            await tx.playerNotification.create({
+              data: {
+                playerId: player.id,
+                type: "career-promotion",
+                message: `Palier de carrière atteint dans le secteur ${effectiveSector} : ${newTier.label} (salaire +${((newTier.salaryMultiplier - 1) * 100).toFixed(0)}%).`,
+                cycle: openCycle.number,
+              },
+            });
+          }
         }
 
         payrollCount += 1;

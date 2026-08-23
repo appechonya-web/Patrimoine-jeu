@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import type { Employment } from "@patrimoine-jeu/db";
 import {
   CYCLES_PER_YEAR,
+  getCareerTier,
   NPC_JOBS,
   NPC_JOB_LIST,
   type CreateJobPostingInput,
@@ -47,13 +48,23 @@ export class EmploymentService {
       NPC_JOB_LIST.map(async (job) => {
         const sectorCycles = cyclesBySector.get(job.sector) ?? 0;
         const isSectorChange = currentSector !== undefined && currentSector !== job.sector;
+        const careerTier = getCareerTier(sectorCycles);
 
         return {
           ...job,
-          estimatedNetPerCycle: await this.cyclesService.estimateNetPerCycle(job.annualGrossSalary),
+          estimatedNetPerCycle: await this.cyclesService.estimateNetPerCycle(
+            job.annualGrossSalary * careerTier.salaryMultiplier,
+          ),
           estimatedWellbeingDrainPerCycle: computePressureDrain(job.pressure, sectorCycles, nutritionLevel),
           sectorExperienceCycles: sectorCycles,
           reconversionPenalty: isSectorChange ? computeReconversionPenalty(sectorCycles) : 0,
+          careerTier: {
+            id: careerTier.tier.id,
+            label: careerTier.tier.label,
+            salaryMultiplier: careerTier.salaryMultiplier,
+            nextTierLabel: careerTier.nextTier?.label ?? null,
+            cyclesToNextTier: careerTier.cyclesToNextTier,
+          },
         };
       }),
     );
@@ -395,6 +406,7 @@ export class EmploymentService {
     ]);
     const sectorCycles = sectorExperience?.cycles ?? 0;
     const nutritionLevel = computePersonalInvestmentLevel(stats?.nutritionInvestment.toNumber() ?? 0);
+    const careerTier = getCareerTier(sectorCycles);
 
     return {
       role: employment.role,
@@ -404,11 +416,20 @@ export class EmploymentService {
       employerCompanyId: employerCompany?.id ?? null,
       employerCompanyName: employerCompany?.name ?? null,
       salaryPerCycle,
-      estimatedNetPerCycle: await this.cyclesService.estimateNetPerCycle(salaryPerCycle * CYCLES_PER_YEAR),
+      estimatedNetPerCycle: await this.cyclesService.estimateNetPerCycle(
+        salaryPerCycle * CYCLES_PER_YEAR * careerTier.salaryMultiplier,
+      ),
       estimatedWellbeingDrainPerCycle:
         pressure !== undefined ? computePressureDrain(pressure, sectorCycles, nutritionLevel) : 0,
       sectorExperienceCycles: sectorCycles,
       startedCycle: employment.startedCycle,
+      careerTier: {
+        id: careerTier.tier.id,
+        label: careerTier.tier.label,
+        salaryMultiplier: careerTier.salaryMultiplier,
+        nextTierLabel: careerTier.nextTier?.label ?? null,
+        cyclesToNextTier: careerTier.cyclesToNextTier,
+      },
     };
   }
 
