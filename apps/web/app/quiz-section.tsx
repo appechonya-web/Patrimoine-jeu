@@ -55,7 +55,7 @@ export function QuizSection({ status }: { status: QuizStatus | null }) {
   const showQuestion = !showResult && !showRefreshPrompt && status.question !== null;
 
   return (
-    <section className={styles.section}>
+    <section id="quiz" className={styles.section}>
       <h2 className={styles.sectionTitle}>
         <InfoTip
           label="🎓"

@@ -59,7 +59,7 @@ export function GigsSection({ gigs }: { gigs: GigView[] }) {
   if (gigs.length === 0) return null;
 
   return (
-    <section className={styles.section}>
+    <section id="petits-boulots" className={styles.section}>
       <h2 className={styles.sectionTitle}>
         <InfoTip
           label="🧰"

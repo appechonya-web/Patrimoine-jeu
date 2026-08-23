@@ -80,7 +80,7 @@ export function CompaniesSection({
   }
 
   return (
-    <section className={styles.section}>
+    <section id="entreprises" className={styles.section}>
       <div className={styles.header}>
         <h2 className={styles.sectionTitle}>
           <InfoTip

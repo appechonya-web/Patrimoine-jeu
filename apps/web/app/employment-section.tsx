@@ -100,7 +100,7 @@ export function EmploymentSection({
 
   if (employment) {
     return (
-      <section className={styles.section}>
+      <section id="emploi" className={styles.section}>
         <h2 className={styles.sectionTitle}>
           <EmploymentInfoTip />
           <span>Emploi</span>
@@ -138,7 +138,7 @@ export function EmploymentSection({
   }
 
   return (
-    <section className={styles.section}>
+    <section id="emploi" className={styles.section}>
       <h2 className={styles.sectionTitle}>
         <EmploymentInfoTip />
         <span>Offres d'emploi</span>

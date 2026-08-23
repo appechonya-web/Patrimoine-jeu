@@ -31,6 +31,7 @@ import { CompaniesSection } from "./companies-section";
 import { MyDepositsSection } from "./my-deposits-section";
 import { CycleStatus } from "./cycle-status";
 import { WealthBreakdownSection } from "./wealth-breakdown-section";
+import { OnboardingChecklist } from "./onboarding-checklist";
 import { InfoTip } from "./info-tip";
 import styles from "./page.module.css";
 
@@ -103,6 +104,8 @@ export default async function HomePage() {
       <MainNav unreadCount={notifications.unreadCount} />
 
       <CycleStatus cycle={cycle} />
+
+      <OnboardingChecklist achievements={achievements} />
 
       <EngagementSection dailyBonus={dailyBonus} achievements={achievements} />
 
