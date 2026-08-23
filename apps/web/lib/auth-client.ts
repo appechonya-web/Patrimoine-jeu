@@ -6,8 +6,8 @@ export async function login(email: string, password: string): Promise<void> {
   await postJson("/auth/login", { email, password });
 }
 
-export async function register(email: string, pseudo: string, password: string): Promise<void> {
-  await postJson("/auth/register", { email, pseudo, password });
+export async function register(email: string, pseudo: string, password: string, startingProfileId: string): Promise<void> {
+  await postJson("/auth/register", { email, pseudo, password, startingProfileId });
 }
 
 export async function logout(): Promise<void> {

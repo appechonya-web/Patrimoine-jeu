@@ -1,7 +1,7 @@
 import { ConflictException, Injectable, UnauthorizedException } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcryptjs";
-import type { LoginInput, RegisterInput } from "@patrimoine-jeu/domain";
+import { STARTING_PROFILE_CATALOG, type LoginInput, type RegisterInput } from "@patrimoine-jeu/domain";
 import { PrismaService } from "../prisma/prisma.service.js";
 
 const SALT_ROUNDS = 10;
@@ -23,13 +23,19 @@ export class AuthService {
     }
 
     const passwordHash = await bcrypt.hash(input.password, SALT_ROUNDS);
+    const profile = STARTING_PROFILE_CATALOG[input.startingProfileId];
 
     const player = await this.prisma.client.player.create({
       data: {
         email: input.email,
         pseudo: input.pseudo,
         passwordHash,
-        stats: { create: {} },
+        stats: {
+          create: {
+            wellbeing: profile.startingWellbeing,
+            reputation: profile.startingReputation,
+          },
+        },
       },
     });
 

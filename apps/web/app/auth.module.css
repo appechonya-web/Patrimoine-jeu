@@ -108,3 +108,48 @@
 .switch a:hover {
   text-decoration: underline;
 }
+
+.profileOptions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.profileOption {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.profileOption:hover {
+  border-color: var(--border-strong);
+}
+
+.profileOptionSelected {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--gold) 22%, transparent);
+}
+
+.profileOption input[type="radio"] {
+  margin-top: 0.2rem;
+  accent-color: var(--gold);
+}
+
+.profileOptionLabel {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.profileOptionDescription {
+  margin-top: 0.15rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}

@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { DEFAULT_STARTING_PROFILE_ID, STARTING_PROFILE_LIST, type StartingProfileId } from "@patrimoine-jeu/domain";
 import { register, AuthError } from "../../lib/auth-client";
 import styles from "../auth.module.css";
 
@@ -11,6 +12,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [pseudo, setPseudo] = useState("");
   const [password, setPassword] = useState("");
+  const [startingProfileId, setStartingProfileId] = useState<StartingProfileId>(DEFAULT_STARTING_PROFILE_ID);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -19,7 +21,7 @@ export default function RegisterPage() {
     setError(null);
     setSubmitting(true);
     try {
-      await register(email, pseudo, password);
+      await register(email, pseudo, password, startingProfileId);
       router.push("/");
       router.refresh();
     } catch (err) {
@@ -73,6 +75,30 @@ export default function RegisterPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
+        </div>
+
+        <div className={styles.field}>
+          <label>Profil de départ</label>
+          <div className={styles.profileOptions}>
+            {STARTING_PROFILE_LIST.map((profile) => (
+              <label
+                key={profile.id}
+                className={`${styles.profileOption} ${startingProfileId === profile.id ? styles.profileOptionSelected : ""}`}
+              >
+                <input
+                  type="radio"
+                  name="startingProfile"
+                  value={profile.id}
+                  checked={startingProfileId === profile.id}
+                  onChange={() => setStartingProfileId(profile.id)}
+                />
+                <div>
+                  <div className={styles.profileOptionLabel}>{profile.label}</div>
+                  <div className={styles.profileOptionDescription}>{profile.description}</div>
+                </div>
+              </label>
+            ))}
+          </div>
         </div>
 
         {error && <p className={styles.error}>{error}</p>}
