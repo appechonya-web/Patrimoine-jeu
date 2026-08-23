@@ -2,12 +2,29 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { GUILD_FOUNDING_COST, MAX_GUILD_MESSAGE_LENGTH, REFERENCE_UNIT_PRICE } from "@patrimoine-jeu/domain";
+import {
+  GUILD_BASE_DETECTION_RATE,
+  GUILD_DETECTION_SENSITIVITY,
+  GUILD_FOUNDING_COST,
+  GUILD_MAX_DETECTION_PROBABILITY,
+  GUILD_PER_MEMBER_DETECTION_INCREMENT,
+  MAX_GUILD_MESSAGE_LENGTH,
+  REFERENCE_UNIT_PRICE,
+} from "@patrimoine-jeu/domain";
 import type { Company, GuildMessageView, GuildView } from "../../lib/session";
 import { GameError, foundGuild, joinGuild, leaveGuild, postGuildMessage, setGuildPriceFloor } from "../../lib/game-client";
 import { currencyFormatter } from "../../lib/format";
 import { InfoTip } from "../info-tip";
 import styles from "../page.module.css";
+
+function previewDetectionProbability(priceFloor: number, memberCount: number): number {
+  const excessRatio = Math.max(0, priceFloor / REFERENCE_UNIT_PRICE - 1);
+  const probability =
+    GUILD_BASE_DETECTION_RATE +
+    excessRatio * GUILD_DETECTION_SENSITIVITY +
+    Math.max(0, memberCount - 1) * GUILD_PER_MEMBER_DETECTION_INCREMENT;
+  return Math.min(GUILD_MAX_DETECTION_PROBABILITY, probability);
+}
 
 function FoundGuildForm({ myCompanies, onDone }: { myCompanies: Company[]; onDone: () => void }) {
   const [name, setName] = useState("");
@@ -61,6 +78,10 @@ function FoundGuildForm({ myCompanies, onDone }: { myCompanies: Company[]; onDon
         value={priceFloor}
         onChange={(e) => setPriceFloor(Number(e.target.value))}
       />
+      <p className={styles.jobMeta}>
+        Risque de détection estimé à 1 membre : {(previewDetectionProbability(priceFloor, 1) * 100).toFixed(1)}%
+        (montera avec chaque nouveau membre)
+      </p>
       <button className={styles.apply} type="submit" disabled={pending || !companyId}>
         {pending ? "…" : `Fonder (${currencyFormatter.format(GUILD_FOUNDING_COST)})`}
       </button>
@@ -210,6 +231,20 @@ function GuildCard({
             </span>
           ))}
         </div>
+        <div className={styles.jobStats}>
+          <span>
+            {guild.detectionRisk.probability >= 0.15 ? "🔴" : guild.detectionRisk.probability >= 0.07 ? "🟠" : "🟢"}{" "}
+            Risque de détection ce cycle : {(guild.detectionRisk.probability * 100).toFixed(1)}%
+            {guild.detectionRisk.cappedAtMax && " (plafond atteint)"}
+          </span>
+        </div>
+        <div className={styles.jobMeta}>
+          Dont {(guild.detectionRisk.baseRate * 100).toFixed(1)}% de base
+          {guild.detectionRisk.priceExcessContribution > 0 &&
+            `, +${(guild.detectionRisk.priceExcessContribution * 100).toFixed(1)}% pour l'écart de prix`}
+          {guild.detectionRisk.memberCountContribution > 0 &&
+            `, +${(guild.detectionRisk.memberCountContribution * 100).toFixed(1)}% pour le nombre de membres`}
+        </div>
         {error && <p className={styles.error}>{error}</p>}
       </div>
       <div className={styles.jobActions}>
@@ -226,6 +261,12 @@ function GuildCard({
             <button className={styles.apply} type="submit" disabled={pending}>
               {pending ? "…" : "Ajuster le plancher"}
             </button>
+            {floor !== guild.priceFloor && (
+              <span className={styles.jobMeta} style={{ width: "100%" }}>
+                Nouveau risque estimé : {(previewDetectionProbability(floor, guild.members.length) * 100).toFixed(1)}%
+                (actuellement {(guild.detectionRisk.probability * 100).toFixed(1)}%)
+              </span>
+            )}
           </form>
         )}
         {myMembership && (
@@ -291,7 +332,7 @@ export function GuildsList({
           <InfoTip
             label="🤝"
             title="Cartels actifs"
-            mechanic="Les membres s'engagent à ne jamais vendre leur gamme de base sous un prix plancher commun — une entente sur les prix. Détection automatique chaque cycle, probabilité croissante avec l'écart au prix de référence et le nombre de membres (plus un cartel est gros et agressif sur les prix, plus il est repérable)."
+            mechanic="Les membres s'engagent à ne jamais vendre leur gamme de base sous un prix plancher commun — une entente sur les prix. Détection automatique chaque cycle, probabilité croissante avec l'écart au prix de référence et le nombre de membres (plus un cartel est gros et agressif sur les prix, plus il est repérable) — affiché en direct sur chaque cartel, décomposé pour voir ce qui pèse le plus."
             realWorld="C'est une vraie entente illégale sur les prix (cartel), avec un vrai risque de démantèlement — amende par entreprise membre et perte de réputation pour chaque propriétaire si détecté, exactement comme une autorité de la concurrence réelle."
           />
           <span>Cartels actifs</span>

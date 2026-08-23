@@ -766,6 +766,14 @@ export interface GuildMemberView {
   playerId: string;
 }
 
+export interface GuildDetectionRiskView {
+  probability: number;
+  baseRate: number;
+  priceExcessContribution: number;
+  memberCountContribution: number;
+  cappedAtMax: boolean;
+}
+
 export interface GuildView {
   id: string;
   name: string;
@@ -775,6 +783,7 @@ export interface GuildView {
   founderPlayerId: string;
   createdCycle: number;
   members: GuildMemberView[];
+  detectionRisk: GuildDetectionRiskView;
 }
 
 export async function getGuilds(): Promise<GuildView[]> {

@@ -1,12 +1,18 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import {
+  GUILD_BASE_DETECTION_RATE,
+  GUILD_DETECTION_SENSITIVITY,
   GUILD_FOUNDING_COST,
+  GUILD_MAX_DETECTION_PROBABILITY,
+  GUILD_PER_MEMBER_DETECTION_INCREMENT,
   GUILD_REFORM_COOLDOWN_CYCLES,
+  REFERENCE_UNIT_PRICE,
   type FoundGuildInput,
   type JoinGuildInput,
   type PostGuildMessageInput,
   type SetGuildPriceFloorInput,
 } from "@patrimoine-jeu/domain";
+import { computeGuildDetectionProbability } from "@patrimoine-jeu/game-engine";
 import { CyclesService } from "../cycles/cycles.service.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 
@@ -205,12 +211,23 @@ export class GuildsService {
     createdCycle: number;
     members: { companyId: string; playerId: string; company: { name: string } }[];
   }) {
+    const priceFloor = guild.priceFloor.toNumber();
+    const memberCount = guild.members.length;
+    // Même formule que game-engine/guild.ts computeGuildDetectionProbability
+    // (réutilisée telle quelle), décomposée en trois contributions pour que
+    // le joueur voie CE QUI fait grimper le risque, pas juste le total —
+    // aucun signal de ce type n'existait avant l'amende qui tombait.
+    const excessRatio = Math.max(0, priceFloor / REFERENCE_UNIT_PRICE - 1);
+    const priceExcessContribution = excessRatio * GUILD_DETECTION_SENSITIVITY;
+    const memberCountContribution = Math.max(0, memberCount - 1) * GUILD_PER_MEMBER_DETECTION_INCREMENT;
+    const detectionProbability = computeGuildDetectionProbability(priceFloor, REFERENCE_UNIT_PRICE, memberCount);
+
     return {
       id: guild.id,
       name: guild.name,
       sectorId: guild.sectorId,
       sectorName: guild.sector.name,
-      priceFloor: guild.priceFloor.toNumber(),
+      priceFloor,
       founderPlayerId: guild.founderPlayerId,
       createdCycle: guild.createdCycle,
       members: guild.members.map((member) => ({
@@ -218,6 +235,13 @@ export class GuildsService {
         companyName: member.company.name,
         playerId: member.playerId,
       })),
+      detectionRisk: {
+        probability: detectionProbability,
+        baseRate: GUILD_BASE_DETECTION_RATE,
+        priceExcessContribution,
+        memberCountContribution,
+        cappedAtMax: detectionProbability >= GUILD_MAX_DETECTION_PROBABILITY,
+      },
     };
   }
 }
