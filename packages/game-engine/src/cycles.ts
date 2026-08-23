@@ -1352,6 +1352,10 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
     }
   }
 
+  // Événements marquants du cycle, relayés vers Discord après clôture (cf.
+  // apps/api/src/discord — pas de HTTP ici, le moteur de jeu reste pur).
+  const noteworthyEvents: string[] = [];
+
   return prisma.$transaction(async (tx) => {
     if (newSectoralEvent) {
       await tx.sectoralEvent.create({
@@ -1377,24 +1381,20 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
         // Signal faible, sans certitude de sens ni d'ampleur (cf. section
         // 12ter) — récompense l'attention sans donner de certitude
         // exploitable : le secteur est nommé, pas la direction ni la magnitude.
+        const headline = `Signaux de tension dans le secteur ${primaryName}${geo} — un choc économique pourrait survenir dans les prochains cycles.`;
         await tx.pressArticle.create({
-          data: {
-            category: "SECTORAL_SHOCK_WARNING",
-            headline: `Signaux de tension dans le secteur ${primaryName}${geo} — un choc économique pourrait survenir dans les prochains cycles.`,
-            cycle: openCycle.number,
-          },
+          data: { category: "SECTORAL_SHOCK_WARNING", headline, cycle: openCycle.number },
         });
+        noteworthyEvents.push(`⚠️ ${headline}`);
       } else if (newSectoralEvent.tier === "EXCEPTIONAL") {
         // Cygne noir : zéro signal par définition, l'impact et le titre de
         // presse tombent le même cycle.
         const sign = newSectoralEvent.primaryMagnitude > 0 ? "boom" : "krach";
+        const headline = `Choc économique exceptionnel : ${sign} soudain sur le secteur ${primaryName}${geo}.`;
         await tx.pressArticle.create({
-          data: {
-            category: "SECTORAL_SHOCK",
-            headline: `Choc économique exceptionnel : ${sign} soudain sur le secteur ${primaryName}${geo}.`,
-            cycle: openCycle.number,
-          },
+          data: { category: "SECTORAL_SHOCK", headline, cycle: openCycle.number },
         });
+        noteworthyEvents.push(`🚨 ${headline}`);
       }
     }
 
@@ -1403,13 +1403,11 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
       const regionName = event.regionId ? regionById.get(event.regionId)?.name : null;
       const geo = regionName ? ` (${regionName})` : " (à l'échelle nationale)";
       const sign = event.primaryMagnitude.toNumber() > 0 ? "boom" : "krach";
+      const headline = `Le choc annoncé se confirme : ${sign} sur le secteur ${primaryName}${geo}.`;
       await tx.pressArticle.create({
-        data: {
-          category: "SECTORAL_SHOCK",
-          headline: `Le choc annoncé se confirme : ${sign} sur le secteur ${primaryName}${geo}.`,
-          cycle: openCycle.number,
-        },
+        data: { category: "SECTORAL_SHOCK", headline, cycle: openCycle.number },
       });
+      noteworthyEvents.push(`🚨 ${headline}`);
       await tx.sectoralEvent.update({ where: { id: event.id }, data: { impactPublishedCycle: openCycle.number } });
     }
 
@@ -1549,13 +1547,11 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
         });
       }
       if (result.isBankrupt) {
+        const headline = `${result.company.name} a fait faillite — pertes cumulées trop lourdes, l'entreprise cesse son activité.`;
         await tx.pressArticle.create({
-          data: {
-            category: "BANKRUPTCY",
-            headline: `${result.company.name} a fait faillite — pertes cumulées trop lourdes, l'entreprise cesse son activité.`,
-            cycle: openCycle.number,
-          },
+          data: { category: "BANKRUPTCY", headline, cycle: openCycle.number },
         });
+        noteworthyEvents.push(`💥 ${headline}`);
       }
 
       if (companyEmployments.length > 0 && (!payrollAffordable || result.isBankrupt)) {
@@ -1957,6 +1953,7 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
               cycle: openCycle.number,
             },
           });
+          noteworthyEvents.push(`🏅 ${player.pseudo} a débloqué : ${definition.label}`);
         }
       }
     }
@@ -2123,6 +2120,7 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
       payrollCount,
       companyReportCount: companyResults.length,
       nextCycle: nextCycle.number,
+      noteworthyEvents,
     };
   });
 }

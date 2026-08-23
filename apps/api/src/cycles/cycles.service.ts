@@ -5,6 +5,7 @@ import {
   estimateNetPerCycle,
   getOrCreateOpenCycle,
 } from "@patrimoine-jeu/game-engine";
+import { DiscordNotifierService } from "../discord/discord-notifier.service.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 
 /**
@@ -20,7 +21,10 @@ const CYCLE_DURATION_MS = Number(process.env.CYCLE_DURATION_MS ?? 30 * 60 * 1000
 
 @Injectable()
 export class CyclesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly discordNotifier: DiscordNotifierService,
+  ) {}
 
   getOrCreateOpenCycle() {
     return getOrCreateOpenCycle(this.prisma.client);
@@ -47,6 +51,7 @@ export class CyclesService {
     }
 
     const result = await closeCurrentCycle(this.prisma.client);
+    await this.discordNotifier.postCycleEvents(result.noteworthyEvents, result.closedCycle);
     return { closed: true as const, ...result };
   }
 

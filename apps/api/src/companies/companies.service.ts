@@ -67,6 +67,7 @@ import {
   isLiquidationReserveMature,
 } from "@patrimoine-jeu/game-engine";
 import { CyclesService } from "../cycles/cycles.service.js";
+import { DiscordNotifierService } from "../discord/discord-notifier.service.js";
 import { AchievementsService } from "../engagement/achievements.service.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 
@@ -135,6 +136,7 @@ export class CompaniesService {
     private readonly prisma: PrismaService,
     private readonly cyclesService: CyclesService,
     private readonly achievementsService: AchievementsService,
+    private readonly discordNotifier: DiscordNotifierService,
   ) {}
 
   listFoundableSectors() {
@@ -2040,6 +2042,13 @@ export class CompaniesService {
         }
       }
     });
+
+    if (isFullyFunded) {
+      const investor = await this.prisma.client.player.findUnique({ where: { id: playerId }, select: { pseudo: true } });
+      await this.discordNotifier.postMessage(
+        `🚀 **${company.name}** a complété sa levée de fonds de ${targetAmount.toFixed(0)} € — dernière contribution de ${investor?.pseudo ?? "un investisseur"} !`,
+      );
+    }
 
     return { contributed: amount, fullyFunded: isFullyFunded };
   }
