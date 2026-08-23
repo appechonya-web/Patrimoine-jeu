@@ -76,7 +76,7 @@ export const FINANCIAL_ASSET_CATALOG: Record<string, FinancialAssetDefinition> =
     drift: 0.0004,
     volatility: 0.015,
     sectorName: null,
-    dividendRate: 0.013,
+    dividendRate: 0.03,
   },
   "wallonie-energie": {
     key: "wallonie-energie",
@@ -89,7 +89,7 @@ export const FINANCIAL_ASSET_CATALOG: Record<string, FinancialAssetDefinition> =
     // Les utilities versent traditionnellement de gros dividendes dans la
     // vraie vie (croissance lente, flux de trésorerie stable) — le taux le
     // plus élevé du catalogue, à l'image du secteur réel.
-    dividendRate: 0.03,
+    dividendRate: 0.0675,
   },
   bitbe: {
     key: "bitbe",
@@ -139,7 +139,7 @@ export const FINANCIAL_ASSET_CATALOG: Record<string, FinancialAssetDefinition> =
     drift: 0.0003,
     volatility: 0.009,
     sectorName: "Bois",
-    dividendRate: 0.02,
+    dividendRate: 0.045,
   },
   "sylva-forets": {
     key: "sylva-forets",
@@ -159,7 +159,7 @@ export const FINANCIAL_ASSET_CATALOG: Record<string, FinancialAssetDefinition> =
     drift: 0.0003,
     volatility: 0.01,
     sectorName: "Métaux",
-    dividendRate: 0.023,
+    dividendRate: 0.0525,
   },
   "forge-hainaut": {
     key: "forge-hainaut",
@@ -179,7 +179,7 @@ export const FINANCIAL_ASSET_CATALOG: Record<string, FinancialAssetDefinition> =
     drift: 0.0003,
     volatility: 0.008,
     sectorName: "Agriculture",
-    dividendRate: 0.02,
+    dividendRate: 0.045,
   },
   "ferme-brabant": {
     key: "ferme-brabant",
@@ -199,7 +199,7 @@ export const FINANCIAL_ASSET_CATALOG: Record<string, FinancialAssetDefinition> =
     drift: 0.0002,
     volatility: 0.007,
     sectorName: "Textile brut",
-    dividendRate: 0.017,
+    dividendRate: 0.0375,
   },
   "lin-fibres": {
     key: "lin-fibres",
@@ -219,7 +219,7 @@ export const FINANCIAL_ASSET_CATALOG: Record<string, FinancialAssetDefinition> =
     drift: 0.0003,
     volatility: 0.011,
     sectorName: "Extraction",
-    dividendRate: 0.02,
+    dividendRate: 0.045,
   },
   "mines-wallonie": {
     key: "mines-wallonie",
@@ -239,7 +239,7 @@ export const FINANCIAL_ASSET_CATALOG: Record<string, FinancialAssetDefinition> =
     drift: 0.0003,
     volatility: 0.008,
     sectorName: "Menuiserie",
-    dividendRate: 0.017,
+    dividendRate: 0.0375,
   },
   "atelier-bois": {
     key: "atelier-bois",
@@ -259,7 +259,7 @@ export const FINANCIAL_ASSET_CATALOG: Record<string, FinancialAssetDefinition> =
     drift: 0.0003,
     volatility: 0.01,
     sectorName: "Métallurgie",
-    dividendRate: 0.023,
+    dividendRate: 0.0525,
   },
   "acier-sambre": {
     key: "acier-sambre",
