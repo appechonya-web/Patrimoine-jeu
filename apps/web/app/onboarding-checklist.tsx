@@ -26,10 +26,10 @@ const ONBOARDING_STEPS: { achievementId: string; label: string; href: string }[]
 
 export function OnboardingChecklist({ achievements }: { achievements: AchievementView[] }) {
   const [mounted, setMounted] = useState(false);
-  const [dismissed, setDismissed] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
-    setDismissed(localStorage.getItem(DISMISS_KEY) === "1");
+    setCollapsed(localStorage.getItem(DISMISS_KEY) === "1");
     setMounted(true);
   }, []);
 
@@ -37,11 +37,26 @@ export function OnboardingChecklist({ achievements }: { achievements: Achievemen
   const steps = ONBOARDING_STEPS.map((step) => ({ ...step, done: unlockedById.get(step.achievementId) ?? false }));
   const doneCount = steps.filter((step) => step.done).length;
 
-  if (!mounted || dismissed || doneCount === steps.length) return null;
+  if (!mounted || doneCount === steps.length) return null;
 
-  function handleDismiss() {
-    localStorage.setItem(DISMISS_KEY, "1");
-    setDismissed(true);
+  function setCollapsedAndRemember(value: boolean) {
+    localStorage.setItem(DISMISS_KEY, value ? "1" : "0");
+    setCollapsed(value);
+  }
+
+  if (collapsed) {
+    return (
+      <section className={styles.section}>
+        <button
+          type="button"
+          className={styles.onboardingCollapsedBar}
+          onClick={() => setCollapsedAndRemember(false)}
+        >
+          <span>🧭 Premiers pas ({doneCount}/{steps.length})</span>
+          <span>Afficher</span>
+        </button>
+      </section>
+    );
   }
 
   return (
@@ -50,7 +65,7 @@ export function OnboardingChecklist({ achievements }: { achievements: Achievemen
         <h2 className={styles.sectionTitle}>
           <span>🧭 Premiers pas ({doneCount}/{steps.length})</span>
         </h2>
-        <button type="button" className={styles.onboardingDismiss} onClick={handleDismiss}>
+        <button type="button" className={styles.onboardingDismiss} onClick={() => setCollapsedAndRemember(true)}>
           Masquer
         </button>
       </div>

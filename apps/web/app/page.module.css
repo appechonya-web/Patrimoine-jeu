@@ -722,3 +722,24 @@ a.jobCard:hover {
   color: var(--text-muted);
   text-decoration: line-through;
 }
+
+.onboardingCollapsedBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.6rem 1rem;
+  background: transparent;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.onboardingCollapsedBar:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
