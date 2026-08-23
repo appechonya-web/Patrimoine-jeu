@@ -99,9 +99,31 @@ export class FinancialAssetsService {
     return { sold: quantity, saleProceeds, gain, tax, net };
   }
 
+  async setDividendPolicy(playerId: string, assetKey: string, policy: "CASH" | "REINVEST") {
+    const asset = await this.prisma.client.financialAsset.findUnique({ where: { key: assetKey } });
+    if (!asset) {
+      throw new NotFoundException("Actif introuvable");
+    }
+    const holding = await this.prisma.client.playerAssetHolding.findUnique({
+      where: { playerId_assetId: { playerId, assetId: asset.id } },
+    });
+    if (!holding) {
+      throw new NotFoundException("Tu ne possèdes pas cet actif");
+    }
+    const updated = await this.prisma.client.playerAssetHolding.update({
+      where: { playerId_assetId: { playerId, assetId: asset.id } },
+      data: { dividendPolicy: policy },
+    });
+    return this.toView(asset, updated);
+  }
+
   private toView(
     asset: { id: string; key: string; name: string; type: string; price: { toNumber(): number }; previousPrice: { toNumber(): number } },
-    holding: { quantity: { toNumber(): number }; costBasis: { toNumber(): number } } | null,
+    holding: {
+      quantity: { toNumber(): number };
+      costBasis: { toNumber(): number };
+      dividendPolicy: "CASH" | "REINVEST";
+    } | null,
   ) {
     const price = asset.price.toNumber();
     const quantity = holding?.quantity.toNumber() ?? 0;
@@ -114,12 +136,14 @@ export class FinancialAssetsService {
       name: asset.name,
       type: asset.type,
       sectorName: FINANCIAL_ASSET_CATALOG[asset.key]?.sectorName ?? null,
+      dividendRate: FINANCIAL_ASSET_CATALOG[asset.key]?.dividendRate ?? 0,
       price,
       previousPrice: asset.previousPrice.toNumber(),
       quantity,
       costBasis,
       marketValue,
       unrealizedGain: marketValue - costBasis,
+      dividendPolicy: holding?.dividendPolicy ?? "CASH",
     };
   }
 }

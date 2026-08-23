@@ -744,12 +744,14 @@ export interface FinancialAssetView {
   name: string;
   type: string;
   sectorName: string | null;
+  dividendRate: number;
   price: number;
   previousPrice: number;
   quantity: number;
   costBasis: number;
   marketValue: number;
   unrealizedGain: number;
+  dividendPolicy: "CASH" | "REINVEST";
 }
 
 export async function getFinancialAssets(): Promise<FinancialAssetView[]> {

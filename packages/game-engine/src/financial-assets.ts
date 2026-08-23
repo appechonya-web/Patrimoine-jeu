@@ -1,4 +1,4 @@
-import { MIN_ASSET_PRICE } from "@patrimoine-jeu/domain";
+import { CYCLES_PER_YEAR, MIN_ASSET_PRICE } from "@patrimoine-jeu/domain";
 
 /**
  * Marche aléatoire propre à chaque actif — dérive + volatilité (cf.
@@ -42,4 +42,31 @@ export function computeCapitalGainsTax(
   const taxableGain = Math.max(0, gain - Math.max(0, exemptionRemaining));
   const tax = taxableGain * capitalGainsRate;
   return { gain, tax, net: saleProceeds - tax };
+}
+
+export interface AssetDividendResult {
+  grossDividend: number;
+  tax: number;
+  netDividend: number;
+}
+
+/**
+ * Dividende versé chaque cycle par une action détenue (cf.
+ * domain/financial-assets.ts dividendRate — 0 pour les actions de
+ * croissance, la crypto et l'art). Même franchise à vie et même taux que le
+ * reste des revenus d'investissement du jeu (cf. computeCapitalGainsTax,
+ * game-engine/savings.ts computeSavingsInterest) : un seul concept fiscal
+ * de "revenu d'investissement", pas un régime séparé pour le dividende.
+ */
+export function computeAssetDividend(
+  quantity: number,
+  price: number,
+  annualDividendRate: number,
+  exemptionRemaining: number,
+  capitalGainsRate: number,
+): AssetDividendResult {
+  const grossDividend = quantity * price * (annualDividendRate / CYCLES_PER_YEAR);
+  const taxableAmount = Math.max(0, grossDividend - Math.max(0, exemptionRemaining));
+  const tax = taxableAmount * capitalGainsRate;
+  return { grossDividend, tax, netDividend: grossDividend - tax };
 }

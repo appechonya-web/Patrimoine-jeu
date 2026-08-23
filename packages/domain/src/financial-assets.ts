@@ -44,6 +44,16 @@ export interface FinancialAssetDefinition {
    * entreprises : il n'existe pas d'action "régionale".
    */
   sectorName: string | null;
+  /**
+   * Rendement annuel du dividende, en proportion du cours (0.03 = 3%/an) —
+   * réservé aux actions (jamais crypto/art, fidèle à la réalité), et à 0
+   * pour une action de croissance qui préfère réinvestir ses profits plutôt
+   * que les redistribuer (les PME/coopératives spéculatives du catalogue).
+   * Distribué chaque cycle au prorata (annualRate / CYCLES_PER_YEAR), cf.
+   * game-engine/financial-assets.ts computeAssetDividend — CASH ou REINVEST
+   * selon PlayerAssetHolding.dividendPolicy.
+   */
+  dividendRate: number;
 }
 
 /**
@@ -66,6 +76,7 @@ export const FINANCIAL_ASSET_CATALOG: Record<string, FinancialAssetDefinition> =
     drift: 0.0004,
     volatility: 0.015,
     sectorName: null,
+    dividendRate: 0.02,
   },
   "wallonie-energie": {
     key: "wallonie-energie",
@@ -75,6 +86,10 @@ export const FINANCIAL_ASSET_CATALOG: Record<string, FinancialAssetDefinition> =
     drift: 0.0002,
     volatility: 0.008,
     sectorName: null,
+    // Les utilities versent traditionnellement de gros dividendes dans la
+    // vraie vie (croissance lente, flux de trésorerie stable) — le taux le
+    // plus élevé du catalogue, à l'image du secteur réel.
+    dividendRate: 0.045,
   },
   bitbe: {
     key: "bitbe",
@@ -84,6 +99,7 @@ export const FINANCIAL_ASSET_CATALOG: Record<string, FinancialAssetDefinition> =
     drift: 0.0006,
     volatility: 0.05,
     sectorName: null,
+    dividendRate: 0,
   },
   etherbrux: {
     key: "etherbrux",
@@ -93,6 +109,7 @@ export const FINANCIAL_ASSET_CATALOG: Record<string, FinancialAssetDefinition> =
     drift: 0.0003,
     volatility: 0.045,
     sectorName: null,
+    dividendRate: 0,
   },
   "toile-magritte": {
     key: "toile-magritte",
@@ -102,6 +119,7 @@ export const FINANCIAL_ASSET_CATALOG: Record<string, FinancialAssetDefinition> =
     drift: 0.0003,
     volatility: 0.006,
     sectorName: null,
+    dividendRate: 0,
   },
   // Actions sectorielles — deux par secteur réel (packages/db Sector, cf.
   // packages/db/prisma/seed.ts LEVEL_0_SECTORS/LEVEL_1_SECTORS) : une
@@ -109,7 +127,10 @@ export const FINANCIAL_ASSET_CATALOG: Record<string, FinancialAssetDefinition> =
   // Leur cours réagit aux aléas sectoriels nationaux du même secteur (cf.
   // FINANCIAL_ASSET_SECTORAL_DRIFT_SENSITIVITY) en plus de leur propre
   // marche aléatoire — contrairement aux deux actions généralistes
-  // ci-dessus, qui restent hors de portée de ces aléas.
+  // ci-dessus, qui restent hors de portée de ces aléas. Seules les "grandes
+  // entreprises" versent un dividende : les PME/coopératives, plus
+  // spéculatives, réinvestissent tout — fidèle à la réalité des
+  // entreprises en croissance.
   "ardenne-bois": {
     key: "ardenne-bois",
     name: "Ardenne Bois SA",
@@ -118,6 +139,7 @@ export const FINANCIAL_ASSET_CATALOG: Record<string, FinancialAssetDefinition> =
     drift: 0.0003,
     volatility: 0.009,
     sectorName: "Bois",
+    dividendRate: 0.03,
   },
   "sylva-forets": {
     key: "sylva-forets",
@@ -127,6 +149,7 @@ export const FINANCIAL_ASSET_CATALOG: Record<string, FinancialAssetDefinition> =
     drift: 0.0005,
     volatility: 0.02,
     sectorName: "Bois",
+    dividendRate: 0,
   },
   "wallonie-metaux": {
     key: "wallonie-metaux",
@@ -136,6 +159,7 @@ export const FINANCIAL_ASSET_CATALOG: Record<string, FinancialAssetDefinition> =
     drift: 0.0003,
     volatility: 0.01,
     sectorName: "Métaux",
+    dividendRate: 0.035,
   },
   "forge-hainaut": {
     key: "forge-hainaut",
@@ -145,6 +169,7 @@ export const FINANCIAL_ASSET_CATALOG: Record<string, FinancialAssetDefinition> =
     drift: 0.0005,
     volatility: 0.022,
     sectorName: "Métaux",
+    dividendRate: 0,
   },
   agrowallonie: {
     key: "agrowallonie",
@@ -154,6 +179,7 @@ export const FINANCIAL_ASSET_CATALOG: Record<string, FinancialAssetDefinition> =
     drift: 0.0003,
     volatility: 0.008,
     sectorName: "Agriculture",
+    dividendRate: 0.03,
   },
   "ferme-brabant": {
     key: "ferme-brabant",
@@ -163,6 +189,7 @@ export const FINANCIAL_ASSET_CATALOG: Record<string, FinancialAssetDefinition> =
     drift: 0.0004,
     volatility: 0.017,
     sectorName: "Agriculture",
+    dividendRate: 0,
   },
   "flandre-textile": {
     key: "flandre-textile",
@@ -172,6 +199,7 @@ export const FINANCIAL_ASSET_CATALOG: Record<string, FinancialAssetDefinition> =
     drift: 0.0002,
     volatility: 0.007,
     sectorName: "Textile brut",
+    dividendRate: 0.025,
   },
   "lin-fibres": {
     key: "lin-fibres",
@@ -181,6 +209,7 @@ export const FINANCIAL_ASSET_CATALOG: Record<string, FinancialAssetDefinition> =
     drift: 0.0004,
     volatility: 0.016,
     sectorName: "Textile brut",
+    dividendRate: 0,
   },
   "carrieres-condroz": {
     key: "carrieres-condroz",
@@ -190,6 +219,7 @@ export const FINANCIAL_ASSET_CATALOG: Record<string, FinancialAssetDefinition> =
     drift: 0.0003,
     volatility: 0.011,
     sectorName: "Extraction",
+    dividendRate: 0.03,
   },
   "mines-wallonie": {
     key: "mines-wallonie",
@@ -199,6 +229,7 @@ export const FINANCIAL_ASSET_CATALOG: Record<string, FinancialAssetDefinition> =
     drift: 0.0006,
     volatility: 0.025,
     sectorName: "Extraction",
+    dividendRate: 0,
   },
   "menuiserie-ardennaise": {
     key: "menuiserie-ardennaise",
@@ -208,6 +239,7 @@ export const FINANCIAL_ASSET_CATALOG: Record<string, FinancialAssetDefinition> =
     drift: 0.0003,
     volatility: 0.008,
     sectorName: "Menuiserie",
+    dividendRate: 0.025,
   },
   "atelier-bois": {
     key: "atelier-bois",
@@ -217,6 +249,7 @@ export const FINANCIAL_ASSET_CATALOG: Record<string, FinancialAssetDefinition> =
     drift: 0.0004,
     volatility: 0.018,
     sectorName: "Menuiserie",
+    dividendRate: 0,
   },
   "metallurgie-liegeoise": {
     key: "metallurgie-liegeoise",
@@ -226,6 +259,7 @@ export const FINANCIAL_ASSET_CATALOG: Record<string, FinancialAssetDefinition> =
     drift: 0.0003,
     volatility: 0.01,
     sectorName: "Métallurgie",
+    dividendRate: 0.035,
   },
   "acier-sambre": {
     key: "acier-sambre",
@@ -235,6 +269,7 @@ export const FINANCIAL_ASSET_CATALOG: Record<string, FinancialAssetDefinition> =
     drift: 0.0005,
     volatility: 0.021,
     sectorName: "Métallurgie",
+    dividendRate: 0,
   },
 };
 export const FINANCIAL_ASSET_LIST: FinancialAssetDefinition[] = Object.values(FINANCIAL_ASSET_CATALOG);
@@ -251,3 +286,11 @@ export const sellAssetInputSchema = z.object({
   quantity: z.number().positive(),
 });
 export type SellAssetInput = z.infer<typeof sellAssetInputSchema>;
+
+export const DIVIDEND_POLICIES = ["CASH", "REINVEST"] as const;
+export type DividendPolicy = (typeof DIVIDEND_POLICIES)[number];
+
+export const setDividendPolicyInputSchema = z.object({
+  policy: z.enum(DIVIDEND_POLICIES),
+});
+export type SetDividendPolicyInput = z.infer<typeof setDividendPolicyInputSchema>;

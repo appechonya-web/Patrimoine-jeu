@@ -323,6 +323,10 @@ export function sellFinancialAsset(key: string, quantity: number): Promise<SellA
   return postJson(`/financial-assets/${key}/sell`, { quantity });
 }
 
+export function setDividendPolicy(key: string, policy: "CASH" | "REINVEST"): Promise<FinancialAssetView> {
+  return postJson(`/financial-assets/${key}/dividend-policy`, { policy });
+}
+
 export function foundGuild(name: string, companyId: string, priceFloor: number): Promise<GuildView> {
   return postJson("/guilds", { name, companyId, priceFloor });
 }

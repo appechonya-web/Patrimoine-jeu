@@ -365,7 +365,20 @@ model PlayerAssetHolding {
   quantity  Decimal        @db.Decimal(16, 6)
   costBasis Decimal        @db.Decimal(14, 2)
 
+  /// Réservé aux actions qui versent un dividende (cf.
+  /// domain/financial-assets.ts dividendRate) : CASH crédite le dividende
+  /// net directement en patrimoine liquide chaque cycle, REINVEST l'utilise
+  /// pour acheter davantage de parts du même actif (quantity et costBasis
+  /// augmentent d'autant) — un vrai effet boule de neige pour qui reste
+  /// investi longtemps, au prix de la liquidité immédiate.
+  dividendPolicy DividendPolicy @default(CASH)
+
   @@id([playerId, assetId])
+}
+
+enum DividendPolicy {
+  CASH
+  REINVEST
 }
 
 /// Dépôt d'un joueur dans une entreprise-banque (cf. Company.depositRate) —

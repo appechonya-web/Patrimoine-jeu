@@ -83,7 +83,7 @@ import { computePersonalGoodValue } from "./personal-goods.js";
 import { rollPersonalLifeEvent } from "./personal-events.js";
 import { computeAuctionState, type AuctionBidInput } from "./property-auction.js";
 import { matchB2bSupply, type B2bBuyer, type B2bSeller } from "./supply-chain.js";
-import { computeNextAssetPrice } from "./financial-assets.js";
+import { computeAssetDividend, computeNextAssetPrice } from "./financial-assets.js";
 import { computeBankDepositInterest } from "./banking.js";
 import { rollGuildDetection } from "./guild.js";
 import { computeDividendDistribution, computeLiquidationReserveEntry } from "./dividends.js";
@@ -393,6 +393,7 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
     sectorCompetitors,
     commodityMarkets,
     financialAssets,
+    assetHoldings,
     ownedProperties,
     mortgageLoans,
     commodityHoldings,
@@ -431,6 +432,7 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
     prisma.sectorCompetitor.findMany(),
     prisma.commodityMarket.findMany(),
     prisma.financialAsset.findMany(),
+    prisma.playerAssetHolding.findMany({ where: { quantity: { gt: 0 } } }),
     prisma.property.findMany({
       where: { ownerId: { not: null } },
       include: { leases: { where: { status: "ACTIVE" }, take: 1 } },
@@ -626,6 +628,14 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
       : asset.price.toNumber();
     return { asset, previousPrice: asset.price.toNumber(), nextPrice };
   });
+  const nextAssetPriceById = new Map(financialAssetUpdates.map((u) => [u.asset.id, u.nextPrice]));
+  const assetById = new Map(financialAssets.map((asset) => [asset.id, asset]));
+  const assetHoldingsByPlayer = new Map<string, typeof assetHoldings>();
+  for (const holding of assetHoldings) {
+    const list = assetHoldingsByPlayer.get(holding.playerId) ?? [];
+    list.push(holding);
+    assetHoldingsByPlayer.set(holding.playerId, list);
+  }
 
   // Banques-joueurs : intérêt composé par cycle sur chaque dépôt, payé par
   // la banque (coût brut) et reçu net de précompte par le déposant — cf.
@@ -1880,6 +1890,40 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
         }
       }
 
+      // Dividendes d'actions détenues (cf. domain/financial-assets.ts
+      // dividendRate, game-engine/financial-assets.ts computeAssetDividend)
+      // — même franchise à vie partagée que l'épargne ci-dessus, poursuivie
+      // sans être réinitialisée. CASH crédite le patrimoine liquide,
+      // REINVEST achète davantage de parts au prix courant (effet boule de
+      // neige pour qui reste investi).
+      let taxableGrossDividendThisCycle = 0;
+      for (const holding of assetHoldingsByPlayer.get(player.id) ?? []) {
+        const definition = FINANCIAL_ASSET_CATALOG[assetById.get(holding.assetId)?.key ?? ""];
+        if (!definition || definition.dividendRate <= 0) continue;
+
+        const quantity = holding.quantity.toNumber();
+        const price = nextAssetPriceById.get(holding.assetId) ?? 0;
+        const { grossDividend, netDividend } = computeAssetDividend(
+          quantity,
+          price,
+          definition.dividendRate,
+          exemptionRemaining,
+          capitalGains.rate,
+        );
+        if (grossDividend <= 0) continue;
+        taxableGrossDividendThisCycle += grossDividend;
+        exemptionRemaining -= grossDividend;
+
+        if (holding.dividendPolicy === "REINVEST" && price > 0) {
+          await tx.playerAssetHolding.update({
+            where: { playerId_assetId: { playerId: player.id, assetId: holding.assetId } },
+            data: { quantity: { increment: netDividend / price }, costBasis: { increment: netDividend } },
+          });
+        } else {
+          wealthDelta += netDividend;
+        }
+      }
+
       const netWorth =
         projectedWealth +
         (propertyEquityByPlayer.get(player.id) ?? 0) +
@@ -1897,7 +1941,7 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
           reputation: clampStat(stats.reputation.toNumber() + reputationDelta),
           experience: { increment: experienceDelta },
           netWorth,
-          cumulativeInvestmentGains: { increment: taxableGrossInterestThisCycle },
+          cumulativeInvestmentGains: { increment: taxableGrossInterestThisCycle + taxableGrossDividendThisCycle },
         },
       });
 

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { FINANCIAL_ASSET_TYPE_LABELS, MIN_ASSET_BUY_AMOUNT, type FinancialAssetType } from "@patrimoine-jeu/domain";
 import type { FinancialAssetView } from "../../lib/session";
-import { GameError, buyFinancialAsset, sellFinancialAsset } from "../../lib/game-client";
+import { GameError, buyFinancialAsset, sellFinancialAsset, setDividendPolicy } from "../../lib/game-client";
 import { currencyFormatter } from "../../lib/format";
 import styles from "../page.module.css";
 
@@ -55,6 +55,19 @@ function AssetCard({ asset, onDone }: { asset: FinancialAssetView; onDone: () =>
     }
   }
 
+  async function handleDividendPolicyChange(policy: "CASH" | "REINVEST") {
+    setError(null);
+    setPending(true);
+    try {
+      await setDividendPolicy(asset.key, policy);
+      onDone();
+    } catch (err) {
+      setError(err instanceof GameError ? err.message : "Une erreur est survenue");
+    } finally {
+      setPending(false);
+    }
+  }
+
   return (
     <div className={styles.jobCard}>
       <div>
@@ -63,6 +76,7 @@ function AssetCard({ asset, onDone }: { asset: FinancialAssetView; onDone: () =>
         <div className={styles.jobStats}>
           <span>💰 {currencyFormatter.format(asset.price)}</span>
           {asset.sectorName && <span>🏭 {asset.sectorName}</span>}
+          {asset.dividendRate > 0 && <span>💸 Dividende {(asset.dividendRate * 100).toFixed(1)}%/an</span>}
           {asset.quantity > 0 && (
             <>
               <span>📦 {asset.quantity.toFixed(4)} détenues</span>
@@ -74,6 +88,21 @@ function AssetCard({ asset, onDone }: { asset: FinancialAssetView; onDone: () =>
             </>
           )}
         </div>
+        {asset.quantity > 0 && asset.dividendRate > 0 && (
+          <div className={styles.jobStats} style={{ marginTop: "0.4rem" }}>
+            <span>Dividende :</span>
+            <select
+              className={styles.formInput}
+              style={{ width: "auto", padding: "0.3rem 0.5rem" }}
+              value={asset.dividendPolicy}
+              disabled={pending}
+              onChange={(e) => handleDividendPolicyChange(e.target.value as "CASH" | "REINVEST")}
+            >
+              <option value="CASH">💵 En liquide</option>
+              <option value="REINVEST">📈 Réinvesti (plus de parts)</option>
+            </select>
+          </div>
+        )}
         {notice && <p className={styles.jobMeta}>{notice}</p>}
         {error && <p className={styles.error}>{error}</p>}
       </div>

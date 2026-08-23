@@ -1,5 +1,5 @@
 import { BadRequestException, Body, Controller, Get, Param, Post, UseGuards } from "@nestjs/common";
-import { buyAssetInputSchema, sellAssetInputSchema } from "@patrimoine-jeu/domain";
+import { buyAssetInputSchema, sellAssetInputSchema, setDividendPolicyInputSchema } from "@patrimoine-jeu/domain";
 import { CurrentPlayer } from "../auth/current-player.decorator.js";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard.js";
 import { FinancialAssetsService } from "./financial-assets.service.js";
@@ -30,5 +30,14 @@ export class FinancialAssetsController {
       throw new BadRequestException(parsed.error.flatten());
     }
     return this.financialAssetsService.sell(playerId, key, parsed.data.quantity);
+  }
+
+  @Post(":key/dividend-policy")
+  setDividendPolicy(@CurrentPlayer() playerId: string, @Param("key") key: string, @Body() body: unknown) {
+    const parsed = setDividendPolicyInputSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.financialAssetsService.setDividendPolicy(playerId, key, parsed.data.policy);
   }
 }
