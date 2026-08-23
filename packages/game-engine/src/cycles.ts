@@ -24,8 +24,11 @@ import {
   NPC_JOBS,
   PERSONAL_GOOD_CATALOG,
   PROVINCE_SECTOR_AFFINITIES,
+  PROPERTY_TYPE_RANGES,
+  PROVINCE_PROPERTY_PROFILES,
   PROVINCE_SECTOR_AFFINITY_BONUS,
   REFERENCE_UNIT_PRICE,
+  type ProvincePropertyType,
   RESIDENTIAL_PROPERTY_TYPES,
   SAVINGS_PRODUCT_LABELS,
   type AchievementMilestone,
@@ -313,6 +316,52 @@ async function settleExpiredAuctions(prisma: PrismaClient, currentCycleNumber: n
   }
 }
 
+/**
+ * Fait grandir le parc immobilier de chaque province avec l'activité
+ * économique (même indice que computeDemandGrowthMultiplier, déjà utilisé
+ * pour la taille des marchés d'entreprise) — sans ce mécanisme, le stock
+ * semé une seule fois au démarrage (cf. seed.ts) resterait figé pour
+ * toujours : ~92 biens au total, épuisables avec suffisamment de joueurs.
+ * N'ajoute JAMAIS de biens en trop (cf. targetCount, arrondi à l'entier
+ * inférieur) et ne réduit jamais le stock existant, même si l'activité
+ * baisse — un bien déjà construit ne se démolit pas.
+ */
+async function growPropertyInventory(prisma: PrismaClient, demandGrowthMultiplier: number) {
+  const municipalities = await prisma.municipality.findMany();
+
+  for (const municipality of municipalities) {
+    const profile = PROVINCE_PROPERTY_PROFILES[municipality.name];
+    if (!profile) continue;
+
+    const currentCounts = await prisma.property.groupBy({
+      by: ["type"],
+      where: { municipalityId: municipality.id },
+      _count: { _all: true },
+    });
+    const currentByType = new Map(currentCounts.map((c) => [c.type, c._count._all]));
+
+    for (const [type, baseCount] of Object.entries(profile.propertyCounts) as [ProvincePropertyType, number][]) {
+      const targetCount = Math.floor(baseCount * demandGrowthMultiplier);
+      const toCreate = targetCount - (currentByType.get(type) ?? 0);
+      if (toCreate <= 0) continue;
+
+      const range = PROPERTY_TYPE_RANGES[type];
+      for (let i = 0; i < toCreate; i++) {
+        const marketValue = Math.round(
+          (range.minValue + Math.random() * (range.maxValue - range.minValue)) * profile.priceMultiplier,
+        );
+        const baseRent = Math.round(marketValue * range.rentYieldPerCycle * 100) / 100;
+        const property = await prisma.property.create({
+          data: { municipalityId: municipality.id, type, marketValue, baseRent, status: "VACANT" },
+        });
+        await prisma.listing.create({
+          data: { propertyId: property.id, price: property.marketValue, isAuction: false, expiresAt: new Date("2099-01-01") },
+        });
+      }
+    }
+  }
+}
+
 export async function estimateNetPerCycle(prisma: PrismaClient, annualGrossSalary: number): Promise<number> {
   const { ipp } = await getLatestTaxRuleSet(prisma);
   const { netAnnualIncome } = calculateNetAnnualIncome(annualGrossSalary, ipp, DEFAULT_COMMUNAL_SURCHARGE_RATE);
@@ -465,6 +514,10 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
     players.length,
     infrastructureFundAggregate._sum.infrastructureFund?.toNumber() ?? 0,
   );
+  // Hors de la transaction principale (comme settleExpiredAuctions) : purement
+  // additif, ne dépend de rien d'autre dans ce cycle et n'a pas besoin d'être
+  // atomique avec le reste.
+  await growPropertyInventory(prisma, demandGrowthMultiplier);
 
   // Jalons de progression moyen terme (cf. domain/achievements.ts,
   // NET_WORTH_MILESTONES/COMPANY_PROFIT_MILESTONES/INVESTMENT_LEVEL_MILESTONES)

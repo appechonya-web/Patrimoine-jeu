@@ -5,8 +5,8 @@ import {
   CASH_POOL_PER_PLAYER,
   COMMODITY_POOL_PER_PLAYER,
   FINANCIAL_ASSET_LIST,
+  PROPERTY_TYPE_RANGES,
   PROVINCE_PROPERTY_PROFILES,
-  type ProvincePropertyType,
 } from "@patrimoine-jeu/domain";
 
 const prisma = new PrismaClient();
@@ -75,26 +75,6 @@ const LEVEL_1_SECTORS: Array<{ name: string; parentSectorName: string }> = [
   { name: "Menuiserie", parentSectorName: "Bois" },
   { name: "Métallurgie", parentSectorName: "Métaux" },
 ];
-
-/**
- * Immobilier — plage de valeur/rendement de base par TYPE de bien, combinée
- * au profil propre à chaque province (cf. domain/province-profiles.ts,
- * PROVINCE_PROPERTY_PROFILES) qui fixe son propre multiplicateur de prix ET
- * combien de biens de chaque type y sont générés — remplace l'ancien système
- * où les 6 mêmes gabarits étaient dupliqués identiquement dans chaque
- * commune, avec pour seule variation un multiplicateur par RÉGION (trop
- * grossier pour distinguer, par exemple, le Brabant wallon aisé du Hainaut
- * post-industriel, tous deux en Wallonie). Le rendement locatif décroît avec
- * la gamme : les biens d'entrée de gamme rapportent proportionnellement
- * plus, le luxe est surtout un objectif de prestige à long terme.
- */
-const PROPERTY_TYPE_RANGES: Record<ProvincePropertyType, { minValue: number; maxValue: number; rentYieldPerCycle: number }> = {
-  PARKING: { minValue: 300, maxValue: 900, rentYieldPerCycle: 0.012 },
-  APARTMENT: { minValue: 3_000, maxValue: 12_000, rentYieldPerCycle: 0.0055 },
-  HOUSE: { minValue: 15_000, maxValue: 50_000, rentYieldPerCycle: 0.0045 },
-  COMMERCIAL: { minValue: 10_000, maxValue: 35_000, rentYieldPerCycle: 0.006 },
-  LUXURY: { minValue: 200_000, maxValue: 2_000_000, rentYieldPerCycle: 0.0025 },
-};
 
 function randomInRange(min: number, max: number): number {
   return min + Math.random() * (max - min);

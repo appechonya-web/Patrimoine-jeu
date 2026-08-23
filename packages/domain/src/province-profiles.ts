@@ -18,6 +18,30 @@ export interface ProvinceProfile {
   propertyCounts: Partial<Record<ProvincePropertyType, number>>;
 }
 
+/**
+ * Plage de valeur/rendement de base par TYPE de bien — combinée au
+ * multiplicateur de prix propre à chaque province (cf. ProvinceProfile
+ * ci-dessus) pour générer un bien, que ce soit au seed initial
+ * (packages/db/prisma/seed.ts) ou quand le stock grandit avec la
+ * population (cf. game-engine/cycles.ts, growPropertyInventory). Le
+ * rendement locatif décroît avec la gamme : les biens d'entrée de gamme
+ * rapportent proportionnellement plus, le luxe est surtout un objectif de
+ * prestige à long terme.
+ */
+export interface PropertyTypeRange {
+  minValue: number;
+  maxValue: number;
+  rentYieldPerCycle: number;
+}
+
+export const PROPERTY_TYPE_RANGES: Record<ProvincePropertyType, PropertyTypeRange> = {
+  PARKING: { minValue: 300, maxValue: 900, rentYieldPerCycle: 0.012 },
+  APARTMENT: { minValue: 3_000, maxValue: 12_000, rentYieldPerCycle: 0.0055 },
+  HOUSE: { minValue: 15_000, maxValue: 50_000, rentYieldPerCycle: 0.0045 },
+  COMMERCIAL: { minValue: 10_000, maxValue: 35_000, rentYieldPerCycle: 0.006 },
+  LUXURY: { minValue: 200_000, maxValue: 2_000_000, rentYieldPerCycle: 0.0025 },
+};
+
 export const PROVINCE_PROPERTY_PROFILES: Record<string, ProvinceProfile> = {
   Anvers: {
     description: "Port, diamant et industrie chimique",
