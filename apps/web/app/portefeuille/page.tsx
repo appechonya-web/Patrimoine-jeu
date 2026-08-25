@@ -4,6 +4,7 @@ import {
   getCommodityMarkets,
   getCurrentPlayer,
   getFinancialAssets,
+  getLatestCycleReport,
   getMyCompanies,
   getMyProperties,
   getPersonalGoods,
@@ -13,6 +14,7 @@ import {
 } from "../../lib/session";
 import { WealthBreakdownSection } from "../wealth-breakdown-section";
 import { WealthHistoryChart } from "../wealth-history-chart";
+import { CycleRecap } from "./cycle-recap";
 import { PortfolioSections } from "./portfolio-sections";
 import { InfoTip } from "../info-tip";
 import styles from "../page.module.css";
@@ -23,16 +25,18 @@ export default async function PortefeuillePage() {
     redirect("/login");
   }
 
-  const [breakdown, history, assets, savings, myCompanies, properties, commodities, personalGoods] = await Promise.all([
-    getWealthBreakdown(),
-    getWealthHistory(),
-    getFinancialAssets(),
-    getSavingsAccounts(),
-    getMyCompanies(),
-    getMyProperties(),
-    getCommodityMarkets(),
-    getPersonalGoods(),
-  ]);
+  const [breakdown, history, cycleReport, assets, savings, myCompanies, properties, commodities, personalGoods] =
+    await Promise.all([
+      getWealthBreakdown(),
+      getWealthHistory(),
+      getLatestCycleReport(),
+      getFinancialAssets(),
+      getSavingsAccounts(),
+      getMyCompanies(),
+      getMyProperties(),
+      getCommodityMarkets(),
+      getPersonalGoods(),
+    ]);
 
   return (
     <main className={styles.main}>
@@ -57,6 +61,8 @@ export default async function PortefeuillePage() {
       <WealthBreakdownSection breakdown={breakdown} />
 
       <WealthHistoryChart history={history} />
+
+      <CycleRecap report={cycleReport} />
 
       <PortfolioSections
         assets={assets.filter((asset) => asset.quantity > 0)}

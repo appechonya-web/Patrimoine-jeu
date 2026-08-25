@@ -162,4 +162,57 @@ export class PlayersService {
       }))
       .reverse();
   }
+
+  /**
+   * Récap détaillé du dernier cycle clôturé — pourquoi le patrimoine
+   * liquide a bougé, catégorie par catégorie (cf. cycles.ts,
+   * PlayerCycleReport). Certaines catégories ne touchent pas wealthLiquid
+   * (intérêts d'épargne capitalisés, dividendes réinvestis en parts) :
+   * informatives, exclues du total liquide.
+   */
+  async getLatestCycleReport(playerId: string) {
+    const report = await this.prisma.client.playerCycleReport.findFirst({
+      where: { playerId },
+      include: { cycle: true },
+      orderBy: { cycle: { number: "desc" } },
+    });
+    if (!report) return null;
+
+    const salaryIncome = report.salaryIncome.toNumber();
+    const independentActivityIncome = report.independentActivityIncome.toNumber();
+    const dividendIncome = report.dividendIncome.toNumber();
+    const rentIncome = report.rentIncome.toNumber();
+    const mortgagePayment = report.mortgagePayment.toNumber();
+    const lifeEventDelta = report.lifeEventDelta.toNumber();
+    const assetDividendCashIncome = report.assetDividendCashIncome.toNumber();
+    const assetDividendReinvestedValue = report.assetDividendReinvestedValue.toNumber();
+    const savingsInterestAccrued = report.savingsInterestAccrued.toNumber();
+    const achievementReward = report.achievementReward.toNumber();
+    const bankFailurePayout = report.bankFailurePayout.toNumber();
+
+    return {
+      cycleNumber: report.cycle.number,
+      salaryIncome,
+      independentActivityIncome,
+      dividendIncome,
+      rentIncome,
+      mortgagePayment,
+      lifeEventDelta,
+      assetDividendCashIncome,
+      assetDividendReinvestedValue,
+      savingsInterestAccrued,
+      achievementReward,
+      bankFailurePayout,
+      totalLiquidChange:
+        salaryIncome +
+        independentActivityIncome +
+        dividendIncome +
+        rentIncome +
+        mortgagePayment +
+        lifeEventDelta +
+        assetDividendCashIncome +
+        achievementReward +
+        bankFailurePayout,
+    };
+  }
 }

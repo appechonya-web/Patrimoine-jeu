@@ -22,4 +22,9 @@ export class PlayersController {
   async wealthHistory(@CurrentPlayer() playerId: string) {
     return this.playersService.getWealthHistory(playerId);
   }
+
+  @Get("me/cycle-report")
+  async cycleReport(@CurrentPlayer() playerId: string) {
+    return this.playersService.getLatestCycleReport(playerId);
+  }
 }

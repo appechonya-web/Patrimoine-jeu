@@ -127,6 +127,28 @@ export async function getWealthHistory(): Promise<WealthHistoryPoint[]> {
   return res.json();
 }
 
+export interface CycleReportView {
+  cycleNumber: number;
+  salaryIncome: number;
+  independentActivityIncome: number;
+  dividendIncome: number;
+  rentIncome: number;
+  mortgagePayment: number;
+  lifeEventDelta: number;
+  assetDividendCashIncome: number;
+  assetDividendReinvestedValue: number;
+  savingsInterestAccrued: number;
+  achievementReward: number;
+  bankFailurePayout: number;
+  totalLiquidChange: number;
+}
+
+export async function getLatestCycleReport(): Promise<CycleReportView | null> {
+  const res = await fetchWithSessionCookie("/players/me/cycle-report");
+  if (!res.ok) return null;
+  return res.json();
+}
+
 export interface JobOffer {
   id: string;
   title: string;

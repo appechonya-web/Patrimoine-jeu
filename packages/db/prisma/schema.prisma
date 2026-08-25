@@ -211,6 +211,35 @@ model Player {
   assetHoldings         PlayerAssetHolding[]
   bankDeposits          BankDeposit[]
   causeDonations        CauseDonation[]
+  cycleReports          PlayerCycleReport[]
+}
+
+/// Récap "revenus & dépenses" d'un cycle pour un joueur — contrairement à
+/// PlayerStatHistory (un instantané des totaux), une ligne par catégorie
+/// pour expliquer POURQUOI le patrimoine liquide a bougé (cf.
+/// apps/web/app/portefeuille). Certaines colonnes ne touchent PAS
+/// wealthLiquid (intérêts d'épargne capitalisés, dividendes réinvestis en
+/// parts) : informatives, affichées séparément du total liquide du cycle.
+model PlayerCycleReport {
+  id       String @id @default(uuid())
+  player   Player @relation(fields: [playerId], references: [id])
+  playerId String
+  cycle    Cycle  @relation(fields: [cycleId], references: [id])
+  cycleId  String
+
+  salaryIncome                 Decimal @default(0) @db.Decimal(14, 2)
+  independentActivityIncome    Decimal @default(0) @db.Decimal(14, 2)
+  dividendIncome                Decimal @default(0) @db.Decimal(14, 2)
+  rentIncome                   Decimal @default(0) @db.Decimal(14, 2)
+  mortgagePayment              Decimal @default(0) @db.Decimal(14, 2)
+  lifeEventDelta                Decimal @default(0) @db.Decimal(14, 2)
+  assetDividendCashIncome       Decimal @default(0) @db.Decimal(14, 2)
+  assetDividendReinvestedValue Decimal @default(0) @db.Decimal(14, 2)
+  savingsInterestAccrued       Decimal @default(0) @db.Decimal(14, 2)
+  achievementReward            Decimal @default(0) @db.Decimal(14, 2)
+  bankFailurePayout            Decimal @default(0) @db.Decimal(14, 2)
+
+  @@unique([playerId, cycleId])
 }
 
 /// Biens de consommation personnels (cf. domain/personal-goods.ts) — un
@@ -1274,6 +1303,7 @@ model Cycle {
   supplyContracts        SupplyContract[]
   commodityPriceHistory  CommodityPriceHistory[]
   assetPriceHistory      FinancialAssetPriceHistory[]
+  playerCycleReports     PlayerCycleReport[]
 }
 
 /// Prêt bancaire d'entreprise — distinct du modèle Loan (qui visait des

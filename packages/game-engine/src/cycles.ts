@@ -620,9 +620,14 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
     return { property, ownerId: property.ownerId!, rentCollected, newCondition };
   });
   const propertyWealthDeltaByPlayer = new Map<string, number>();
+  // Suivi séparé du loyer seul (cf. PlayerCycleReport, récap par joueur) —
+  // propertyWealthDeltaByPlayer ci-dessus reste le total loyer+échéance déjà
+  // utilisé partout ailleurs (projectedWealth, wealthDelta), inchangé.
+  const rentIncomeByPlayer = new Map<string, number>();
   for (const update of propertyUpdates) {
     if (update.rentCollected > 0) {
       propertyWealthDeltaByPlayer.set(update.ownerId, (propertyWealthDeltaByPlayer.get(update.ownerId) ?? 0) + update.rentCollected);
+      rentIncomeByPlayer.set(update.ownerId, (rentIncomeByPlayer.get(update.ownerId) ?? 0) + update.rentCollected);
     }
   }
 
@@ -638,6 +643,7 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
   // communautaire, juste une perte sèche pour l'entreprise prêteuse.
   const mortgagePaymentsByPlayer = new Map<string, { loan: (typeof mortgageLoans)[number]; principalPortion: number }[]>();
   const communityLoanCreditByLenderCompany = new Map<string, number>();
+  const mortgagePaymentAmountByPlayer = new Map<string, number>();
   for (const loan of mortgageLoans) {
     const payment = computeLoanCyclePayment({
       principal: loan.principal.toNumber(),
@@ -651,6 +657,10 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
     propertyWealthDeltaByPlayer.set(
       loan.borrowerPlayerId,
       (propertyWealthDeltaByPlayer.get(loan.borrowerPlayerId) ?? 0) - payment.totalPayment,
+    );
+    mortgagePaymentAmountByPlayer.set(
+      loan.borrowerPlayerId,
+      (mortgagePaymentAmountByPlayer.get(loan.borrowerPlayerId) ?? 0) - payment.totalPayment,
     );
     if (loan.lenderType === "COMPANY" && loan.lenderCompanyId) {
       communityLoanCreditByLenderCompany.set(
@@ -1794,7 +1804,21 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
         );
       }
 
-      let wealthDelta = (companyIncomeByPlayer.get(player.id) ?? 0) + (propertyWealthDeltaByPlayer.get(player.id) ?? 0);
+      // Récap "revenus & dépenses" du cycle (cf. PlayerCycleReport, affiché
+      // sur /portefeuille) — mêmes montants que ceux ajoutés à wealthDelta
+      // ci-dessous, gardés à part catégorie par catégorie plutôt que
+      // fondus dans un seul total, pour que le joueur comprenne d'où vient
+      // chaque euro gagné ou perdu ce cycle.
+      const dividendIncome = companyIncomeByPlayer.get(player.id) ?? 0;
+      const rentIncome = rentIncomeByPlayer.get(player.id) ?? 0;
+      const mortgagePayment = mortgagePaymentAmountByPlayer.get(player.id) ?? 0;
+      let salaryIncome = 0;
+      let independentActivityIncome = 0;
+      let lifeEventDelta = 0;
+      let assetDividendCashIncome = 0;
+      let assetDividendReinvestedValue = 0;
+
+      let wealthDelta = dividendIncome + (propertyWealthDeltaByPlayer.get(player.id) ?? 0);
       let wellbeingDelta =
         computeBaselineWellbeingRegen(sportLevel) +
         personalGoodsWellbeingBonus -
@@ -1807,6 +1831,7 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
       // d'entreprise, cf. domain/personal-events.ts.
       const lifeEvent = rollPersonalLifeEvent(ownsVehicle);
       if (lifeEvent) {
+        lifeEventDelta = lifeEvent.wealthDelta;
         wealthDelta += lifeEvent.wealthDelta;
         wellbeingDelta += lifeEvent.wellbeingDelta;
         reputationDelta += lifeEvent.reputationDelta;
@@ -1845,13 +1870,14 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
           const { totalTax } = calculateIpp(totalTaxable, ipp, DEFAULT_COMMUNAL_SURCHARGE_RATE);
           const totalNet = totalTaxable - totalTax;
           const salaryShare = totalTaxable > 0 ? salaryNetTaxable / totalTaxable : 0;
-          wealthDelta +=
-            ((totalNet * salaryShare) / CYCLES_PER_YEAR) * incomeMultiplier +
-            (totalNet * (1 - salaryShare)) / CYCLES_PER_YEAR;
+          salaryIncome = ((totalNet * salaryShare) / CYCLES_PER_YEAR) * incomeMultiplier;
+          independentActivityIncome = (totalNet * (1 - salaryShare)) / CYCLES_PER_YEAR;
+          wealthDelta += salaryIncome + independentActivityIncome;
           wellbeingDelta -= computeIndependentActivityWellbeingDrain(independentActivity.grossRevenuePerCycle.toNumber());
         } else {
           const { netAnnualIncome } = calculateNetAnnualIncome(annualGross, ipp, DEFAULT_COMMUNAL_SURCHARGE_RATE);
-          wealthDelta += (netAnnualIncome / CYCLES_PER_YEAR) * incomeMultiplier;
+          salaryIncome = (netAnnualIncome / CYCLES_PER_YEAR) * incomeMultiplier;
+          wealthDelta += salaryIncome;
         }
 
         wellbeingDelta -= computePressureDrain(effectivePressure ?? 50, sectorCycles, nutritionLevel);
@@ -1946,6 +1972,7 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
       // des comptes traités dans ce même cycle (ordre arbitraire).
       let taxableGrossInterestThisCycle = 0;
       let savingsValueThisPlayer = 0;
+      let savingsInterestAccrued = 0;
       let exemptionRemaining = capitalGains.exemption - stats.cumulativeInvestmentGains.toNumber();
       for (const account of savingsAccountsByPlayer.get(player.id) ?? []) {
         const isTaxExempt = account.productType === "pension";
@@ -1961,6 +1988,7 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
           taxableGrossInterestThisCycle += grossInterest;
           exemptionRemaining -= grossInterest;
         }
+        savingsInterestAccrued += netInterest;
         const newBalance = balance + netInterest;
         savingsValueThisPlayer += newBalance;
         await tx.savingsAccount.update({ where: { id: account.id }, data: { balance: newBalance } });
@@ -2006,7 +2034,9 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
             where: { playerId_assetId: { playerId: player.id, assetId: holding.assetId } },
             data: { quantity: { increment: netDividend / price }, costBasis: { increment: netDividend } },
           });
+          assetDividendReinvestedValue += netDividend;
         } else {
+          assetDividendCashIncome += netDividend;
           wealthDelta += netDividend;
         }
       }
@@ -2052,6 +2082,38 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
         },
       });
 
+      // Récap détaillé du cycle (cf. apps/web/app/portefeuille) — une ligne
+      // par joueur par cycle, mise à jour plus bas par les jalons de
+      // progression (achievementReward) et les faillites bancaires
+      // (bankFailurePayout), qui se produisent après cette boucle.
+      await tx.playerCycleReport.upsert({
+        where: { playerId_cycleId: { playerId: player.id, cycleId: openCycle.id } },
+        create: {
+          playerId: player.id,
+          cycleId: openCycle.id,
+          salaryIncome,
+          independentActivityIncome,
+          dividendIncome,
+          rentIncome,
+          mortgagePayment,
+          lifeEventDelta,
+          assetDividendCashIncome,
+          assetDividendReinvestedValue,
+          savingsInterestAccrued,
+        },
+        update: {
+          salaryIncome,
+          independentActivityIncome,
+          dividendIncome,
+          rentIncome,
+          mortgagePayment,
+          lifeEventDelta,
+          assetDividendCashIncome,
+          assetDividendReinvestedValue,
+          savingsInterestAccrued,
+        },
+      });
+
       // Jalons de progression moyen terme (audit d'équilibrage, cf.
       // domain/achievements.ts) — mêmes trois pistes que le catalogue
       // décrit : patrimoine net, profit d'entreprise, niveau de levier
@@ -2075,6 +2137,10 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
           await tx.playerStats.update({
             where: { playerId: player.id },
             data: { wealthLiquid: { increment: definition.reward } },
+          });
+          await tx.playerCycleReport.update({
+            where: { playerId_cycleId: { playerId: player.id, cycleId: openCycle.id } },
+            data: { achievementReward: { increment: definition.reward } },
           });
           await tx.playerNotification.create({
             data: {
@@ -2206,6 +2272,11 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
         const payout = balance * payoutRatio;
         totalPaidOut += payout;
         await tx.playerStats.update({ where: { playerId: deposit.playerId }, data: { wealthLiquid: { increment: payout } } });
+        await tx.playerCycleReport.upsert({
+          where: { playerId_cycleId: { playerId: deposit.playerId, cycleId: openCycle.id } },
+          create: { playerId: deposit.playerId, cycleId: openCycle.id, bankFailurePayout: payout },
+          update: { bankFailurePayout: { increment: payout } },
+        });
         await tx.bankDeposit.update({ where: { id: deposit.id }, data: { balance: 0, withdrawnCycle: openCycle.number } });
         await tx.playerNotification.create({
           data: {
