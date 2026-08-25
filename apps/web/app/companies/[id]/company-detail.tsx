@@ -62,6 +62,7 @@ import {
 } from "../../../lib/game-client";
 import { currencyFormatter } from "../../../lib/format";
 import { InfoTip } from "../../info-tip";
+import { StatHint } from "../../stat-hint";
 import { LoanOffersSection } from "./loan-offers-section";
 import { DistributionSection } from "./distribution-section";
 import { BankingSection } from "./banking-section";
@@ -474,16 +475,50 @@ function ProductCard({
           {product.label} {product.isCore && <span className={styles.jobMeta}>(gamme de fondation)</span>}
         </div>
         <div className={styles.jobStats}>
-          <span>⚖️ {product.capacityAllocation.toFixed(0)}% de la capacité</span>
-          <span>🗃️ Stock {product.stockUnits.toFixed(1)} unités</span>
+          <span>
+            <StatHint hint="Part de la capacité de production totale de l'entreprise réservée à cette gamme — le reste revient automatiquement à la gamme de fondation. Plus haut = plus d'unités produites pour cette gamme, moins pour les autres.">
+              ⚖️ {product.capacityAllocation.toFixed(0)}% de la capacité
+            </StatHint>
+          </span>
+          <span>
+            <StatHint hint="Unités produites mais pas encore vendues, reportées au cycle suivant (jusqu'à 3 cycles de capacité, au-delà elles sont perdues). Coûte un léger frais de stockage par unité et par cycle — un stock qui grossit sans arrêt signale une production trop généreuse face à la demande.">
+              🗃️ Stock {product.stockUnits.toFixed(1)} unités
+            </StatHint>
+          </span>
           {report && (
             <>
-              <span>🥊 Part de marché {report.marketSharePercent.toFixed(1)}%</span>
-              <span>🏭 Produit {report.unitsProduced.toFixed(1)}</span>
-              <span>🛒 Vendu {report.unitsSold.toFixed(1)}</span>
-              {report.unitsLost > 0.05 && <span>😕 Perdu {report.unitsLost.toFixed(1)}</span>}
-              <span>⚙️ Coût {currencyFormatter.format(report.unitCost)}/unité</span>
-              <span>💵 Revenu {currencyFormatter.format(report.revenue)}</span>
+              <span>
+                <StatHint hint="Ta part de la demande totale de ce (secteur, gamme), proportionnelle à ta compétitivité face aux autres entreprises qui la disputent — prix, qualité, marketing et branding y contribuent tous.">
+                  🥊 Part de marché {report.marketSharePercent.toFixed(1)}%
+                </StatHint>
+              </span>
+              <span>
+                <StatHint hint="Unités produites ce cycle pour cette gamme — dépend de la capacité totale de l'entreprise (effectifs, équipement, formation) et du % qui lui est alloué ci-dessus.">
+                  🏭 Produit {report.unitsProduced.toFixed(1)}
+                </StatHint>
+              </span>
+              <span>
+                <StatHint hint="Unités effectivement vendues ce cycle — plafonné par ce que tu as pu produire + ton stock disponible, jamais par la demande elle-même.">
+                  🛒 Vendu {report.unitsSold.toFixed(1)}
+                </StatHint>
+              </span>
+              {report.unitsLost > 0.05 && (
+                <span>
+                  <StatHint hint="Demande que tu n'as PAS pu satisfaire : le marché voulait acheter plus que ce que ta production + ton stock permettaient. Ce n'est pas du surplus invendu — c'est le signe que ton produit se vend mieux que tu ne peux en fournir. Pour réduire ce nombre : augmente la capacité (embauche, équipement, formation) ou l'allocation de cette gamme, pas le prix.">
+                    😕 Perdu {report.unitsLost.toFixed(1)}
+                  </StatHint>
+                </span>
+              )}
+              <span>
+                <StatHint hint="Coût de production par unité — réduit par l'automatisation, augmenté par les investissements qualité (meilleurs intrants, compensés par un prix de référence plus élevé accepté par le marché).">
+                  ⚙️ Coût {currencyFormatter.format(report.unitCost)}/unité
+                </StatHint>
+              </span>
+              <span>
+                <StatHint hint="Chiffre d'affaires de cette gamme ce cycle = unités vendues × prix affiché. Avant coûts, salaires, charges et impôts — voir Profit net pour le résultat final de l'entreprise.">
+                  💵 Revenu {currencyFormatter.format(report.revenue)}
+                </StatHint>
+              </span>
             </>
           )}
         </div>
@@ -777,7 +812,16 @@ export function CompanyDetail({
 
       <section className={styles.grid}>
         <div className={`${styles.card} ${styles.cardGold}`}>
-          <span className={styles.label}>💰 Profit net</span>
+          <span className={styles.label}>
+            <InfoTip
+              label="💰"
+              title="Profit net"
+              mechanic="Chiffre d'affaires de toutes les gammes actives ce cycle, moins coûts de production, salaires, charges (assurance, stockage...), intérêts d'emprunt et impôt des sociétés (ISOC) — recalculé entièrement à chaque clôture, ne se cumule pas d'un cycle à l'autre."
+              realWorld="L'équivalent du résultat net après impôt d'une vraie entreprise sur sa dernière période comptable — ce qui reste réellement après avoir payé fournisseurs, employés, banque et fisc."
+              tip="Négatif un cycle ponctuellement n'est pas grave — regarde plutôt la tendance sur plusieurs cycles et le Profit cumulé à côté, qui lui ne redescend jamais."
+            />{" "}
+            Profit net
+          </span>
           <span className={styles.value}>
             {company.latestCycleReport ? currencyFormatter.format(company.latestCycleReport.netProfit) : "—"}
           </span>
@@ -809,7 +853,15 @@ export function CompanyDetail({
           </span>
         </div>
         <div className={`${styles.card} ${styles.cardGold}`}>
-          <span className={styles.label}>📈 Profit cumulé</span>
+          <span className={styles.label}>
+            <InfoTip
+              label="📈"
+              title="Profit cumulé"
+              mechanic={`Somme de tous les profits nets réalisés depuis la fondation de l'entreprise — ne baisse jamais, même un cycle déficitaire, contrairement au Profit net à côté qui repart de zéro chaque cycle.${expansionRequirement ? ` Conditionne notamment l'expansion (il en faut ${currencyFormatter.format(expansionRequirement.minCumulativeNetProfit)} pour fonder une deuxième entreprise).` : ""}`}
+              realWorld="Comme les bénéfices non distribués (retained earnings) au bilan d'une vraie entreprise — la trace de sa rentabilité totale dans la durée, pas juste sa performance du dernier trimestre."
+            />{" "}
+            Profit cumulé
+          </span>
           <span className={styles.value}>{currencyFormatter.format(company.cumulativeNetProfit)}</span>
         </div>
       </section>

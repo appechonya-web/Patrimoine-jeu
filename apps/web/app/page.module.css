@@ -546,6 +546,53 @@ a.jobCard:hover {
   color: var(--gold-strong);
 }
 
+.statHint {
+  position: relative;
+  display: inline-flex;
+}
+
+.statHintTrigger {
+  all: unset;
+  cursor: help;
+  border-bottom: 1px dotted var(--text-muted);
+}
+
+.statHintTrigger:hover,
+.statHintTrigger[aria-expanded="true"] {
+  border-bottom-color: var(--gold);
+  color: var(--gold-strong);
+}
+
+.statHintTrigger:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+/* Qualifié via .statHint (deux classes) plutôt que .statHintPopover seul :
+   ce composant est utilisé À L'INTÉRIEUR de pills .jobStats span, dont le
+   sélecteur descendant (padding/fond/nowrap) a sinon une spécificité égale
+   ou supérieure et gagnerait sur des propriétés qui doivent rester propres
+   à la popover (positionnement, largeur, retour à la ligne). */
+.statHint .statHintPopover {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  left: 0;
+  z-index: 30;
+  width: max(200px, min(280px, 80vw));
+  padding: 0.55rem 0.7rem;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  box-shadow: var(--shadow-card-hover);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--text);
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+  white-space: normal;
+}
+
 .helpToggle {
   position: fixed;
   right: 1.25rem;
