@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { FINANCIAL_ASSET_TYPE_LABELS, MIN_ASSET_BUY_AMOUNT, type FinancialAssetType } from "@patrimoine-jeu/domain";
-import type { FinancialAssetView } from "../../lib/session";
+import type { AssetPricePoint, FinancialAssetView } from "../../lib/session";
 import { GameError, buyFinancialAsset, sellFinancialAsset, setDividendPolicy } from "../../lib/game-client";
 import { currencyFormatter } from "../../lib/format";
+import { AssetPriceChart } from "./asset-price-chart";
 import styles from "../page.module.css";
 
 function variationLabel(price: number, previousPrice: number): string {
@@ -15,7 +16,15 @@ function variationLabel(price: number, previousPrice: number): string {
   return `${change >= 0 ? "📈" : "📉"} ${sign}${change.toFixed(1)}% depuis le dernier cycle`;
 }
 
-function AssetCard({ asset, onDone }: { asset: FinancialAssetView; onDone: () => void }) {
+function AssetCard({
+  asset,
+  history,
+  onDone,
+}: {
+  asset: FinancialAssetView;
+  history: AssetPricePoint[];
+  onDone: () => void;
+}) {
   const [amount, setAmount] = useState(MIN_ASSET_BUY_AMOUNT);
   const [sellQuantity, setSellQuantity] = useState(asset.quantity);
   const [pending, setPending] = useState(false);
@@ -69,86 +78,89 @@ function AssetCard({ asset, onDone }: { asset: FinancialAssetView; onDone: () =>
   }
 
   return (
-    <div className={styles.jobCard}>
-      <div>
-        <div className={styles.jobTitle}>{asset.name}</div>
-        <div className={styles.jobMeta}>{variationLabel(asset.price, asset.previousPrice)}</div>
-        <div className={styles.jobStats}>
-          <span>💰 {currencyFormatter.format(asset.price)}</span>
-          {asset.sectorName && <span>🏭 {asset.sectorName}</span>}
-          {asset.dividendRate > 0 && <span>💸 Dividende {(asset.dividendRate * 100).toFixed(1)}%/an</span>}
-          {asset.quantity > 0 && (
-            <>
-              <span>📦 {asset.quantity.toFixed(4)} détenues</span>
-              <span>Valeur {currencyFormatter.format(asset.marketValue)}</span>
-              <span>
-                {asset.unrealizedGain >= 0 ? "🟢" : "🔴"} {currencyFormatter.format(asset.unrealizedGain)} de
-                plus-value latente
-              </span>
-            </>
-          )}
-        </div>
-        {asset.quantity > 0 && asset.dividendRate > 0 && (
-          <div className={styles.jobStats} style={{ marginTop: "0.4rem" }}>
-            <span>Dividende :</span>
-            <select
-              className={styles.formInput}
-              style={{ width: "auto", padding: "0.3rem 0.5rem" }}
-              value={asset.dividendPolicy}
-              disabled={pending}
-              onChange={(e) => handleDividendPolicyChange(e.target.value as "CASH" | "REINVEST")}
-            >
-              <option value="CASH">💵 En liquide</option>
-              <option value="REINVEST">📈 Réinvesti (plus de parts)</option>
-            </select>
+    <div className={styles.assetCardWrapper}>
+      <div className={styles.jobCard}>
+        <div>
+          <div className={styles.jobTitle}>{asset.name}</div>
+          <div className={styles.jobMeta}>{variationLabel(asset.price, asset.previousPrice)}</div>
+          <div className={styles.jobStats}>
+            <span>💰 {currencyFormatter.format(asset.price)}</span>
+            {asset.sectorName && <span>🏭 {asset.sectorName}</span>}
+            {asset.dividendRate > 0 && <span>💸 Dividende {(asset.dividendRate * 100).toFixed(1)}%/an</span>}
+            {asset.quantity > 0 && (
+              <>
+                <span>📦 {asset.quantity.toFixed(4)} détenues</span>
+                <span>Valeur {currencyFormatter.format(asset.marketValue)}</span>
+                <span>
+                  {asset.unrealizedGain >= 0 ? "🟢" : "🔴"} {currencyFormatter.format(asset.unrealizedGain)} de
+                  plus-value latente
+                </span>
+              </>
+            )}
           </div>
-        )}
-        {notice && <p className={styles.jobMeta}>{notice}</p>}
-        {error && <p className={styles.error}>{error}</p>}
-      </div>
-      <div className={styles.jobActions}>
-        <form
-          className={styles.form}
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleBuy();
-          }}
-        >
-          <input
-            className={styles.formInput}
-            type="number"
-            min={MIN_ASSET_BUY_AMOUNT}
-            step={5}
-            value={amount}
-            onChange={(e) => setAmount(Number(e.target.value))}
-          />
-          <button className={styles.apply} type="submit" disabled={pending}>
-            {pending ? "…" : "Acheter"}
-          </button>
-        </form>
-        {asset.quantity > 0 && (
+          {asset.quantity > 0 && asset.dividendRate > 0 && (
+            <div className={styles.jobStats} style={{ marginTop: "0.4rem" }}>
+              <span>Dividende :</span>
+              <select
+                className={styles.formInput}
+                style={{ width: "auto", padding: "0.3rem 0.5rem" }}
+                value={asset.dividendPolicy}
+                disabled={pending}
+                onChange={(e) => handleDividendPolicyChange(e.target.value as "CASH" | "REINVEST")}
+              >
+                <option value="CASH">💵 En liquide</option>
+                <option value="REINVEST">📈 Réinvesti (plus de parts)</option>
+              </select>
+            </div>
+          )}
+          {notice && <p className={styles.jobMeta}>{notice}</p>}
+          {error && <p className={styles.error}>{error}</p>}
+        </div>
+        <div className={styles.jobActions}>
           <form
             className={styles.form}
             onSubmit={(e) => {
               e.preventDefault();
-              handleSell();
+              handleBuy();
             }}
           >
             <input
               className={styles.formInput}
               type="number"
-              min={0.0001}
-              max={asset.quantity}
-              step={0.0001}
-              value={sellQuantity}
-              onChange={(e) => setSellQuantity(Number(e.target.value))}
+              min={MIN_ASSET_BUY_AMOUNT}
+              step={5}
+              value={amount}
+              onChange={(e) => setAmount(Number(e.target.value))}
             />
-            <button className={styles.logout} type="submit" disabled={pending}>
-              {pending ? "…" : "Vendre"}
+            <button className={styles.apply} type="submit" disabled={pending}>
+              {pending ? "…" : "Acheter"}
             </button>
           </form>
-        )}
+          {asset.quantity > 0 && (
+            <form
+              className={styles.form}
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSell();
+              }}
+            >
+              <input
+                className={styles.formInput}
+                type="number"
+                min={0.0001}
+                max={asset.quantity}
+                step={0.0001}
+                value={sellQuantity}
+                onChange={(e) => setSellQuantity(Number(e.target.value))}
+              />
+              <button className={styles.logout} type="submit" disabled={pending}>
+                {pending ? "…" : "Vendre"}
+              </button>
+            </form>
+          )}
+        </div>
       </div>
+      <AssetPriceChart history={history} />
     </div>
   );
 }
@@ -156,10 +168,12 @@ function AssetCard({ asset, onDone }: { asset: FinancialAssetView; onDone: () =>
 function AssetTypeSection({
   type,
   list,
+  priceHistory,
   onDone,
 }: {
   type: FinancialAssetType;
   list: FinancialAssetView[];
+  priceHistory: Record<string, AssetPricePoint[]>;
   onDone: () => void;
 }) {
   const [expanded, setExpanded] = useState(list.length <= 4);
@@ -182,7 +196,7 @@ function AssetTypeSection({
       {expanded && (
         <div className={styles.jobList} style={{ marginTop: list.length > 4 ? "0.75rem" : 0 }}>
           {sorted.map((asset) => (
-            <AssetCard key={asset.id} asset={asset} onDone={onDone} />
+            <AssetCard key={asset.id} asset={asset} history={priceHistory[asset.key] ?? []} onDone={onDone} />
           ))}
         </div>
       )}
@@ -190,7 +204,13 @@ function AssetTypeSection({
   );
 }
 
-export function PlacementsList({ assets }: { assets: FinancialAssetView[] }) {
+export function PlacementsList({
+  assets,
+  priceHistory,
+}: {
+  assets: FinancialAssetView[];
+  priceHistory: Record<string, AssetPricePoint[]>;
+}) {
   const router = useRouter();
 
   function handleDone() {
@@ -208,7 +228,7 @@ export function PlacementsList({ assets }: { assets: FinancialAssetView[] }) {
   return (
     <>
       {[...byType.entries()].map(([type, list]) => (
-        <AssetTypeSection key={type} type={type} list={list} onDone={handleDone} />
+        <AssetTypeSection key={type} type={type} list={list} priceHistory={priceHistory} onDone={handleDone} />
       ))}
     </>
   );

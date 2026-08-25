@@ -349,7 +349,23 @@ model FinancialAsset {
   price         Decimal @db.Decimal(14, 4)
   previousPrice Decimal @db.Decimal(14, 4)
 
-  holdings PlayerAssetHolding[]
+  holdings     PlayerAssetHolding[]
+  priceHistory FinancialAssetPriceHistory[]
+}
+
+/// Cours d'un actif financier à chaque clôture de cycle — même schéma que
+/// CommodityPriceHistory, pour tracer l'évolution du cours dans le temps
+/// (cf. apps/web/app/placements). N'existe qu'à partir du cycle où cette
+/// table a été introduite : les cours antérieurs n'ont jamais été journalisés.
+model FinancialAssetPriceHistory {
+  id      String         @id @default(uuid())
+  asset   FinancialAsset @relation(fields: [assetId], references: [id])
+  assetId String
+  cycle   Cycle          @relation(fields: [cycleId], references: [id])
+  cycleId String
+  price   Decimal        @db.Decimal(14, 4)
+
+  @@unique([assetId, cycleId])
 }
 
 /// Position d'un joueur sur un actif — costBasis est le montant total payé
@@ -1252,11 +1268,12 @@ model Cycle {
   closedAt  DateTime?
   status    CycleStatus @default(OPEN)
 
-  statHistory           PlayerStatHistory[]
-  cycleReports          CompanyCycleReport[]
-  productCycleReports   ProductCycleReport[]
-  supplyContracts       SupplyContract[]
-  commodityPriceHistory CommodityPriceHistory[]
+  statHistory            PlayerStatHistory[]
+  cycleReports           CompanyCycleReport[]
+  productCycleReports    ProductCycleReport[]
+  supplyContracts        SupplyContract[]
+  commodityPriceHistory  CommodityPriceHistory[]
+  assetPriceHistory      FinancialAssetPriceHistory[]
 }
 
 /// Prêt bancaire d'entreprise — distinct du modèle Loan (qui visait des

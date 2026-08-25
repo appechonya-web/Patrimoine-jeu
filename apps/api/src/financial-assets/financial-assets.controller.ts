@@ -14,6 +14,11 @@ export class FinancialAssetsController {
     return this.financialAssetsService.list(playerId);
   }
 
+  @Get("price-history")
+  priceHistory() {
+    return this.financialAssetsService.priceHistory();
+  }
+
   @Post(":key/buy")
   buy(@CurrentPlayer() playerId: string, @Param("key") key: string, @Body() body: unknown) {
     const parsed = buyAssetInputSchema.safeParse(body);

@@ -784,6 +784,17 @@ export async function getFinancialAssets(): Promise<FinancialAssetView[]> {
   return res.json();
 }
 
+export interface AssetPricePoint {
+  cycleNumber: number;
+  price: number;
+}
+
+export async function getFinancialAssetPriceHistory(): Promise<Record<string, AssetPricePoint[]>> {
+  const res = await fetchWithSessionCookie("/financial-assets/price-history");
+  if (!res.ok) return {};
+  return res.json();
+}
+
 export interface GuildMemberView {
   companyId: string;
   companyName: string;

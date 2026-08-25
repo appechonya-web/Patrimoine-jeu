@@ -21,6 +21,26 @@ export class FinancialAssetsService {
     return assets.map((asset) => this.toView(asset, holdingByAssetId.get(asset.id) ?? null));
   }
 
+  /**
+   * Cours de tous les actifs depuis l'introduction de FinancialAssetPriceHistory
+   * (pas depuis le tout premier cycle du jeu — les cours antérieurs n'ont
+   * jamais été journalisés). Un seul appel groupé plutôt qu'un par actif,
+   * pour la page /placements qui affiche un graphique sous chaque actif.
+   */
+  async priceHistory(): Promise<Record<string, { cycleNumber: number; price: number }[]>> {
+    const rows = await this.prisma.client.financialAssetPriceHistory.findMany({
+      include: { asset: true, cycle: true },
+      orderBy: { cycle: { number: "asc" } },
+    });
+
+    const result: Record<string, { cycleNumber: number; price: number }[]> = {};
+    for (const row of rows) {
+      const key = row.asset.key;
+      (result[key] ??= []).push({ cycleNumber: row.cycle.number, price: row.price.toNumber() });
+    }
+    return result;
+  }
+
   async buy(playerId: string, assetKey: string, amount: number) {
     const [asset, stats] = await Promise.all([
       this.prisma.client.financialAsset.findUnique({ where: { key: assetKey } }),

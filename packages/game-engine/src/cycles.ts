@@ -2108,6 +2108,12 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
         where: { id: update.asset.id },
         data: { price: update.nextPrice, previousPrice: update.previousPrice },
       });
+
+      await tx.financialAssetPriceHistory.upsert({
+        where: { assetId_cycleId: { assetId: update.asset.id, cycleId: openCycle.id } },
+        create: { assetId: update.asset.id, cycleId: openCycle.id, price: update.nextPrice },
+        update: { price: update.nextPrice },
+      });
     }
 
     for (const update of bankDepositUpdates) {
