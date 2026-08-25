@@ -43,7 +43,14 @@ export function StatHint({ children, hint }: { children: ReactNode; hint: ReactN
         className={styles.statHintTrigger}
         aria-expanded={open}
         aria-describedby={open ? popoverId : undefined}
-        onClick={() => setOpen((value) => !value)}
+        onClick={(event) => {
+          // Souvent utilisé à l'intérieur d'une carte cliquable (Link) — ne
+          // doit jamais déclencher la navigation de la carte, juste basculer
+          // la bulle d'aide.
+          event.preventDefault();
+          event.stopPropagation();
+          setOpen((value) => !value);
+        }}
         onFocus={() => setOpen(true)}
       >
         {children}

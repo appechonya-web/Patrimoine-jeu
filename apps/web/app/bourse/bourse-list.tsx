@@ -6,6 +6,7 @@ import { MIN_TRADE_CASH, MIN_TRADE_UNITS } from "@patrimoine-jeu/domain";
 import type { CommodityMarketView } from "../../lib/session";
 import { GameError, buyCommodity, sellCommodity } from "../../lib/game-client";
 import { currencyFormatter } from "../../lib/format";
+import { StatHint } from "../stat-hint";
 import styles from "../page.module.css";
 
 const SECTOR_ICONS: Record<string, string> = {
@@ -60,15 +61,29 @@ function CommodityCard({ market }: { market: CommodityMarketView }) {
           {SECTOR_ICONS[market.sector] ?? "📦"} {market.sector}
         </div>
         <div className={styles.jobStats}>
-          <span>💹 {currencyFormatter.format(market.price)}/unité</span>
+          <span>
+            <StatHint hint="Prix actuel du pool automatisé — recalculé après chaque transaction (achat ou vente, la tienne ou celle d'un autre joueur), pas figé jusqu'au prochain cycle.">
+              💹 {currencyFormatter.format(market.price)}/unité
+            </StatHint>
+          </span>
           {priceDelta !== null && (
             <span>
-              {priceDelta >= 0 ? "📈" : "📉"} {priceDelta >= 0 ? "+" : ""}
-              {currencyFormatter.format(priceDelta)} depuis le dernier cycle
+              <StatHint hint="Variation depuis la clôture du dernier cycle — reflète tous les échanges survenus entretemps sur ce marché, pas seulement les tiens.">
+                {priceDelta >= 0 ? "📈" : "📉"} {priceDelta >= 0 ? "+" : ""}
+                {currencyFormatter.format(priceDelta)} depuis le dernier cycle
+              </StatHint>
             </span>
           )}
-          <span>🗃️ Réserve {market.commodityReserve.toFixed(0)} unités</span>
-          <span>🎒 Tu possèdes {market.myHolding.toFixed(2)} unités</span>
+          <span>
+            <StatHint hint="Quantité encore disponible dans le pool — plus elle est grande, moins une transaction donnée fait bouger le prix. Grandit avec le nombre de joueurs actifs.">
+              🗃️ Réserve {market.commodityReserve.toFixed(0)} unités
+            </StatHint>
+          </span>
+          <span>
+            <StatHint hint="Ta position actuelle sur ce marché — vendable à tout moment au prix courant, sans attendre la clôture de cycle.">
+              🎒 Tu possèdes {market.myHolding.toFixed(2)} unités
+            </StatHint>
+          </span>
         </div>
         {error && <p className={styles.error}>{error}</p>}
       </div>

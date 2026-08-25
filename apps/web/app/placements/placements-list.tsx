@@ -7,6 +7,7 @@ import type { AssetPricePoint, FinancialAssetView } from "../../lib/session";
 import { GameError, buyFinancialAsset, sellFinancialAsset, setDividendPolicy } from "../../lib/game-client";
 import { currencyFormatter } from "../../lib/format";
 import { AssetPriceChart } from "./asset-price-chart";
+import { StatHint } from "../stat-hint";
 import styles from "../page.module.css";
 
 function variationLabel(price: number, previousPrice: number): string {
@@ -84,23 +85,53 @@ function AssetCard({
           <div className={styles.jobTitle}>{asset.name}</div>
           <div className={styles.jobMeta}>{variationLabel(asset.price, asset.previousPrice)}</div>
           <div className={styles.jobStats}>
-            <span>💰 {currencyFormatter.format(asset.price)}</span>
-            {asset.sectorName && <span>🏭 {asset.sectorName}</span>}
-            {asset.dividendRate > 0 && <span>💸 Dividende {(asset.dividendRate * 100).toFixed(1)}%/an</span>}
+            <span>
+              <StatHint hint="Cours actuel — recalculé à chaque cycle par une marche aléatoire propre à cet actif (dérive + volatilité), indépendante de tes propres achats/ventes.">
+                💰 {currencyFormatter.format(asset.price)}
+              </StatHint>
+            </span>
+            {asset.sectorName && (
+              <span>
+                <StatHint hint={`Liée au secteur réel ${asset.sectorName} : réagit aussi aux crises/booms sectoriels nationaux qui touchent les entreprises de ce secteur, en plus de sa dérive et sa volatilité propres.`}>
+                  🏭 {asset.sectorName}
+                </StatHint>
+              </span>
+            )}
+            {asset.dividendRate > 0 && (
+              <span>
+                <StatHint hint="Taux annuel versé à chaque cycle, proportionnellement aux parts détenues — au choix en liquide ou réinvesti automatiquement en davantage de parts (voir le sélecteur ci-dessous).">
+                  💸 Dividende {(asset.dividendRate * 100).toFixed(1)}%/an
+                </StatHint>
+              </span>
+            )}
             {asset.quantity > 0 && (
               <>
-                <span>📦 {asset.quantity.toFixed(4)} détenues</span>
-                <span>Valeur {currencyFormatter.format(asset.marketValue)}</span>
                 <span>
-                  {asset.unrealizedGain >= 0 ? "🟢" : "🔴"} {currencyFormatter.format(asset.unrealizedGain)} de
-                  plus-value latente
+                  <StatHint hint="Quantité de parts que tu possèdes actuellement sur cet actif.">
+                    📦 {asset.quantity.toFixed(4)} détenues
+                  </StatHint>
+                </span>
+                <span>
+                  <StatHint hint="Valeur actuelle de ta position = quantité détenue × cours actuel.">
+                    Valeur {currencyFormatter.format(asset.marketValue)}
+                  </StatHint>
+                </span>
+                <span>
+                  <StatHint hint="Différence entre la valeur actuelle de ta position et ce que tu as payé pour l'obtenir — pas encore taxée tant que tu ne vends pas, contrairement à la plus-value réalisée à la revente.">
+                    {asset.unrealizedGain >= 0 ? "🟢" : "🔴"} {currencyFormatter.format(asset.unrealizedGain)} de
+                    plus-value latente
+                  </StatHint>
                 </span>
               </>
             )}
           </div>
           {asset.quantity > 0 && asset.dividendRate > 0 && (
             <div className={styles.jobStats} style={{ marginTop: "0.4rem" }}>
-              <span>Dividende :</span>
+              <span>
+                <StatHint hint="En liquide : le dividende s'ajoute à ton patrimoine liquide chaque cycle. Réinvesti : il achète automatiquement plus de parts au cours du moment — un effet boule de neige sur la durée, mais rien en cash immédiat. Les deux sont taxés pareil, avec la même franchise à vie que la plus-value.">
+                  Dividende :
+                </StatHint>
+              </span>
               <select
                 className={styles.formInput}
                 style={{ width: "auto", padding: "0.3rem 0.5rem" }}

@@ -7,6 +7,7 @@ import type { Company, ExpansionRequirement, Municipality, Sector } from "../lib
 import { GameError, foundCompany } from "../lib/game-client";
 import { currencyFormatter } from "../lib/format";
 import { InfoTip } from "./info-tip";
+import { StatHint } from "./stat-hint";
 import styles from "./page.module.css";
 
 function CompanySummaryCard({ company }: { company: Company }) {
@@ -21,13 +22,27 @@ function CompanySummaryCard({ company }: { company: Company }) {
           {company.sector} — {company.municipality} — {company.sharePercentage}% des parts
         </div>
         <div className={styles.jobStats}>
-          <span>⭐ Attractivité {company.effectiveAttractiveness.toFixed(0)}/100</span>
-          <span>{company.hasManager ? "🧑‍💼 Avec manager" : "🚫 Sans manager"}</span>
           <span>
-            👥 {company.totalEmployeeCount} employé{company.totalEmployeeCount > 1 ? "s" : ""}
+            <StatHint hint="Force commerciale de l'entreprise face à ses concurrents du même marché — plus haut capte une plus grande part de la demande disponible. Ouvre la fiche entreprise pour le détail (base, manager, infrastructures, secteur).">
+              ⭐ Attractivité {company.effectiveAttractiveness.toFixed(0)}/100
+            </StatHint>
+          </span>
+          <span>
+            <StatHint hint="Un manager par département évite la pénalité d'attention (plusieurs entreprises sans manager se marchent dessus) et stabilise le moral de l'équipe — mais coûte un salaire fixe par cycle.">
+              {company.hasManager ? "🧑‍💼 Avec manager" : "🚫 Sans manager"}
+            </StatHint>
+          </span>
+          <span>
+            <StatHint hint="Effectif total, tous départements confondus — détermine la capacité de production de l'entreprise, pondérée par le moral de chaque département.">
+              👥 {company.totalEmployeeCount} employé{company.totalEmployeeCount > 1 ? "s" : ""}
+            </StatHint>
           </span>
           {company.latestCycleReport && (
-            <span>📦 {company.latestCycleReport.unitsSold.toFixed(1)} unités vendues</span>
+            <span>
+              <StatHint hint="Unités vendues au dernier cycle, toutes gammes confondues.">
+                📦 {company.latestCycleReport.unitsSold.toFixed(1)} unités vendues
+              </StatHint>
+            </span>
           )}
         </div>
       </div>

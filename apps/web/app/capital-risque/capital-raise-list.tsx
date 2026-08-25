@@ -7,6 +7,7 @@ import { MIN_CAPITAL_RAISE_CONTRIBUTION } from "@patrimoine-jeu/domain";
 import type { CapitalRaiseContributionView, CapitalRaiseView } from "../../lib/session";
 import { GameError, fundCapitalRaise, getCapitalRaiseContributions } from "../../lib/game-client";
 import { currencyFormatter } from "../../lib/format";
+import { StatHint } from "../stat-hint";
 import styles from "../page.module.css";
 
 function ContributorsList({ raiseId }: { raiseId: string }) {
@@ -87,17 +88,39 @@ function RaiseCard({ raise }: { raise: CapitalRaiseView }) {
           {raise.sector} — {raise.municipality}
         </div>
         <div className={styles.jobStats}>
-          <span>🧩 {raise.newSharePercentage}% de nouvelles parts au total</span>
-          <span>⏳ {raise.cyclesRemaining} cycles restants</span>
+          <span>
+            <StatHint hint="Part totale du capital que CETTE levée émet en nouvelles actions, répartie entre tous les investisseurs proportionnellement à leur contribution — dilue mécaniquement tous les actionnaires déjà en place.">
+              🧩 {raise.newSharePercentage}% de nouvelles parts au total
+            </StatHint>
+          </span>
+          <span>
+            <StatHint hint="Temps restant avant que cette levée ne se ferme. Les contributions déjà faites restent acquises (argent transféré, parts déjà attribuées) même si la levée n'atteint jamais sa cible — seule la possibilité d'investir dessus disparaît après ce délai.">
+              ⏳ {raise.cyclesRemaining} cycles restants
+            </StatHint>
+          </span>
         </div>
         <div className={styles.jobStats}>
-          <span>📅 {raise.companyAgeCycles} cycles d'ancienneté</span>
           <span>
-            {raise.cumulativeNetProfit >= 0 ? "📈" : "📉"} {currencyFormatter.format(raise.cumulativeNetProfit)} de
-            profit cumulé
+            <StatHint hint="Depuis combien de cycles cette entreprise existe — une jeune entreprise a eu moins de temps pour prouver sa rentabilité, une vraie information de risque avant d'investir.">
+              📅 {raise.companyAgeCycles} cycles d'ancienneté
+            </StatHint>
           </span>
-          <span>🏦 {currencyFormatter.format(raise.cashReserve)} de trésorerie</span>
-          <span>⭐ Attractivité {raise.attractivenessScore.toFixed(1)}</span>
+          <span>
+            <StatHint hint="Somme des profits nets de cette entreprise depuis sa fondation, jamais remise à zéro — proche de zéro ou négatif, c'est un signal d'alerte avant d'investir.">
+              {raise.cumulativeNetProfit >= 0 ? "📈" : "📉"} {currencyFormatter.format(raise.cumulativeNetProfit)} de
+              profit cumulé
+            </StatHint>
+          </span>
+          <span>
+            <StatHint hint="Cash immédiatement disponible dans l'entreprise — une trésorerie faible la rend plus fragile face à un cycle difficile (loyers, salaires, remboursements de prêt).">
+              🏦 {currencyFormatter.format(raise.cashReserve)} de trésorerie
+            </StatHint>
+          </span>
+          <span>
+            <StatHint hint="Force commerciale de l'entreprise sur son marché — plus elle est élevée, plus l'entreprise capte de demande face à ses concurrents du même secteur.">
+              ⭐ Attractivité {raise.attractivenessScore.toFixed(1)}
+            </StatHint>
+          </span>
         </div>
         <div className={styles.meter} style={{ marginTop: "0.6rem", marginBottom: "0.4rem" }}>
           <div className={styles.meterHeader}>
