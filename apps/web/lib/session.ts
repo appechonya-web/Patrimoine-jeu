@@ -145,6 +145,8 @@ export interface CurrentCycle {
   number: number;
   status: string;
   startedAt: string;
+  closesAt: string;
+  durationMs: number;
 }
 
 export interface Sector {

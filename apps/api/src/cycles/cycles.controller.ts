@@ -9,7 +9,13 @@ export class CyclesController {
   @Get("current")
   async current() {
     const cycle = await this.cyclesService.getOrCreateOpenCycle();
-    return { number: cycle.number, status: cycle.status, startedAt: cycle.startedAt };
+    return {
+      number: cycle.number,
+      status: cycle.status,
+      startedAt: cycle.startedAt,
+      closesAt: new Date(cycle.startedAt.getTime() + this.cyclesService.durationMs),
+      durationMs: this.cyclesService.durationMs,
+    };
   }
 
   /**

@@ -21,6 +21,9 @@ const CYCLE_DURATION_MS = Number(process.env.CYCLE_DURATION_MS ?? 30 * 60 * 1000
 
 @Injectable()
 export class CyclesService {
+  /** Exposée pour que le front puisse afficher un vrai compte à rebours (cf. GET /cycles/current) plutôt que de deviner la cadence. */
+  readonly durationMs = CYCLE_DURATION_MS;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly discordNotifier: DiscordNotifierService,
