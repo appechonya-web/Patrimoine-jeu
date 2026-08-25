@@ -146,7 +146,10 @@ export interface CycleReportView {
 export async function getLatestCycleReport(): Promise<CycleReportView | null> {
   const res = await fetchWithSessionCookie("/players/me/cycle-report");
   if (!res.ok) return null;
-  return res.json();
+  // Nest renvoie un corps vide (Content-Length: 0) pour un contrôleur qui
+  // retourne `null` directement — res.json() planterait sur un corps vide.
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
 }
 
 export interface JobOffer {
