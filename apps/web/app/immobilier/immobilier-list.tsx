@@ -25,6 +25,7 @@ import {
   setPropertyCustomName,
 } from "../../lib/game-client";
 import { currencyFormatter } from "../../lib/format";
+import { StatHint } from "../stat-hint";
 import styles from "../page.module.css";
 
 const PROPERTY_TYPE_ICONS: Record<string, string> = {
@@ -198,18 +199,28 @@ function MarketCard({ listing }: { listing: PropertyListingView }) {
         </div>
         <div className={styles.jobStats}>
           <span>
-            {conditionEmoji(property.condition)} État {property.condition.toFixed(0)}/100
+            <StatHint hint="Se dégrade à chaque cycle (deux fois plus vite si loué) et conditionne directement le loyer réel perçu. Une rénovation restaure l'état pour 15% de la valeur du bien.">
+              {conditionEmoji(property.condition)} État {property.condition.toFixed(0)}/100
+            </StatHint>
           </span>
-          <span>💵 Loyer potentiel {currencyFormatter.format(property.baseRent)}/cycle</span>
+          <span>
+            <StatHint hint="Loyer par cycle si le bien était en parfait état (100/100) — le loyer réellement perçu est réduit au prorata de l'état actuel du bien.">
+              💵 Loyer potentiel {currencyFormatter.format(property.baseRent)}/cycle
+            </StatHint>
+          </span>
           {listing.isAuction ? (
             <span>
-              📋 Droits d'enregistrement {(listing.registrationDuty.rate * 100).toFixed(1)}% sur le prix final
-              {listing.registrationDuty.isReducedRate ? " (taux réduit 1ère habitation)" : ""}
+              <StatHint hint="Taxe provinciale prélevée immédiatement à l'achat, en plus du prix final — le taux varie selon la province et peut être réduit pour un premier achat de résidence principale.">
+                📋 Droits d'enregistrement {(listing.registrationDuty.rate * 100).toFixed(1)}% sur le prix final
+                {listing.registrationDuty.isReducedRate ? " (taux réduit 1ère habitation)" : ""}
+              </StatHint>
             </span>
           ) : (
             <span>
-              📋 + {currencyFormatter.format(listing.registrationDuty.amount)} de droits d'enregistrement (
-              {(listing.registrationDuty.rate * 100).toFixed(1)}%{listing.registrationDuty.isReducedRate ? ", taux réduit 1ère habitation" : ""})
+              <StatHint hint="Taxe provinciale prélevée immédiatement à l'achat, en plus du prix affiché — le taux varie selon la province et peut être réduit pour un premier achat de résidence principale.">
+                📋 + {currencyFormatter.format(listing.registrationDuty.amount)} de droits d'enregistrement (
+                {(listing.registrationDuty.rate * 100).toFixed(1)}%{listing.registrationDuty.isReducedRate ? ", taux réduit 1ère habitation" : ""})
+              </StatHint>
             </span>
           )}
           {auction && (
@@ -219,7 +230,13 @@ function MarketCard({ listing }: { listing: PropertyListingView }) {
               </span>
               <span>{timeRemainingLabel(auction.expiresAt)}</span>
               {auction.isLeader && <span>👑 Tu es en tête</span>}
-              {auction.myMaxBid !== null && <span>Ton plafond {currencyFormatter.format(auction.myMaxBid)}</span>}
+              {auction.myMaxBid !== null && (
+                <span>
+                  <StatHint hint="Ton plafond réel — le prix affiché ne monte qu'au minimum nécessaire pour dépasser le second enchérisseur, jamais jusqu'à ton plafond (enchère à la eBay). Tu peux rester en tête sans jamais payer ce montant.">
+                    Ton plafond {currencyFormatter.format(auction.myMaxBid)}
+                  </StatHint>
+                </span>
+              )}
             </>
           )}
         </div>
@@ -495,14 +512,28 @@ function MyPropertyCard({ property, onDone }: { property: PropertyView; onDone: 
         <div className={styles.jobStats}>
           <span>{statusLabel}</span>
           <span>
-            {conditionEmoji(property.condition)} État {property.condition.toFixed(0)}/100
+            <StatHint hint="Se dégrade à chaque cycle (deux fois plus vite si loué) et conditionne directement le loyer réel perçu. Une rénovation restaure l'état pour 15% de la valeur du bien.">
+              {conditionEmoji(property.condition)} État {property.condition.toFixed(0)}/100
+            </StatHint>
           </span>
-          <span>💰 Valeur {currencyFormatter.format(property.marketValue)}</span>
-          {property.lease && <span>💵 Loyer perçu {currencyFormatter.format(property.lease.rentAmount)}/cycle</span>}
+          <span>
+            <StatHint hint="Valeur de marché actuelle — sert de base au calcul du montant empruntable en hypothèque et au prix par défaut si tu mets le bien en vente.">
+              💰 Valeur {currencyFormatter.format(property.marketValue)}
+            </StatHint>
+          </span>
+          {property.lease && (
+            <span>
+              <StatHint hint="Loyer réellement perçu à chaque cycle — réduit par rapport au loyer potentiel maximal si l'état du bien s'est dégradé.">
+                💵 Loyer perçu {currencyFormatter.format(property.lease.rentAmount)}/cycle
+              </StatHint>
+            </span>
+          )}
           {property.mortgage && (
             <span>
-              🏦 Prêt {currencyFormatter.format(property.mortgage.remainingBalance)} restant à{" "}
-              {(property.mortgage.rate * 100).toFixed(1)}% ({mortgageTermLabel(property.mortgage.termCycles)})
+              <StatHint hint="Taux fixé une fois pour toutes à la souscription — ne bouge jamais ensuite. Le capital restant est prélevé automatiquement à chaque cycle sur ton patrimoine liquide.">
+                🏦 Prêt {currencyFormatter.format(property.mortgage.remainingBalance)} restant à{" "}
+                {(property.mortgage.rate * 100).toFixed(1)}% ({mortgageTermLabel(property.mortgage.termCycles)})
+              </StatHint>
             </span>
           )}
           {property.auction && (

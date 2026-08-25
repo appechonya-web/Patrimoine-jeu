@@ -13,7 +13,12 @@ import {
 } from "../../../lib/game-client";
 import { currencyFormatter } from "../../../lib/format";
 import { InfoTip } from "../../info-tip";
+import { StatHint } from "../../stat-hint";
 import styles from "../../page.module.css";
+
+const COVERAGE_CAP_HINT =
+  "Montant maximal remboursé pour UN sinistre — au-delà, la partie qui dépasse reste entièrement à la charge de l'entreprise assurée.";
+const PREMIUM_HINT = "Coût fixe payé à chaque cycle, que tu subisses un sinistre ou non — le prix de la tranquillité.";
 
 function ActivePolicyCard({ companyId, policy, onDone }: { companyId: string; policy: NonNullable<CompanyInsuranceView["activePolicy"]>; onDone: () => void }) {
   const [pending, setPending] = useState(false);
@@ -37,8 +42,12 @@ function ActivePolicyCard({ companyId, policy, onDone }: { companyId: string; po
       <div>
         <div className={styles.jobTitle}>Assurée par {policy.insurerName}</div>
         <div className={styles.jobStats}>
-          <span>🛡️ Plafond {currencyFormatter.format(policy.coverageCap)}/sinistre</span>
-          <span>💳 Prime {currencyFormatter.format(policy.premiumPerCycle)}/cycle</span>
+          <span>
+            <StatHint hint={COVERAGE_CAP_HINT}>🛡️ Plafond {currencyFormatter.format(policy.coverageCap)}/sinistre</StatHint>
+          </span>
+          <span>
+            <StatHint hint={PREMIUM_HINT}>💳 Prime {currencyFormatter.format(policy.premiumPerCycle)}/cycle</StatHint>
+          </span>
         </div>
         {error && <p className={styles.error}>{error}</p>}
       </div>
@@ -76,8 +85,12 @@ function OfferRow({ companyId, offer, onDone }: { companyId: string; offer: Insu
           {offer.insurerCompany.sector} — {offer.insurerCompany.municipality}
         </div>
         <div className={styles.jobStats}>
-          <span>🛡️ Plafond {currencyFormatter.format(offer.coverageCap)}/sinistre</span>
-          <span>💳 Prime {currencyFormatter.format(offer.premiumPerCycle)}/cycle</span>
+          <span>
+            <StatHint hint={COVERAGE_CAP_HINT}>🛡️ Plafond {currencyFormatter.format(offer.coverageCap)}/sinistre</StatHint>
+          </span>
+          <span>
+            <StatHint hint={PREMIUM_HINT}>💳 Prime {currencyFormatter.format(offer.premiumPerCycle)}/cycle</StatHint>
+          </span>
         </div>
         {error && <p className={styles.error}>{error}</p>}
       </div>
@@ -114,8 +127,12 @@ function OwnOfferRow({ offer, onDone }: { offer: CompanyInsuranceView["offersAsI
           {offer.status === "ACTIVE" ? `Assure ${offer.insuredCompanyName}` : "Offre publiée"}
         </div>
         <div className={styles.jobStats}>
-          <span>🛡️ Plafond {currencyFormatter.format(offer.coverageCap)}/sinistre</span>
-          <span>💳 Prime {currencyFormatter.format(offer.premiumPerCycle)}/cycle</span>
+          <span>
+            <StatHint hint={COVERAGE_CAP_HINT}>🛡️ Plafond {currencyFormatter.format(offer.coverageCap)}/sinistre</StatHint>
+          </span>
+          <span>
+            <StatHint hint={PREMIUM_HINT}>💳 Prime {currencyFormatter.format(offer.premiumPerCycle)}/cycle</StatHint>
+          </span>
         </div>
         {error && <p className={styles.error}>{error}</p>}
       </div>

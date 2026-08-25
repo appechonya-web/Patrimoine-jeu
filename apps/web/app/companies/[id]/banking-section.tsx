@@ -6,6 +6,7 @@ import type { BankReliabilityView, CompanyDetail } from "../../../lib/session";
 import { GameError, depositAtBank, setDepositRate } from "../../../lib/game-client";
 import { currencyFormatter } from "../../../lib/format";
 import { InfoTip } from "../../info-tip";
+import { StatHint } from "../../stat-hint";
 import styles from "../../page.module.css";
 
 function reliabilityLabel(reliability: number): string {
@@ -123,10 +124,16 @@ export function BankingSection({
         <span>🏦 Trésorerie disponible {currencyFormatter.format(company.cashReserve)}</span>
         {bankReliability && (
           <>
-            <span>{reliabilityLabel(bankReliability.reliability)} ({bankReliability.reliability.toFixed(0)}/100)</span>
             <span>
-              🎯 Plafond de prêt {currencyFormatter.format(bankReliability.solvencyCap)} (encours{" "}
-              {currencyFormatter.format(bankReliability.outstandingLoans)})
+              <StatHint hint="En dessous de 30/100, l'entreprise est déjà proche de son plafond de solvabilité — un dépôt ici est plus risqué qu'ailleurs.">
+                {reliabilityLabel(bankReliability.reliability)} ({bankReliability.reliability.toFixed(0)}/100)
+              </StatHint>
+            </span>
+            <span>
+              <StatHint hint="Encours maximal que l'entreprise peut prêter (dépôts + trésorerie propre), plafonné par son ratio de solvabilité — pas juste par ce qu'elle a en caisse.">
+                🎯 Plafond de prêt {currencyFormatter.format(bankReliability.solvencyCap)} (encours{" "}
+                {currencyFormatter.format(bankReliability.outstandingLoans)})
+              </StatHint>
             </span>
           </>
         )}

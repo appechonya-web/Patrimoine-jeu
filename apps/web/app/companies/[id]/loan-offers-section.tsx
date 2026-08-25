@@ -12,6 +12,7 @@ import type { CompanyDetail as CompanyDetailData } from "../../../lib/session";
 import { GameError, cancelLoanOffer, createLoanOffer } from "../../../lib/game-client";
 import { currencyFormatter } from "../../../lib/format";
 import { InfoTip } from "../../info-tip";
+import { StatHint } from "../../stat-hint";
 import styles from "../../page.module.css";
 
 function OfferRow({ offer, onDone }: { offer: CompanyDetailData["loanOffers"][number]; onDone: () => void }) {
@@ -36,8 +37,16 @@ function OfferRow({ offer, onDone }: { offer: CompanyDetailData["loanOffers"][nu
       <div>
         <div className={styles.jobTitle}>{currencyFormatter.format(offer.principal)} proposés</div>
         <div className={styles.jobStats}>
-          <span>📈 Taux {(offer.rate * 100).toFixed(1)}%/an</span>
-          <span>⏳ Durée {offer.termCycles} cycles</span>
+          <span>
+            <StatHint hint="Taux fixé librement par cette entreprise (dans des bornes raisonnables) — n'importe quel autre joueur peut accepter l'offre telle quelle, pas de négociation possible.">
+              📈 Taux {(offer.rate * 100).toFixed(1)}%/an
+            </StatHint>
+          </span>
+          <span>
+            <StatHint hint="Nombre de cycles sur lesquels le prêt sera remboursé une fois accepté par un emprunteur.">
+              ⏳ Durée {offer.termCycles} cycles
+            </StatHint>
+          </span>
         </div>
         {error && <p className={styles.error}>{error}</p>}
       </div>
@@ -56,9 +65,19 @@ function ReceivableRow({ loan }: { loan: CompanyDetailData["loansAsLender"][numb
       <div>
         <div className={styles.jobTitle}>{currencyFormatter.format(loan.principal)} prêtés</div>
         <div className={styles.jobStats}>
-          <span>📈 Taux {(loan.rate * 100).toFixed(1)}%/an</span>
-          <span>⏳ Durée {loan.termCycles} cycles</span>
-          <span>💳 Reste dû {currencyFormatter.format(loan.remainingBalance)}</span>
+          <span>
+            <StatHint hint="Taux que cette entreprise perçoit en tant que prêteuse — payé par l'emprunteur à chaque cycle en plus du capital.">
+              📈 Taux {(loan.rate * 100).toFixed(1)}%/an
+            </StatHint>
+          </span>
+          <span>
+            <StatHint hint="Nombre de cycles sur lesquels l'emprunteur rembourse ce prêt.">⏳ Durée {loan.termCycles} cycles</StatHint>
+          </span>
+          <span>
+            <StatHint hint="Capital que l'emprunteur doit encore rembourser à cette entreprise — un défaut de l'emprunteur ferait perdre cette créance.">
+              💳 Reste dû {currencyFormatter.format(loan.remainingBalance)}
+            </StatHint>
+          </span>
         </div>
       </div>
     </div>

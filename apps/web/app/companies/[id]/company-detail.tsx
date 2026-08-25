@@ -697,10 +697,26 @@ function LoanRow({ loan }: { loan: CompanyDetailData["loans"][number] }) {
       <div>
         <div className={styles.jobTitle}>{currencyFormatter.format(loan.principal)} emprunté</div>
         <div className={styles.jobStats}>
-          <span>{statusLabel}</span>
-          <span>📈 Taux {(loan.rate * 100).toFixed(1)}%/an</span>
-          <span>⏳ Durée {loan.termCycles} cycles</span>
-          <span>💳 Reste à rembourser {currencyFormatter.format(loan.remainingBalance)}</span>
+          <span>
+            <StatHint hint="En défaut : l'entreprise n'a pas pu honorer une échéance — pénalise son attractivité et bloque tout nouvel emprunt tant que CE prêt n'est pas soldé.">
+              {statusLabel}
+            </StatHint>
+          </span>
+          <span>
+            <StatHint hint="Fixé une fois pour toutes au moment de l'emprunt, selon le ratio dette/fonds propres de l'entreprise à cet instant précis — ne bouge plus ensuite, même si la situation financière change.">
+              📈 Taux {(loan.rate * 100).toFixed(1)}%/an
+            </StatHint>
+          </span>
+          <span>
+            <StatHint hint="Nombre de cycles sur lesquels le principal est remboursé de façon linéaire, intérêts inclus à chaque échéance.">
+              ⏳ Durée {loan.termCycles} cycles
+            </StatHint>
+          </span>
+          <span>
+            <StatHint hint="Capital restant dû — prélevé automatiquement à chaque cycle sur la trésorerie de l'entreprise, avant calcul du profit net.">
+              💳 Reste à rembourser {currencyFormatter.format(loan.remainingBalance)}
+            </StatHint>
+          </span>
         </div>
       </div>
     </div>
@@ -1108,10 +1124,26 @@ export function CompanyDetail({
               <span>Finance & bilan</span>
             </h2>
             <div className={styles.jobStats}>
-              <span>🏛️ Actif total {currencyFormatter.format(company.balanceSheet.totalAssets)}</span>
-              <span>📉 Dettes {currencyFormatter.format(company.balanceSheet.totalLiabilities)}</span>
-              <span>💎 Capitaux propres {currencyFormatter.format(company.balanceSheet.equity)}</span>
-              <span>⚖️ Ratio dette/fonds propres {company.balanceSheet.debtToEquityRatio.toFixed(2)}</span>
+              <span>
+                <StatHint hint="Trésorerie + équipement (déprécié dans le temps) + stock invendu + créances éventuelles (prêts accordés à d'autres entreprises) — tout ce que l'entreprise possède ou lui est dû.">
+                  🏛️ Actif total {currencyFormatter.format(company.balanceSheet.totalAssets)}
+                </StatHint>
+              </span>
+              <span>
+                <StatHint hint="Capital restant dû sur tous les emprunts actifs de l'entreprise — ce qu'elle doit rembourser.">
+                  📉 Dettes {currencyFormatter.format(company.balanceSheet.totalLiabilities)}
+                </StatHint>
+              </span>
+              <span>
+                <StatHint hint="Actif total moins dettes — ce qui reviendrait aux actionnaires si l'entreprise liquidait tout aujourd'hui. Détermine ta capacité d'emprunt maximale (voir l'astuce ci-dessus).">
+                  💎 Capitaux propres {currencyFormatter.format(company.balanceSheet.equity)}
+                </StatHint>
+              </span>
+              <span>
+                <StatHint hint="Dettes ÷ capitaux propres — plus il est élevé, plus l'entreprise est endettée relativement à ce qu'elle possède réellement, et plus le taux d'un nouvel emprunt sera élevé.">
+                  ⚖️ Ratio dette/fonds propres {company.balanceSheet.debtToEquityRatio.toFixed(2)}
+                </StatHint>
+              </span>
             </div>
 
             {company.loans.length > 0 && (

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import type { MarketListing } from "../../lib/session";
 import { GameError, buyShareListing } from "../../lib/game-client";
 import { currencyFormatter } from "../../lib/format";
+import { StatHint } from "../stat-hint";
 import styles from "../page.module.css";
 
 function ListingCard({ listing }: { listing: MarketListing }) {
@@ -36,10 +37,22 @@ function ListingCard({ listing }: { listing: MarketListing }) {
           {listing.company.sector} — {listing.company.municipality} — vendeur : {listing.sellerPseudo}
         </div>
         <div className={styles.jobStats}>
-          <span>🧩 {listing.sharePercentage}% des parts</span>
-          <span>⭐ Attractivité {listing.company.attractivenessScore.toFixed(0)}/100</span>
+          <span>
+            <StatHint hint="Part du capital de l'entreprise que cet achat te donnerait — proportionnelle à ta part des futurs dividendes et de ton poids dans les votes d'actionnaires.">
+              🧩 {listing.sharePercentage}% des parts
+            </StatHint>
+          </span>
+          <span>
+            <StatHint hint="Force commerciale de l'entreprise face à ses concurrents du même marché — plus haut capte une plus grande part de la demande disponible. Ouvre sa fiche pour le détail.">
+              ⭐ Attractivité {listing.company.attractivenessScore.toFixed(0)}/100
+            </StatHint>
+          </span>
           {listing.company.latestNetProfitPerCycle !== null && (
-            <span>💰 Profit {currencyFormatter.format(listing.company.latestNetProfitPerCycle)}/cycle</span>
+            <span>
+              <StatHint hint="Profit net de l'entreprise au dernier cycle clôturé — un signal de rentabilité, mais un seul cycle ne dit pas tout : regarde sa fiche pour le profit cumulé depuis sa fondation.">
+                💰 Profit {currencyFormatter.format(listing.company.latestNetProfitPerCycle)}/cycle
+              </StatHint>
+            </span>
           )}
         </div>
         {error && <p className={styles.error}>{error}</p>}

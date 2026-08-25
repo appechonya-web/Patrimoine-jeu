@@ -7,6 +7,7 @@ import type { PersonalActionView, PersonalAxisView, PersonalOverview } from "../
 import { GameError, investPersonal, performPersonalAction } from "../../lib/game-client";
 import { currencyFormatter } from "../../lib/format";
 import { InfoTip } from "../info-tip";
+import { StatHint } from "../stat-hint";
 import styles from "../page.module.css";
 
 function cooldownLabel(cyclesRemaining: number): string {
@@ -95,7 +96,11 @@ function ActionCard({ action, onDone }: { action: PersonalActionView; onDone: ()
         <div className={styles.jobTitle}>{action.label}</div>
         <div className={styles.jobMeta}>{action.description}</div>
         <div className={styles.jobStats}>
-          <span>💗 Bien-être +{action.wellbeingBoost}</span>
+          <span>
+            <StatHint hint="Boost immédiat et ponctuel — n'améliore pas durablement ta formule de bien-être comme un axe permanent (sport, nutrition, social, confort) le ferait.">
+              💗 Bien-être +{action.wellbeingBoost}
+            </StatHint>
+          </span>
         </div>
         {error && <p className={styles.error}>{error}</p>}
       </div>

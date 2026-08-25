@@ -11,6 +11,7 @@ import type { PersonalGoodCatalogEntry, PersonalGoodView, PersonalGoodsOverview 
 import { GameError, buyPersonalGood, sellPersonalGood } from "../../lib/game-client";
 import { currencyFormatter } from "../../lib/format";
 import { InfoTip } from "../info-tip";
+import { StatHint } from "../stat-hint";
 import styles from "../page.module.css";
 
 function CatalogCard({ item, onDone }: { item: PersonalGoodCatalogEntry; onDone: () => void }) {
@@ -72,7 +73,11 @@ function OwnedGoodCard({ good, onDone }: { good: PersonalGoodView; onDone: () =>
       <div>
         <div className={styles.jobTitle}>{good.label}</div>
         <div className={styles.jobStats}>
-          <span>💰 Acheté {currencyFormatter.format(good.purchasePrice)}</span>
+          <span>
+            <StatHint hint="Ce que tu as payé à l'achat — la valeur de revente affichée à droite est plus basse, déjà dépréciée dans le temps (jusqu'à un plancher de 10% du prix d'achat).">
+              💰 Acheté {currencyFormatter.format(good.purchasePrice)}
+            </StatHint>
+          </span>
           <span>💗 Bien-être +{good.wellbeingBonusPerCycle.toFixed(3)}/cycle</span>
         </div>
         {error && <p className={styles.error}>{error}</p>}

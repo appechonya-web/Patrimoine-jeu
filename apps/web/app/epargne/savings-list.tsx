@@ -15,6 +15,7 @@ import type { PensionSavingsStatus, SavingsAccountView } from "../../lib/session
 import { GameError, depositSavings, openSavingsAccount, withdrawSavings } from "../../lib/game-client";
 import { currencyFormatter } from "../../lib/format";
 import { InfoTip } from "../info-tip";
+import { StatHint } from "../stat-hint";
 import styles from "../page.module.css";
 
 function yearsLabel(cycles: number): string {
@@ -156,10 +157,22 @@ function AccountCard({ account, onDone }: { account: SavingsAccountView; onDone:
         <div className={styles.jobTitle}>{SAVINGS_PRODUCT_LABELS[account.productType as SavingsProductType]}</div>
         <div className={styles.jobMeta}>{SAVINGS_PRODUCT_DESCRIPTIONS[account.productType as SavingsProductType]}</div>
         <div className={styles.jobStats}>
-          <span>📈 Taux {(account.rate * 100).toFixed(1)}%/an</span>
-          <span>💰 Déposé {currencyFormatter.format(account.principal)}</span>
+          <span>
+            <StatHint hint="Taux annuel appliqué aux intérêts composés à chaque cycle — le solde ci-contre inclut déjà les intérêts accumulés depuis l'ouverture, contrairement au montant déposé.">
+              📈 Taux {(account.rate * 100).toFixed(1)}%/an
+            </StatHint>
+          </span>
+          <span>
+            <StatHint hint="Ce que tu as versé au total sur ce compte, sans les intérêts — le solde affiché à droite (celui que tu peux retirer) est plus élevé, intérêts compris.">
+              💰 Déposé {currencyFormatter.format(account.principal)}
+            </StatHint>
+          </span>
           {account.maturityCycle !== null && (
-            <span>{account.isMature ? "✅ Débloqué" : `🔒 Débloqué au cycle n°${account.maturityCycle}`}</span>
+            <span>
+              <StatHint hint="Un retrait avant ce cycle est possible mais fait perdre tous les intérêts courus depuis l'ouverture — et pour l'épargne-pension, une partie du capital déposé en plus, une vraie pénalité de sortie anticipée.">
+                {account.isMature ? "✅ Débloqué" : `🔒 Débloqué au cycle n°${account.maturityCycle}`}
+              </StatHint>
+            </span>
           )}
         </div>
         {error && <p className={styles.error}>{error}</p>}

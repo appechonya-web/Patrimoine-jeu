@@ -884,7 +884,7 @@ export class CompaniesService {
           name: listing.company.name,
           sector: listing.company.sector.name,
           municipality: listing.company.municipality.name,
-          attractivenessScore: listing.company.attractivenessScore.toNumber(),
+          attractivenessScore: this.computeAttractivenessBreakdown(listing.company).effective,
           latestNetProfitPerCycle: latestReport ? latestReport.profit.toNumber() - latestReport.taxPaid.toNumber() : null,
         },
       };
@@ -1913,7 +1913,7 @@ export class CompaniesService {
       companyAgeCycles: currentCycle.number - raise.company.foundedCycle,
       cumulativeNetProfit: raise.company.cumulativeNetProfit.toNumber(),
       cashReserve: raise.company.cashReserve.toNumber(),
-      attractivenessScore: raise.company.attractivenessScore.toNumber(),
+      attractivenessScore: this.computeAttractivenessBreakdown(raise.company).effective,
       amountRaised: raise.amountRaised.toNumber(),
       remainingAmount: Math.max(0, raise.targetAmount.toNumber() - raise.amountRaised.toNumber()),
     }));
@@ -2319,6 +2319,38 @@ export class CompaniesService {
     return assembleCompanyBalanceSheet(company);
   }
 
+  /**
+   * Attractivité effective (cf. game-engine/cycles.ts closeCurrentCycle,
+   * même formule) — recalculée en direct plutôt que lue depuis le champ
+   * persisté : contrairement au score de base (figé à la fondation, ne
+   * bouge que sur défaut de prêt), le bonus d'infrastructure communale
+   * suit le fonds en temps réel pour que les contributions des joueurs se
+   * reflètent immédiatement partout où l'attractivité est affichée (fiche
+   * entreprise, tableau de bord, marché des parts, capital-risque) — pas
+   * seulement dans le calcul de vente interne au prochain cycle.
+   */
+  private computeAttractivenessBreakdown(company: {
+    attractivenessScore: { toNumber(): number };
+    hasManager: boolean;
+    municipality: { name: string; infrastructureFund: { toNumber(): number } };
+    sector: { name: string };
+  }) {
+    const base = company.attractivenessScore.toNumber();
+    const managerBonus = computeEffectiveAttractiveness(base, company.hasManager) - base;
+    const infrastructureBonus = computeInfrastructureAttractivenessBonus(company.municipality.infrastructureFund.toNumber());
+    const provinceAffinityBonus = PROVINCE_SECTOR_AFFINITIES[company.municipality.name]?.includes(company.sector.name)
+      ? PROVINCE_SECTOR_AFFINITY_BONUS
+      : 0;
+
+    return {
+      base,
+      managerBonus,
+      infrastructureBonus,
+      provinceAffinityBonus,
+      effective: base + managerBonus + infrastructureBonus + provinceAffinityBonus,
+    };
+  }
+
   private toCompanyView(
     company: {
       id: string;
@@ -2406,32 +2438,20 @@ export class CompaniesService {
     });
     const totalEmployeeCount = departmentsView.reduce((sum, d) => sum + d.totalEmployeeCount, 0);
 
-    // Attractivité effective (cf. game-engine/cycles.ts closeCurrentCycle,
-    // même formule) — recalculée en direct plutôt que lue depuis un champ
-    // persisté : contrairement au score de base (figé à la fondation, ne
-    // bouge que sur défaut de prêt), le bonus d'infrastructure communale
-    // suit le fonds en temps réel pour que les contributions des joueurs se
-    // reflètent immédiatement ici, pas seulement dans le calcul de vente
-    // interne au prochain cycle.
-    const baseAttractiveness = company.attractivenessScore.toNumber();
-    const managerBonus = computeEffectiveAttractiveness(baseAttractiveness, company.hasManager) - baseAttractiveness;
-    const infrastructureBonus = computeInfrastructureAttractivenessBonus(company.municipality.infrastructureFund.toNumber());
-    const provinceAffinityBonus = PROVINCE_SECTOR_AFFINITIES[company.municipality.name]?.includes(company.sector.name)
-      ? PROVINCE_SECTOR_AFFINITY_BONUS
-      : 0;
+    const attractiveness = this.computeAttractivenessBreakdown(company);
 
     return {
       id: company.id,
       name: company.name,
       sector: company.sector.name,
       municipality: company.municipality.name,
-      attractivenessScore: baseAttractiveness,
-      effectiveAttractiveness: baseAttractiveness + managerBonus + infrastructureBonus + provinceAffinityBonus,
+      attractivenessScore: attractiveness.base,
+      effectiveAttractiveness: attractiveness.effective,
       attractivenessBreakdown: {
-        base: baseAttractiveness,
-        managerBonus,
-        infrastructureBonus,
-        provinceAffinityBonus,
+        base: attractiveness.base,
+        managerBonus: attractiveness.managerBonus,
+        infrastructureBonus: attractiveness.infrastructureBonus,
+        provinceAffinityBonus: attractiveness.provinceAffinityBonus,
       },
       status: company.status,
       createdAt: company.createdAt,
