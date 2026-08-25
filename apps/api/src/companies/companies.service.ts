@@ -46,6 +46,8 @@ import {
   PRODUCT_TYPES,
   PROPOSAL_MAJORITY_THRESHOLD,
   PROPOSAL_VOTING_DURATION_CYCLES,
+  PROVINCE_SECTOR_AFFINITIES,
+  PROVINCE_SECTOR_AFFINITY_BONUS,
   SALE_LISTING_DURATION_CYCLES,
   SOLVENCY_RATIO_CAP,
   STARTUP_COST_LEVEL_0,
@@ -58,8 +60,10 @@ import {
   assembleCompanyBalanceSheet,
   computeBankReliabilityRating,
   computeDilutedSharePercentage,
+  computeEffectiveAttractiveness,
   computeFoundingAttractiveness,
   computeFoundingCost,
+  computeInfrastructureAttractivenessBonus,
   computeInvestmentLevel,
   computeLiquidationReserveWithdrawal,
   computeLoanRate,
@@ -2341,7 +2345,7 @@ export class CompaniesService {
       safetyInvestment: { toNumber(): number };
       insuranceInvestment: { toNumber(): number };
       sector: { name: string };
-      municipality: { name: string };
+      municipality: { name: string; infrastructureFund: { toNumber(): number } };
       cycleReports: {
         revenue: { toNumber(): number };
         costs: { toNumber(): number };
@@ -2397,12 +2401,33 @@ export class CompaniesService {
     });
     const totalEmployeeCount = departmentsView.reduce((sum, d) => sum + d.totalEmployeeCount, 0);
 
+    // Attractivité effective (cf. game-engine/cycles.ts closeCurrentCycle,
+    // même formule) — recalculée en direct plutôt que lue depuis un champ
+    // persisté : contrairement au score de base (figé à la fondation, ne
+    // bouge que sur défaut de prêt), le bonus d'infrastructure communale
+    // suit le fonds en temps réel pour que les contributions des joueurs se
+    // reflètent immédiatement ici, pas seulement dans le calcul de vente
+    // interne au prochain cycle.
+    const baseAttractiveness = company.attractivenessScore.toNumber();
+    const managerBonus = computeEffectiveAttractiveness(baseAttractiveness, company.hasManager) - baseAttractiveness;
+    const infrastructureBonus = computeInfrastructureAttractivenessBonus(company.municipality.infrastructureFund.toNumber());
+    const provinceAffinityBonus = PROVINCE_SECTOR_AFFINITIES[company.municipality.name]?.includes(company.sector.name)
+      ? PROVINCE_SECTOR_AFFINITY_BONUS
+      : 0;
+
     return {
       id: company.id,
       name: company.name,
       sector: company.sector.name,
       municipality: company.municipality.name,
-      attractivenessScore: company.attractivenessScore.toNumber(),
+      attractivenessScore: baseAttractiveness,
+      effectiveAttractiveness: baseAttractiveness + managerBonus + infrastructureBonus + provinceAffinityBonus,
+      attractivenessBreakdown: {
+        base: baseAttractiveness,
+        managerBonus,
+        infrastructureBonus,
+        provinceAffinityBonus,
+      },
       status: company.status,
       createdAt: company.createdAt,
       hasManager: company.hasManager,

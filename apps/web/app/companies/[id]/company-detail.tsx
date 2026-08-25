@@ -754,7 +754,16 @@ export function CompanyDetail({
             />{" "}
             Attractivité
           </span>
-          <span className={styles.value}>{company.attractivenessScore.toFixed(0)}/100</span>
+          <span className={styles.value}>{company.effectiveAttractiveness.toFixed(0)}/100</span>
+          <span className={styles.jobMeta}>
+            Base {company.attractivenessBreakdown.base.toFixed(0)}
+            {company.attractivenessBreakdown.managerBonus > 0 &&
+              ` · Manager +${company.attractivenessBreakdown.managerBonus.toFixed(0)}`}
+            {company.attractivenessBreakdown.infrastructureBonus > 0 &&
+              ` · Infrastructures +${company.attractivenessBreakdown.infrastructureBonus.toFixed(1)}`}
+            {company.attractivenessBreakdown.provinceAffinityBonus > 0 &&
+              ` · Province +${company.attractivenessBreakdown.provinceAffinityBonus.toFixed(0)}`}
+          </span>
         </div>
         <div className={`${styles.card} ${styles.cardGold}`}>
           <span className={styles.label}>📈 Profit cumulé</span>

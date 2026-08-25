@@ -236,12 +236,21 @@ export interface CompanyDepartmentView {
   totalEmployeeCount: number;
 }
 
+export interface AttractivenessBreakdown {
+  base: number;
+  managerBonus: number;
+  infrastructureBonus: number;
+  provinceAffinityBonus: number;
+}
+
 export interface Company {
   id: string;
   name: string;
   sector: string;
   municipality: string;
   attractivenessScore: number;
+  effectiveAttractiveness: number;
+  attractivenessBreakdown: AttractivenessBreakdown;
   status: string;
   createdAt: string;
   hasManager: boolean;

@@ -21,7 +21,7 @@ function CompanySummaryCard({ company }: { company: Company }) {
           {company.sector} — {company.municipality} — {company.sharePercentage}% des parts
         </div>
         <div className={styles.jobStats}>
-          <span>⭐ Attractivité {company.attractivenessScore.toFixed(0)}/100</span>
+          <span>⭐ Attractivité {company.effectiveAttractiveness.toFixed(0)}/100</span>
           <span>{company.hasManager ? "🧑‍💼 Avec manager" : "🚫 Sans manager"}</span>
           <span>
             👥 {company.totalEmployeeCount} employé{company.totalEmployeeCount > 1 ? "s" : ""}
