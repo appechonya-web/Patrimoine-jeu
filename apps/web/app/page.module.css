@@ -589,8 +589,8 @@ a.jobCard:hover {
 .assetChart {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.6rem 1.3rem;
+  gap: 1rem;
+  padding: 0.65rem 1.3rem;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -599,9 +599,15 @@ a.jobCard:hover {
 
 .assetChartSvg {
   display: block;
-  width: 140px;
-  height: 40px;
+  width: 180px;
+  height: 46px;
   flex: none;
+}
+
+.assetChartBaseline {
+  stroke: var(--border-strong);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
 }
 
 .assetChartAreaUp {
@@ -630,9 +636,33 @@ a.jobCard:hover {
   stroke-linecap: round;
 }
 
+.assetChartHighDot {
+  fill: var(--gold-strong);
+  stroke: var(--bg-elevated);
+  stroke-width: 1;
+}
+
+.assetChartLowDot {
+  fill: var(--text-muted);
+  stroke: var(--bg-elevated);
+  stroke-width: 1;
+}
+
+.assetChartLegend {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
 .assetChartDelta {
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.assetChartHighLow {
+  font-size: 0.72rem;
+  color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
 
