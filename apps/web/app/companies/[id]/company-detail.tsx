@@ -33,6 +33,7 @@ import type {
   CompanyStaffView,
   InsuranceOfferView,
   Product,
+  ProductPricing,
   ExpansionRequirement,
   ProposalView,
   SaleBidView,
@@ -322,15 +323,38 @@ function InvestmentPanel({ companyId, onDone }: { companyId: string; onDone: () 
   );
 }
 
+/** Même formule que game-engine/companies.ts computeCompetitiveness — juste le facteur prix, en isolation, pour la prévisualisation live. */
+function priceMultiplierAt(candidatePrice: number, pricing: ProductPricing): number {
+  return Math.min(
+    pricing.priceMultiplierCap,
+    Math.pow(pricing.acceptedReferencePrice / Math.max(0.01, candidatePrice), pricing.priceElasticity),
+  );
+}
+
+function priceMultiplierTone(multiplier: number): string {
+  if (multiplier >= 1.5) return styles.priceMultiplierGood;
+  if (multiplier >= 0.9) return styles.priceMultiplierNeutral;
+  return styles.priceMultiplierBad;
+}
+
+function priceMultiplierLabel(multiplier: number): string {
+  if (multiplier >= 1.5) return "🔥 Prix cassé — forte demande";
+  if (multiplier >= 0.9) return "⚖️ Prix équilibré";
+  if (multiplier >= 0.5) return "⚠️ Prix élevé — demande en recul";
+  return "🥶 Prix très élevé — demande quasi nulle";
+}
+
 function ProductPriceForm({
   companyId,
   productId,
   unitPrice,
+  pricing,
   onDone,
 }: {
   companyId: string;
   productId: string;
   unitPrice: number;
+  pricing: ProductPricing;
   onDone: () => void;
 }) {
   const [price, setPrice] = useState(unitPrice);
@@ -351,22 +375,35 @@ function ProductPriceForm({
     }
   }
 
+  const previewMultiplier = priceMultiplierAt(price, pricing);
+  const currentMultiplier = pricing.currentPriceMultiplier;
+
   return (
-    <form className={styles.form} onSubmit={handleSubmit}>
-      <input
-        className={styles.formInput}
-        type="number"
-        min={MIN_UNIT_PRICE}
-        max={REFERENCE_UNIT_PRICE * MAX_UNIT_PRICE_RATIO * 3}
-        step={0.5}
-        value={price}
-        onChange={(e) => setPrice(Number(e.target.value))}
-      />
-      <button className={styles.apply} type="submit" disabled={pending}>
-        {pending ? "…" : "🏷️ Fixer le prix"}
-      </button>
-      {error && <p className={styles.error}>{error}</p>}
-    </form>
+    <>
+      <div className={styles.jobStats}>
+        <span>🎯 Prix de référence {currencyFormatter.format(pricing.acceptedReferencePrice)}/unité</span>
+        <span>Aujourd'hui : ×{currentMultiplier.toFixed(2)} demande</span>
+      </div>
+      <form className={styles.form} onSubmit={handleSubmit}>
+        <input
+          className={styles.formInput}
+          type="number"
+          min={MIN_UNIT_PRICE}
+          max={REFERENCE_UNIT_PRICE * MAX_UNIT_PRICE_RATIO * 3}
+          step={0.5}
+          value={price}
+          onChange={(e) => setPrice(Number(e.target.value))}
+        />
+        <button className={styles.apply} type="submit" disabled={pending}>
+          {pending ? "…" : "🏷️ Fixer le prix"}
+        </button>
+        {error && <p className={styles.error}>{error}</p>}
+      </form>
+      <div className={`${styles.priceMultiplierPreview} ${priceMultiplierTone(previewMultiplier)}`}>
+        <span>{priceMultiplierLabel(previewMultiplier)}</span>
+        <span>×{previewMultiplier.toFixed(2)} sur la demande à ce prix (plafond ×{pricing.priceMultiplierCap})</span>
+      </div>
+    </>
   );
 }
 
@@ -453,7 +490,13 @@ function ProductCard({
         {company.isPrimaryOwner && (
           <>
             <p className={styles.jobMeta}>Prix ({currencyFormatter.format(product.unitPrice)}/unité) :</p>
-            <ProductPriceForm companyId={company.id} productId={product.id} unitPrice={product.unitPrice} onDone={onDone} />
+            <ProductPriceForm
+              companyId={company.id}
+              productId={product.id}
+              unitPrice={product.unitPrice}
+              pricing={product.pricing}
+              onDone={onDone}
+            />
             {!product.isCore && (
               <>
                 <p className={styles.jobMeta}>

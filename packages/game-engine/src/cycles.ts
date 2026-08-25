@@ -22,6 +22,7 @@ import {
   FORECLOSURE_SALE_RATIO,
   LOAN_DEFAULT_ATTRACTIVENESS_PENALTY,
   MANAGER_SALARY_PER_CYCLE,
+  NON_CORE_REFERENCE_COMPETITIVENESS,
   NPC_JOBS,
   PERSONAL_GOOD_CATALOG,
   PROVINCE_SECTOR_AFFINITIES,
@@ -1009,6 +1010,11 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
     pool.poolSize = computeMarketPoolSize(productType, npcSum) * nationalSectoralMultiplier * demandGrowthMultiplier;
     if (productType === "core") {
       pool.totalCompetitiveness += npcSum;
+    } else {
+      // Sans ça, une entreprise seule sur une gamme hors "core" dans un
+      // secteur formerait tout le dénominateur de computeCapturedDemand —
+      // 100% de part de marché quel que soit son prix (cf. domain/market.ts).
+      pool.totalCompetitiveness += NON_CORE_REFERENCE_COMPETITIVENESS;
     }
   }
 

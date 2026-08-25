@@ -44,10 +44,14 @@ import {
   PRODUCT_CATALOG,
   PRODUCT_LAUNCH_COST,
   PRODUCT_TYPES,
+  BRANDING_MAX_ELASTICITY_REDUCTION,
+  DEMAND_PRICE_MULTIPLIER_CAP,
+  PRICE_ELASTICITY_BASE,
   PROPOSAL_MAJORITY_THRESHOLD,
   PROPOSAL_VOTING_DURATION_CYCLES,
   PROVINCE_SECTOR_AFFINITIES,
   PROVINCE_SECTOR_AFFINITY_BONUS,
+  REFERENCE_UNIT_PRICE,
   SALE_LISTING_DURATION_CYCLES,
   SOLVENCY_RATIO_CAP,
   STARTUP_COST_LEVEL_0,
@@ -65,6 +69,7 @@ import {
   computeFoundingCost,
   computeInfrastructureAttractivenessBonus,
   computeInvestmentLevel,
+  computeQualityPriceTolerance,
   computeLiquidationReserveWithdrawal,
   computeLoanRate,
   computeProductUnitCost,
@@ -2481,15 +2486,40 @@ export class CompaniesService {
       products: company.products.map((product) => {
         const isCore = product.type === "core";
         const latestProductReport = product.cycleReports[0];
+        const productType = product.type as ProductType;
+        const catalogEntry = PRODUCT_CATALOG[productType];
+
+        // Transparence sur le mécanisme de prix (cf. game-engine/companies.ts
+        // computeCompetitiveness) : le marché n'accepte pas n'importe quel
+        // prix sans broncher — au-delà de ce prix de référence propre à la
+        // gamme, chaque euro de plus rogne le multiplicateur de demande
+        // (élasticité), jusqu'à un plancher jamais nul mais négligeable ; en
+        // dessous, la demande peut au mieux tripler (DEMAND_PRICE_MULTIPLIER_CAP).
+        const qualityLevel = computeInvestmentLevel(company.rdInvestment.toNumber());
+        const brandingLevel = computeInvestmentLevel(company.brandingInvestment.toNumber());
+        const acceptedReferencePrice =
+          REFERENCE_UNIT_PRICE * catalogEntry.referencePriceMultiplier * computeQualityPriceTolerance(qualityLevel);
+        const priceElasticity = PRICE_ELASTICITY_BASE * (1 - (brandingLevel / 100) * BRANDING_MAX_ELASTICITY_REDUCTION);
+        const currentPriceMultiplier = Math.min(
+          DEMAND_PRICE_MULTIPLIER_CAP,
+          Math.pow(acceptedReferencePrice / Math.max(0.01, product.unitPrice.toNumber()), priceElasticity),
+        );
+
         return {
           id: product.id,
           type: product.type,
-          label: PRODUCT_CATALOG[product.type as ProductType]?.label ?? product.type,
+          label: PRODUCT_CATALOG[productType]?.label ?? product.type,
           isCore,
           unitPrice: product.unitPrice.toNumber(),
           capacityAllocation: isCore ? Math.max(0, 100 - nonCoreAllocationSum) : product.capacityAllocation.toNumber(),
           stockUnits: product.stockUnits.toNumber(),
           launchedCycle: product.launchedCycle,
+          pricing: {
+            acceptedReferencePrice,
+            priceElasticity,
+            priceMultiplierCap: DEMAND_PRICE_MULTIPLIER_CAP,
+            currentPriceMultiplier,
+          },
           latestCycleReport: latestProductReport
             ? {
                 unitsProduced: latestProductReport.unitsProduced.toNumber(),

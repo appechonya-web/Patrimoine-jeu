@@ -187,6 +187,13 @@ export interface SectorCompetitor {
   competitiveness: number;
 }
 
+export interface ProductPricing {
+  acceptedReferencePrice: number;
+  priceElasticity: number;
+  priceMultiplierCap: number;
+  currentPriceMultiplier: number;
+}
+
 export interface Product {
   id: string;
   type: string;
@@ -196,6 +203,7 @@ export interface Product {
   capacityAllocation: number;
   stockUnits: number;
   launchedCycle: number;
+  pricing: ProductPricing;
   latestCycleReport: ProductCycleReport | null;
 }
 

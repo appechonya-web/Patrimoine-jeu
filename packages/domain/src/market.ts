@@ -33,6 +33,23 @@ export const CORE_MARKET_NPC_REFERENCE_OFFSET = 1;
 export const NON_CORE_MARKET_REFERENCE_SIZE = 1;
 
 /**
+ * Même rôle que CORE_MARKET_NPC_REFERENCE_OFFSET, mais côté compétitivité
+ * totale plutôt que taille du marché : sans concurrent IA sur les gammes
+ * hors "core", une entreprise seule sur sa gamme dans un secteur voit sa
+ * compétitivité propre former TOUT le dénominateur de computeCapturedDemand
+ * — le ratio devient mécaniquement 1 quel que soit son prix, rendant le
+ * prix totalement indolore pour un pionnier isolé. On ajoute donc, comme
+ * pour "core", une compétitivité de référence fixe et indépendante du
+ * joueur : celle d'une entreprise hypothétique tarifée exactement au prix
+ * de référence de la gamme, sans aucun levier (attractivité de référence,
+ * marketing/qualité/branding/innovation à 0) — ce qui vaut exactement 1
+ * (cf. computeCompetitiveness). Un pionnier isolé reste largement gagnant
+ * s'il reste raisonnable, mais ne peut plus monter son prix à l'infini sans
+ * qu'une part croissante de la demande s'échappe vers cette référence.
+ */
+export const NON_CORE_REFERENCE_COMPETITIVENESS = 1;
+
+/**
  * Croissance de la demande avec la taille de l'économie simulée — sans ça,
  * la taille du marché reste une constante figée quel que soit le nombre de
  * joueurs actifs, ce qui transforme le jeu en pur jeu à somme nulle par
