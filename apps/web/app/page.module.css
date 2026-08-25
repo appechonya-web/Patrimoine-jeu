@@ -385,6 +385,22 @@ a.jobCard:hover {
   margin-top: 0.75rem;
 }
 
+.filterBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.9rem 1.1rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 0.85rem;
+}
+
+.filterBar .formInput {
+  flex: 1 1 150px;
+}
+
 .formInput {
   flex: 1 1 160px;
   padding: 0.6rem 0.75rem;

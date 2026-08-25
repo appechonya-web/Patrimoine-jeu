@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
   MAX_PROPERTY_CUSTOM_NAME_LENGTH,
@@ -572,17 +572,175 @@ function MyPropertyCard({ property, onDone }: { property: PropertyView; onDone: 
   );
 }
 
+const ALL_FILTER = "TOUS";
+
+function PropertyFilters({
+  listings,
+  region,
+  province,
+  type,
+  minPrice,
+  maxPrice,
+  onRegionChange,
+  onProvinceChange,
+  onTypeChange,
+  onMinPriceChange,
+  onMaxPriceChange,
+  onReset,
+  hasActiveFilters,
+}: {
+  listings: PropertyListingView[];
+  region: string;
+  province: string;
+  type: string;
+  minPrice: number | "";
+  maxPrice: number | "";
+  onRegionChange: (value: string) => void;
+  onProvinceChange: (value: string) => void;
+  onTypeChange: (value: string) => void;
+  onMinPriceChange: (value: number | "") => void;
+  onMaxPriceChange: (value: number | "") => void;
+  onReset: () => void;
+  hasActiveFilters: boolean;
+}) {
+  const regions = useMemo(
+    () => [...new Set(listings.map((l) => l.property.region))].sort(),
+    [listings],
+  );
+  const provinces = useMemo(
+    () =>
+      [
+        ...new Set(
+          listings
+            .filter((l) => region === ALL_FILTER || l.property.region === region)
+            .map((l) => l.property.municipality),
+        ),
+      ].sort(),
+    [listings, region],
+  );
+  const types = useMemo(() => [...new Set(listings.map((l) => l.property.type))], [listings]);
+
+  return (
+    <div className={styles.filterBar}>
+      <select
+        className={styles.formInput}
+        value={region}
+        onChange={(e) => {
+          onRegionChange(e.target.value);
+          onProvinceChange(ALL_FILTER);
+        }}
+      >
+        <option value={ALL_FILTER}>Toutes les régions</option>
+        {regions.map((r) => (
+          <option key={r} value={r}>
+            {r}
+          </option>
+        ))}
+      </select>
+      <select className={styles.formInput} value={province} onChange={(e) => onProvinceChange(e.target.value)}>
+        <option value={ALL_FILTER}>Toutes les provinces</option>
+        {provinces.map((p) => (
+          <option key={p} value={p}>
+            {p}
+          </option>
+        ))}
+      </select>
+      <select className={styles.formInput} value={type} onChange={(e) => onTypeChange(e.target.value)}>
+        <option value={ALL_FILTER}>Tous types de bien</option>
+        {types.map((t) => (
+          <option key={t} value={t}>
+            {PROPERTY_TYPE_LABELS[t] ?? t}
+          </option>
+        ))}
+      </select>
+      <input
+        className={styles.formInput}
+        type="number"
+        placeholder="Prix min"
+        min={0}
+        step={1000}
+        value={minPrice}
+        onChange={(e) => onMinPriceChange(e.target.value === "" ? "" : Number(e.target.value))}
+      />
+      <input
+        className={styles.formInput}
+        type="number"
+        placeholder="Prix max"
+        min={0}
+        step={1000}
+        value={maxPrice}
+        onChange={(e) => onMaxPriceChange(e.target.value === "" ? "" : Number(e.target.value))}
+      />
+      {hasActiveFilters && (
+        <button type="button" className={styles.logout} onClick={onReset}>
+          ✕ Réinitialiser
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function PropertyMarketList({ listings }: { listings: PropertyListingView[] }) {
+  const [region, setRegion] = useState(ALL_FILTER);
+  const [province, setProvince] = useState(ALL_FILTER);
+  const [type, setType] = useState(ALL_FILTER);
+  const [minPrice, setMinPrice] = useState<number | "">("");
+  const [maxPrice, setMaxPrice] = useState<number | "">("");
+
+  const hasActiveFilters =
+    region !== ALL_FILTER || province !== ALL_FILTER || type !== ALL_FILTER || minPrice !== "" || maxPrice !== "";
+
+  function handleReset() {
+    setRegion(ALL_FILTER);
+    setProvince(ALL_FILTER);
+    setType(ALL_FILTER);
+    setMinPrice("");
+    setMaxPrice("");
+  }
+
+  const filtered = listings.filter((listing) => {
+    if (region !== ALL_FILTER && listing.property.region !== region) return false;
+    if (province !== ALL_FILTER && listing.property.municipality !== province) return false;
+    if (type !== ALL_FILTER && listing.property.type !== type) return false;
+    if (minPrice !== "" && listing.price < minPrice) return false;
+    if (maxPrice !== "" && listing.price > maxPrice) return false;
+    return true;
+  });
+
   if (listings.length === 0) {
     return <p className={styles.jobMeta}>Aucun bien en vente pour l'instant.</p>;
   }
 
   return (
-    <div className={styles.jobList}>
-      {listings.map((listing) => (
-        <MarketCard key={listing.listingId} listing={listing} />
-      ))}
-    </div>
+    <>
+      <PropertyFilters
+        listings={listings}
+        region={region}
+        province={province}
+        type={type}
+        minPrice={minPrice}
+        maxPrice={maxPrice}
+        onRegionChange={setRegion}
+        onProvinceChange={setProvince}
+        onTypeChange={setType}
+        onMinPriceChange={setMinPrice}
+        onMaxPriceChange={setMaxPrice}
+        onReset={handleReset}
+        hasActiveFilters={hasActiveFilters}
+      />
+      <p className={styles.jobMeta}>
+        {filtered.length} bien{filtered.length > 1 ? "s" : ""} sur {listings.length}
+      </p>
+      {filtered.length === 0 ? (
+        <p className={styles.jobMeta}>Aucun bien ne correspond à ces filtres.</p>
+      ) : (
+        <div className={styles.jobList}>
+          {filtered.map((listing) => (
+            <MarketCard key={listing.listingId} listing={listing} />
+          ))}
+        </div>
+      )}
+    </>
   );
 }
 
