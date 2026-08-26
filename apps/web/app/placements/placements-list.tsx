@@ -27,10 +27,21 @@ function AssetCard({
   onDone: () => void;
 }) {
   const [amount, setAmount] = useState(MIN_ASSET_BUY_AMOUNT);
+  const [sellMode, setSellMode] = useState<"quantity" | "value">("quantity");
   const [sellQuantity, setSellQuantity] = useState(asset.quantity);
+  const [sellValue, setSellValue] = useState(asset.quantity * asset.price);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+
+  function switchSellMode(mode: "quantity" | "value") {
+    if (mode === "value") {
+      setSellValue(sellQuantity * asset.price);
+    } else {
+      setSellQuantity(asset.price > 0 ? sellValue / asset.price : 0);
+    }
+    setSellMode(mode);
+  }
 
   async function handleBuy() {
     setError(null);
@@ -51,7 +62,9 @@ function AssetCard({
     setNotice(null);
     setPending(true);
     try {
-      const result = await sellFinancialAsset(asset.key, sellQuantity);
+      const quantityToSell =
+        sellMode === "quantity" ? sellQuantity : Math.min(asset.quantity, asset.price > 0 ? sellValue / asset.price : 0);
+      const result = await sellFinancialAsset(asset.key, quantityToSell);
       setNotice(
         result.tax > 0
           ? `Vendu pour ${currencyFormatter.format(result.saleProceeds)} — ${currencyFormatter.format(result.tax)} de taxe sur la plus-value, ${currencyFormatter.format(result.net)} net`
@@ -168,26 +181,61 @@ function AssetCard({
             </button>
           </form>
           {asset.quantity > 0 && (
-            <form
-              className={styles.form}
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleSell();
-              }}
-            >
-              <input
-                className={styles.formInput}
-                type="number"
-                min={0.0001}
-                max={asset.quantity}
-                step={0.0001}
-                value={sellQuantity}
-                onChange={(e) => setSellQuantity(Number(e.target.value))}
-              />
-              <button className={styles.logout} type="submit" disabled={pending}>
-                {pending ? "…" : "Vendre"}
-              </button>
-            </form>
+            <>
+              <div className={styles.sellModeToggle}>
+                <button
+                  type="button"
+                  className={sellMode === "quantity" ? styles.sellModeButtonActive : styles.sellModeButton}
+                  onClick={() => switchSellMode("quantity")}
+                >
+                  Unités
+                </button>
+                <button
+                  type="button"
+                  className={sellMode === "value" ? styles.sellModeButtonActive : styles.sellModeButton}
+                  onClick={() => switchSellMode("value")}
+                >
+                  €
+                </button>
+              </div>
+              <form
+                className={styles.form}
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleSell();
+                }}
+              >
+                {sellMode === "quantity" ? (
+                  <input
+                    className={styles.formInput}
+                    type="number"
+                    min={0.0001}
+                    max={asset.quantity}
+                    step={0.0001}
+                    value={sellQuantity}
+                    onChange={(e) => setSellQuantity(Number(e.target.value))}
+                  />
+                ) : (
+                  <input
+                    className={styles.formInput}
+                    type="number"
+                    min={0.01}
+                    max={asset.marketValue}
+                    step={1}
+                    value={sellValue}
+                    onChange={(e) => setSellValue(Number(e.target.value))}
+                  />
+                )}
+                <button className={styles.logout} type="submit" disabled={pending}>
+                  {pending ? "…" : "Vendre"}
+                </button>
+              </form>
+              <p className={styles.jobMeta}>
+                {sellMode === "quantity"
+                  ? `≈ ${currencyFormatter.format(sellQuantity * asset.price)}`
+                  : `≈ ${(asset.price > 0 ? sellValue / asset.price : 0).toFixed(4)} unités`}
+              </p>
+            </>
           )}
         </div>
       </div>

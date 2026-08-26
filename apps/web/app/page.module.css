@@ -385,6 +385,34 @@ a.jobCard:hover {
   margin-top: 0.75rem;
 }
 
+.sellModeToggle {
+  display: inline-flex;
+  gap: 0.2rem;
+  padding: 0.15rem;
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  margin-top: 0.75rem;
+}
+
+.sellModeButton,
+.sellModeButtonActive {
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.sellModeButtonActive {
+  background: var(--gold);
+  color: #241a08;
+}
+
 .filterBar {
   display: flex;
   flex-wrap: wrap;
