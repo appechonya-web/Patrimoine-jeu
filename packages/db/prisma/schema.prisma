@@ -212,6 +212,7 @@ model Player {
   bankDeposits          BankDeposit[]
   causeDonations        CauseDonation[]
   cycleReports          PlayerCycleReport[]
+  cycleReportLines      PlayerCycleReportLine[]
 }
 
 /// Récap "revenus & dépenses" d'un cycle pour un joueur — contrairement à
@@ -240,6 +241,32 @@ model PlayerCycleReport {
   bankFailurePayout            Decimal @default(0) @db.Decimal(14, 2)
 
   @@unique([playerId, cycleId])
+}
+
+/// Détail ligne par ligne d'une catégorie de PlayerCycleReport — une
+/// entreprise pour "dividend", un bien pour "rent", un prêt pour
+/// "mortgage", un défi pour "achievement". PlayerCycleReport garde les
+/// totaux par catégorie (lecture rapide) ; cette table permet d'afficher
+/// le calcul complet (brut → impôt → net) source par source quand il y en
+/// a plusieurs, plutôt qu'un seul chiffre agrégé opaque.
+model PlayerCycleReportLine {
+  id          String  @id @default(uuid())
+  player      Player  @relation(fields: [playerId], references: [id])
+  playerId    String
+  cycle       Cycle   @relation(fields: [cycleId], references: [id])
+  cycleId     String
+  category    String
+  /// Id de l'entité source (companyId, propertyId, loan.id, achievementId
+  /// selon la catégorie) — permet un upsert idempotent par (joueur, cycle,
+  /// catégorie, source) si la clôture est rejouée, plutôt qu'une simple
+  /// insertion qui dupliquerait les lignes.
+  sourceId    String?
+  label       String
+  grossAmount Decimal? @db.Decimal(14, 2)
+  taxAmount   Decimal? @db.Decimal(14, 2)
+  netAmount   Decimal  @db.Decimal(14, 2)
+
+  @@unique([playerId, cycleId, category, sourceId])
 }
 
 /// Biens de consommation personnels (cf. domain/personal-goods.ts) — un
@@ -1304,6 +1331,7 @@ model Cycle {
   commodityPriceHistory  CommodityPriceHistory[]
   assetPriceHistory      FinancialAssetPriceHistory[]
   playerCycleReports     PlayerCycleReport[]
+  playerCycleReportLines PlayerCycleReportLine[]
 }
 
 /// Prêt bancaire d'entreprise — distinct du modèle Loan (qui visait des

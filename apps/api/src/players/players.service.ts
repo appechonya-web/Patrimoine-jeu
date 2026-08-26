@@ -178,6 +178,22 @@ export class PlayersService {
     });
     if (!report) return null;
 
+    const lines = await this.prisma.client.playerCycleReportLine.findMany({
+      where: { playerId, cycleId: report.cycleId },
+      orderBy: { netAmount: "desc" },
+    });
+    const linesByCategory: Record<string, { label: string; grossAmount: number | null; taxAmount: number | null; netAmount: number }[]> =
+      {};
+    for (const line of lines) {
+      const entry = {
+        label: line.label,
+        grossAmount: line.grossAmount?.toNumber() ?? null,
+        taxAmount: line.taxAmount?.toNumber() ?? null,
+        netAmount: line.netAmount.toNumber(),
+      };
+      (linesByCategory[line.category] ??= []).push(entry);
+    }
+
     const salaryIncome = report.salaryIncome.toNumber();
     const independentActivityIncome = report.independentActivityIncome.toNumber();
     const dividendIncome = report.dividendIncome.toNumber();
@@ -203,6 +219,7 @@ export class PlayersService {
       savingsInterestAccrued,
       achievementReward,
       bankFailurePayout,
+      lines: linesByCategory,
       totalLiquidChange:
         salaryIncome +
         independentActivityIncome +

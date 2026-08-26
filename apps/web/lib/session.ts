@@ -127,6 +127,13 @@ export async function getWealthHistory(): Promise<WealthHistoryPoint[]> {
   return res.json();
 }
 
+export interface CycleReportLineView {
+  label: string;
+  grossAmount: number | null;
+  taxAmount: number | null;
+  netAmount: number;
+}
+
 export interface CycleReportView {
   cycleNumber: number;
   salaryIncome: number;
@@ -140,6 +147,7 @@ export interface CycleReportView {
   savingsInterestAccrued: number;
   achievementReward: number;
   bankFailurePayout: number;
+  lines: Record<string, CycleReportLineView[]>;
   totalLiquidChange: number;
 }
 

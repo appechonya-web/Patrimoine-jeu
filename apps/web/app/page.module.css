@@ -704,6 +704,32 @@ a.jobCard:hover {
   font-variant-numeric: tabular-nums;
 }
 
+.cycleRecapDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin: 0.3rem 0 0.5rem 1.1rem;
+}
+
+.cycleRecapDetailRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.65rem;
+  font-size: 0.78rem;
+}
+
+.cycleRecapDetailLabel {
+  flex: 1;
+  color: var(--text-muted);
+}
+
+.cycleRecapDetailValue {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  flex: none;
+}
+
 .assetCardWrapper {
   display: flex;
   flex-direction: column;

@@ -500,7 +500,7 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
     prisma.playerAssetHolding.findMany({ where: { quantity: { gt: 0 } } }),
     prisma.property.findMany({
       where: { ownerId: { not: null } },
-      include: { leases: { where: { status: "ACTIVE" }, take: 1 } },
+      include: { leases: { where: { status: "ACTIVE" }, take: 1 }, municipality: { select: { name: true } } },
     }),
     prisma.loan.findMany({
       where: { status: "ACTIVE" },
@@ -641,7 +641,10 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
   // connu, dans la boucle joueurs ci-dessous) entraîne la saisie du bien mis
   // en garantie s'il y en a un (hypothèque) — rien à saisir pour un prêt
   // communautaire, juste une perte sèche pour l'entreprise prêteuse.
-  const mortgagePaymentsByPlayer = new Map<string, { loan: (typeof mortgageLoans)[number]; principalPortion: number }[]>();
+  const mortgagePaymentsByPlayer = new Map<
+    string,
+    { loan: (typeof mortgageLoans)[number]; principalPortion: number; interest: number; totalPayment: number }[]
+  >();
   const communityLoanCreditByLenderCompany = new Map<string, number>();
   const mortgagePaymentAmountByPlayer = new Map<string, number>();
   for (const loan of mortgageLoans) {
@@ -652,7 +655,7 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
       rate: loan.rate.toNumber(),
     });
     const list = mortgagePaymentsByPlayer.get(loan.borrowerPlayerId) ?? [];
-    list.push({ loan, principalPortion: payment.principalPortion });
+    list.push({ loan, principalPortion: payment.principalPortion, interest: payment.interest, totalPayment: payment.totalPayment });
     mortgagePaymentsByPlayer.set(loan.borrowerPlayerId, list);
     propertyWealthDeltaByPlayer.set(
       loan.borrowerPlayerId,
@@ -1322,6 +1325,16 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
   // est déjà déduit AVANT le calcul du profit net (cf. computeCompanyResult,
   // totalLoanPayments dans `costs`), donc déjà financé par construction.
   const companyIncomeByPlayer = new Map<string, number>();
+  // Détail par entreprise (cf. PlayerCycleReportLine) — companyIncomeByPlayer
+  // ci-dessus reste le total agrégé consommé partout ailleurs, inchangé.
+  const dividendReportLines: {
+    playerId: string;
+    companyId: string;
+    companyName: string;
+    grossShare: number;
+    tax: number;
+    net: number;
+  }[] = [];
   const companyReputationByPlayer = new Map<string, number>();
   const liquidationReserveContributionByCompany = new Map<string, number>();
   const operatingReserveRetainedByCompany = new Map<string, number>();
@@ -1362,8 +1375,18 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
       for (const share of result.company.shares) {
         const shareFraction = share.sharePercentage.toNumber() / 100;
         const grossShare = distributableProfit * shareFraction;
-        const { net } = computeDividendDistribution(grossShare);
+        const { net, tax } = computeDividendDistribution(grossShare);
         companyIncomeByPlayer.set(share.playerId, (companyIncomeByPlayer.get(share.playerId) ?? 0) + net);
+        if (grossShare !== 0) {
+          dividendReportLines.push({
+            playerId: share.playerId,
+            companyId: result.company.id,
+            companyName: result.company.name,
+            grossShare,
+            tax,
+            net,
+          });
+        }
       }
     }
     // La réputation générée par l'entreprise revient au propriétaire principal
@@ -1912,8 +1935,32 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
       // d'entreprise) — mêmes pertes cumulées que ce qu'il reste à
       // rembourser = saisie du bien mis en garantie (cf. domain/mortgage.ts).
       const projectedWealth = stats.wealthLiquid.toNumber() + wealthDelta;
-      for (const { loan, principalPortion } of mortgagePaymentsByPlayer.get(player.id) ?? []) {
+      for (const { loan, principalPortion, interest, totalPayment } of mortgagePaymentsByPlayer.get(player.id) ?? []) {
         const remainingAfterPayment = loan.remainingBalance.toNumber() - principalPortion;
+
+        await tx.playerCycleReportLine.upsert({
+          where: {
+            playerId_cycleId_category_sourceId: {
+              playerId: player.id,
+              cycleId: openCycle.id,
+              category: "mortgage",
+              sourceId: loan.id,
+            },
+          },
+          create: {
+            playerId: player.id,
+            cycleId: openCycle.id,
+            category: "mortgage",
+            sourceId: loan.id,
+            label: loan.collateralProperty
+              ? `Prêt hypothécaire — ${loan.collateralProperty.customName ?? "bien immobilier"}`
+              : `Prêt communautaire — ${loan.lenderCompany?.name ?? "entreprise"}`,
+            grossAmount: interest,
+            taxAmount: null,
+            netAmount: -totalPayment,
+          },
+          update: { netAmount: -totalPayment, grossAmount: interest },
+        });
 
         if (remainingAfterPayment <= 0.01) {
           await tx.loan.update({ where: { id: loan.id }, data: { remainingBalance: 0, status: "PAID" } });
@@ -2142,6 +2189,25 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
             where: { playerId_cycleId: { playerId: player.id, cycleId: openCycle.id } },
             data: { achievementReward: { increment: definition.reward } },
           });
+          await tx.playerCycleReportLine.upsert({
+            where: {
+              playerId_cycleId_category_sourceId: {
+                playerId: player.id,
+                cycleId: openCycle.id,
+                category: "achievement",
+                sourceId: milestone.id,
+              },
+            },
+            create: {
+              playerId: player.id,
+              cycleId: openCycle.id,
+              category: "achievement",
+              sourceId: milestone.id,
+              label: definition.label,
+              netAmount: definition.reward,
+            },
+            update: { netAmount: definition.reward },
+          });
           await tx.playerNotification.create({
             data: {
               playerId: player.id,
@@ -2172,6 +2238,52 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
       await tx.property.update({
         where: { id: update.property.id },
         data: { condition: update.newCondition },
+      });
+
+      if (update.rentCollected > 0) {
+        await tx.playerCycleReportLine.upsert({
+          where: {
+            playerId_cycleId_category_sourceId: {
+              playerId: update.ownerId,
+              cycleId: openCycle.id,
+              category: "rent",
+              sourceId: update.property.id,
+            },
+          },
+          create: {
+            playerId: update.ownerId,
+            cycleId: openCycle.id,
+            category: "rent",
+            sourceId: update.property.id,
+            label: update.property.customName ?? update.property.municipality.name,
+            netAmount: update.rentCollected,
+          },
+          update: { netAmount: update.rentCollected },
+        });
+      }
+    }
+
+    for (const line of dividendReportLines) {
+      await tx.playerCycleReportLine.upsert({
+        where: {
+          playerId_cycleId_category_sourceId: {
+            playerId: line.playerId,
+            cycleId: openCycle.id,
+            category: "dividend",
+            sourceId: line.companyId,
+          },
+        },
+        create: {
+          playerId: line.playerId,
+          cycleId: openCycle.id,
+          category: "dividend",
+          sourceId: line.companyId,
+          label: line.companyName,
+          grossAmount: line.grossShare,
+          taxAmount: line.tax,
+          netAmount: line.net,
+        },
+        update: { label: line.companyName, grossAmount: line.grossShare, taxAmount: line.tax, netAmount: line.net },
       });
     }
 
