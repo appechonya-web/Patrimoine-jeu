@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { SaleListingView } from "../../lib/session";
 import { GameError, submitSaleBid } from "../../lib/game-client";
 import { currencyFormatter } from "../../lib/format";
+import { StatHint } from "../stat-hint";
 import styles from "../page.module.css";
 
 function ListingCard({ listing }: { listing: SaleListingView }) {
@@ -37,12 +38,28 @@ function ListingCard({ listing }: { listing: SaleListingView }) {
           {listing.sector} — {listing.municipality}
         </div>
         <div className={styles.jobStats}>
-          <span>🧩 {listing.sharePercentage}% des parts</span>
+          <span>
+            <StatHint hint="Part du capital que le vendeur propose de céder — pas forcément le contrôle de l'entreprise si c'est moins de 50%.">
+              🧩 {listing.sharePercentage}% des parts
+            </StatHint>
+          </span>
           {listing.askingPricePerPercent !== null && (
-            <span>💬 Prix indicatif {currencyFormatter.format(listing.askingPricePerPercent)}/1%</span>
+            <span>
+              <StatHint hint="Juste une indication du vendeur — il n'est engagé à rien : il peut accepter une offre plus basse ou plus haute, ou n'en accepter aucune.">
+                💬 Prix indicatif {currencyFormatter.format(listing.askingPricePerPercent)}/1%
+              </StatHint>
+            </span>
           )}
-          <span>📨 {listing.bidCount} offre(s) reçue(s)</span>
-          <span>⏳ {listing.cyclesRemaining} cycles restants</span>
+          <span>
+            <StatHint hint="Nombre d'offres déjà reçues par le vendeur — tu ne vois ni leur montant ni qui les a faites, la négociation reste privée.">
+              📨 {listing.bidCount} offre(s) reçue(s)
+            </StatHint>
+          </span>
+          <span>
+            <StatHint hint="Passé ce délai, l'annonce expire — le vendeur garde ses parts si aucune offre ne lui convenait.">
+              ⏳ {listing.cyclesRemaining} cycles restants
+            </StatHint>
+          </span>
         </div>
         {error && <p className={styles.error}>{error}</p>}
         {sent && <p className={styles.jobMeta}>Offre envoyée — le vendeur décide en privé.</p>}

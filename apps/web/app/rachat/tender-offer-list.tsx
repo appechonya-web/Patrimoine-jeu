@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import type { TenderOfferView } from "../../lib/session";
 import { GameError, cancelTenderOffer, tenderShares } from "../../lib/game-client";
 import { currencyFormatter } from "../../lib/format";
+import { StatHint } from "../stat-hint";
 import styles from "../page.module.css";
 
 function OfferCard({ offer, myPseudo }: { offer: TenderOfferView; myPseudo: string }) {
@@ -52,12 +53,20 @@ function OfferCard({ offer, myPseudo }: { offer: TenderOfferView; myPseudo: stri
           {offer.sector} — {offer.municipality} — acquéreur : {offer.acquirerPseudo}
         </div>
         <div className={styles.jobStats}>
-          <span>⏳ {offer.cyclesRemaining} cycles restants</span>
+          <span>
+            <StatHint hint="Temps restant avant l'expiration de l'OPA — si l'acquéreur n'a pas rassemblé assez de parts d'ici là, l'offre expire sans effet et chacun garde ce qu'il avait.">
+              ⏳ {offer.cyclesRemaining} cycles restants
+            </StatHint>
+          </span>
         </div>
         {error && <p className={styles.error}>{error}</p>}
       </div>
       <div className={styles.jobActions}>
-        <div className={styles.jobSalary}>{currencyFormatter.format(offer.pricePerPercent)} / 1%</div>
+        <div className={styles.jobSalary}>
+          <StatHint hint="Prix offert par tranche de 1% de parts cédées — au moins 10% au-dessus de la valeur comptable de l'entreprise, fixé une fois pour toutes par l'acquéreur à l'ouverture de l'OPA.">
+            {currencyFormatter.format(offer.pricePerPercent)} / 1%
+          </StatHint>
+        </div>
         {isMine ? (
           <button className={styles.logout} type="button" disabled={pending} onClick={handleCancel}>
             {pending ? "…" : "🚫 Retirer"}

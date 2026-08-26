@@ -6,6 +6,7 @@ import type { GigView } from "../lib/session";
 import { GameError, performGig } from "../lib/game-client";
 import { currencyFormatter } from "../lib/format";
 import { InfoTip } from "./info-tip";
+import { StatHint } from "./stat-hint";
 import styles from "./page.module.css";
 
 function cooldownLabel(secondsRemaining: number): string {
@@ -84,10 +85,18 @@ export function GigsSection({ gigs }: { gigs: GigView[] }) {
                 <div className={styles.jobMeta}>{gig.description}</div>
                 <div className={styles.jobStats}>
                   <span>
-                    💵 {currencyFormatter.format(gig.minReward)} – {currencyFormatter.format(gig.maxReward)}
+                    <StatHint hint="Montant tiré au hasard dans cette fourchette à chaque fois que tu le fais — pas un choix, ni une moyenne garantie.">
+                      💵 {currencyFormatter.format(gig.minReward)} – {currencyFormatter.format(gig.maxReward)}
+                    </StatHint>
                   </span>
                   {gig.wellbeingCost > 0 && <span>💗 Bien-être −{gig.wellbeingCost}</span>}
-                  {!gig.unlocked && <span>🔒 Réputation min. {gig.minReputation}</span>}
+                  {!gig.unlocked && (
+                    <span>
+                      <StatHint hint="Ta réputation actuelle est trop basse pour débloquer ce petit boulot — elle monte avec certains emplois utiles socialement, de bonnes conditions de travail dans tes entreprises, ou en remboursant tes prêts.">
+                        🔒 Réputation min. {gig.minReputation}
+                      </StatHint>
+                    </span>
+                  )}
                 </div>
               </div>
               <div className={styles.jobActions}>

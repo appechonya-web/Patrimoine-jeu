@@ -7,6 +7,7 @@ import type { JobPostingView } from "../lib/session";
 import { GameError, applyToJobPosting } from "../lib/game-client";
 import { currencyFormatter } from "../lib/format";
 import { InfoTip } from "./info-tip";
+import { StatHint } from "./stat-hint";
 import styles from "./page.module.css";
 
 export function PeerJobsSection({ postings }: { postings: JobPostingView[] }) {
@@ -53,7 +54,11 @@ export function PeerJobsSection({ postings }: { postings: JobPostingView[] }) {
                 {posting.company.municipality}
               </div>
               <div className={styles.jobStats}>
-                <span>🔥 Pression {posting.pressure}/100</span>
+                <span>
+                  <StatHint hint="Draine ton bien-être à chaque cycle travaillé, atténué par ton expérience dans ce secteur (qui augmente ta tolérance avec le temps).">
+                    🔥 Pression {posting.pressure}/100
+                  </StatHint>
+                </span>
               </div>
             </div>
             <div className={styles.jobActions}>

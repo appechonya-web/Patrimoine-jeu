@@ -6,6 +6,7 @@ import Link from "next/link";
 import type { LoanOfferView } from "../../lib/session";
 import { GameError, takeLoanOffer } from "../../lib/game-client";
 import { currencyFormatter } from "../../lib/format";
+import { StatHint } from "../stat-hint";
 import styles from "../page.module.css";
 
 function reliabilityLabel(reliability: number): string {
@@ -42,9 +43,21 @@ function OfferCard({ offer }: { offer: LoanOfferView }) {
           {offer.lenderCompany.sector} — {offer.lenderCompany.municipality}
         </div>
         <div className={styles.jobStats}>
-          <span>📈 Taux {(offer.rate * 100).toFixed(1)}%/an</span>
-          <span>⏳ Durée {offer.termCycles} cycles</span>
-          <span>{reliabilityLabel(offer.lenderCompany.reliability)}</span>
+          <span>
+            <StatHint hint="Fixé librement par l'entreprise prêteuse — ne bouge plus une fois le prêt accepté, même si sa situation financière change ensuite.">
+              📈 Taux {(offer.rate * 100).toFixed(1)}%/an
+            </StatHint>
+          </span>
+          <span>
+            <StatHint hint="Nombre de cycles sur lesquels tu rembourseras ce prêt, capital et intérêts inclus à chaque échéance.">
+              ⏳ Durée {offer.termCycles} cycles
+            </StatHint>
+          </span>
+          <span>
+            <StatHint hint="Solvabilité de l'entreprise prêteuse — en dessous de 30/100, elle est déjà proche de son plafond de prêt et plus susceptible de rencontrer des difficultés, même si ça n'affecte pas directement ton propre remboursement.">
+              {reliabilityLabel(offer.lenderCompany.reliability)}
+            </StatHint>
+          </span>
         </div>
         {error && <p className={styles.error}>{error}</p>}
       </div>
