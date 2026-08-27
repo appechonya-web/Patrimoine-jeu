@@ -400,9 +400,13 @@ export class CompaniesService {
 
     const innovationLevel = computeInvestmentLevel(company.innovationInvestment.toNumber());
     const catalogEntry = PRODUCT_CATALOG[input.type];
-    if (innovationLevel < catalogEntry.unlockInnovationLevel) {
+    // Comparé au niveau ARRONDI, pas brut : c'est ce nombre arrondi que le
+    // joueur voit affiché partout (fiche entreprise, catalogue) — sans ça,
+    // un niveau affiché "35" mais réellement 34.6 refuserait le
+    // déblocage alors que tout ce que le joueur peut observer dit "35".
+    if (Math.round(innovationLevel) < catalogEntry.unlockInnovationLevel) {
       throw new BadRequestException(
-        `Cette gamme demande un niveau de R&D d'au moins ${catalogEntry.unlockInnovationLevel} (actuellement ${innovationLevel.toFixed(0)})`,
+        `Cette gamme demande un niveau de R&D d'au moins ${catalogEntry.unlockInnovationLevel} (actuellement ${Math.round(innovationLevel)})`,
       );
     }
     if (!stats || stats.wealthLiquid.toNumber() < PRODUCT_LAUNCH_COST) {
@@ -682,7 +686,7 @@ export class CompaniesService {
         label: PRODUCT_CATALOG[type].label,
         description: PRODUCT_CATALOG[type].description,
         unlockInnovationLevel: PRODUCT_CATALOG[type].unlockInnovationLevel,
-        isUnlocked: innovationLevel >= PRODUCT_CATALOG[type].unlockInnovationLevel,
+        isUnlocked: Math.round(innovationLevel) >= PRODUCT_CATALOG[type].unlockInnovationLevel,
         launchCost: PRODUCT_LAUNCH_COST,
       })),
       sectorCompetitors: sectorCompetitors.map((c) => ({
