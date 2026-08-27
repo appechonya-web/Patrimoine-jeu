@@ -63,6 +63,7 @@ import {
 import {
   assembleCompanyBalanceSheet,
   computeBankReliabilityRating,
+  computeDepartmentContribution,
   computeDilutedSharePercentage,
   computeEffectiveAttractiveness,
   computeFoundingAttractiveness,
@@ -73,6 +74,7 @@ import {
   computeLiquidationReserveWithdrawal,
   computeLoanRate,
   computeProductUnitCost,
+  computeRdStaffInnovationBonus,
   isLiquidationReserveMature,
 } from "@patrimoine-jeu/game-engine";
 import { CyclesService } from "../cycles/cycles.service.js";
@@ -388,7 +390,10 @@ export class CompaniesService {
     await this.assertPrimaryOwner(playerId, companyId);
 
     const [company, stats] = await Promise.all([
-      this.prisma.client.company.findUnique({ where: { id: companyId }, include: { products: true } }),
+      this.prisma.client.company.findUnique({
+        where: { id: companyId },
+        include: { products: true, departments: true, employeeCounts: true },
+      }),
       this.prisma.client.playerStats.findUnique({ where: { playerId } }),
     ]);
     if (!company) {
@@ -398,7 +403,11 @@ export class CompaniesService {
       throw new BadRequestException("Cette gamme est déjà active pour cette entreprise");
     }
 
-    const innovationLevel = computeInvestmentLevel(company.innovationInvestment.toNumber());
+    const innovationLevel = this.computeEffectiveInnovationLevel(
+      company.innovationInvestment.toNumber(),
+      company.departments,
+      company.employeeCounts,
+    );
     const catalogEntry = PRODUCT_CATALOG[input.type];
     // Comparé au niveau ARRONDI, pas brut : c'est ce nombre arrondi que le
     // joueur voit affiché partout (fiche entreprise, catalogue) — sans ça,
@@ -664,7 +673,11 @@ export class CompaniesService {
     ]);
 
     const primaryOwnerId = this.getPrimaryOwnerId(company.shares);
-    const innovationLevel = computeInvestmentLevel(company.innovationInvestment.toNumber());
+    const innovationLevel = this.computeEffectiveInnovationLevel(
+      company.innovationInvestment.toNumber(),
+      company.departments,
+      company.employeeCounts,
+    );
     const activeTypes = new Set(company.products.map((p) => p.type));
     const balanceSheet = this.computeBalanceSheetForCompany(company);
 
@@ -2355,6 +2368,31 @@ export class CompaniesService {
     };
   }
 
+  /**
+   * Niveau d'innovation effectif = niveau financé par l'investissement en
+   * argent + bonus de l'équipe R&D (cf. game-engine/companies.ts,
+   * computeRdStaffInnovationBonus — même formule que la simulation de
+   * cycle) : recalculé en direct pour que le déblocage de gamme (isUnlocked,
+   * launchProduct) et l'affichage restent cohérents avec ce que le prochain
+   * cycle appliquera réellement.
+   */
+  private computeEffectiveInnovationLevel(
+    innovationInvestment: number,
+    departments: { department: string; morale: { toNumber(): number } }[],
+    employeeCounts: { department: string; tier: string; count: number }[],
+  ): number {
+    const rdCounts = { unskilled: 0, qualified: 0, specialist: 0 };
+    for (const row of employeeCounts) {
+      if (row.department === "rd") {
+        rdCounts[row.tier as keyof typeof rdCounts] = row.count;
+      }
+    }
+    const rdMorale = departments.find((d) => d.department === "rd")?.morale.toNumber() ?? 50;
+    const rdContribution = computeDepartmentContribution(rdCounts, rdMorale);
+    const baseLevel = computeInvestmentLevel(innovationInvestment);
+    return Math.min(100, baseLevel + computeRdStaffInnovationBonus(rdContribution));
+  }
+
   private toCompanyView(
     company: {
       id: string;
@@ -2473,7 +2511,11 @@ export class CompaniesService {
         workConditions: computeInvestmentLevel(company.workConditionsInvestment.toNumber()),
         automation: computeInvestmentLevel(company.automationInvestment.toNumber()),
         branding: computeInvestmentLevel(company.brandingInvestment.toNumber()),
-        innovation: computeInvestmentLevel(company.innovationInvestment.toNumber()),
+        innovation: this.computeEffectiveInnovationLevel(
+          company.innovationInvestment.toNumber(),
+          company.departments,
+          company.employeeCounts,
+        ),
         training: computeInvestmentLevel(company.trainingInvestment.toNumber()),
         safety: computeInvestmentLevel(company.safetyInvestment.toNumber()),
         insurance: computeInvestmentLevel(company.insuranceInvestment.toNumber()),

@@ -11,10 +11,14 @@ import {
   DEMAND_PRICE_MULTIPLIER_CAP,
   EMPLOYEE_TIER_CATALOG,
   EMPLOYEE_TIERS,
+  HR_STAFF_MORALE_SCALE,
   INFRASTRUCTURE_ECONOMIC_ACTIVITY_CONVERSION,
   INVESTMENT_LEVEL_SCALE,
   MARKET_DEVELOPMENT_SCALE,
+  MAX_HR_STAFF_MORALE_BONUS,
   MAX_MARKET_DEVELOPMENT_BONUS,
+  MAX_RD_STAFF_INNOVATION_BONUS,
+  MAX_SALES_COMPETITIVENESS_BONUS,
   MAX_STOCK_CYCLES,
   MORALE_BASELINE_MAX,
   MORALE_BASELINE_MIN,
@@ -27,6 +31,7 @@ import {
   PRODUCT_CATALOG,
   QUALITY_MAX_PRICE_TOLERANCE,
   QUALITY_MAX_UNIT_COST_INCREASE,
+  RD_STAFF_INNOVATION_SCALE,
   REFERENCE_UNIT_PRICE,
   STARTUP_COST_LEVEL_0,
   STOCK_HOLDING_COST_PER_UNIT,
@@ -304,26 +309,62 @@ export interface DepartmentEmployeeCounts {
 const MAX_TRAINING_BOOST = 0.5;
 
 /**
- * Chaque employé ajoute de la capacité de production selon la contribution
- * de son palier (cf. domain EMPLOYEE_TIER_CATALOG), modulée par le moral de
- * SON département (cf. computeDepartmentEfficiency) et par la formation
- * (compétence de l'effectif déjà en poste, niveau d'entreprise — une
- * alternative à l'embauche plutôt qu'un doublon de l'efficacité).
+ * Contribution brute d'un département : somme de son effectif pondérée par
+ * la contribution de base de chaque palier (cf. domain EMPLOYEE_TIER_CATALOG),
+ * modulée par le moral de CE département (cf. computeDepartmentEfficiency).
+ * Brique commune aux 4 effets distincts par département (production,
+ * computeSalesCompetitivenessMultiplier, computeRdStaffInnovationBonus,
+ * computeHrStaffMoraleBonus) — seule la conversion de cette contribution en
+ * effet final diffère selon le département.
+ */
+export function computeDepartmentContribution(counts: EmployeeCountsByTier, morale: number): number {
+  const efficiency = computeDepartmentEfficiency(morale);
+  const rawContribution = EMPLOYEE_TIERS.reduce(
+    (s, tier) => s + counts[tier] * EMPLOYEE_TIER_CATALOG[tier].baseContribution,
+    0,
+  );
+  return rawContribution * efficiency;
+}
+
+/**
+ * Production : la contribution du département production, modulée par la
+ * formation (compétence de l'effectif déjà en poste — une alternative à
+ * l'embauche plutôt qu'un doublon de l'efficacité), devient un multiplicateur
+ * de capacité.
  */
 export function computeEmployeeCapacityMultiplier(
-  departmentCounts: DepartmentEmployeeCounts[],
+  productionDepartment: DepartmentEmployeeCounts,
   trainingLevel: number,
 ): number {
   const trainingMultiplier = 1 + (trainingLevel / 100) * MAX_TRAINING_BOOST;
-  const totalContribution = departmentCounts.reduce((sum, dept) => {
-    const efficiency = computeDepartmentEfficiency(dept.morale);
-    const deptContribution = EMPLOYEE_TIERS.reduce(
-      (s, tier) => s + dept.counts[tier] * EMPLOYEE_TIER_CATALOG[tier].baseContribution,
-      0,
-    );
-    return sum + deptContribution * efficiency;
-  }, 0);
-  return 1 + totalContribution * trainingMultiplier;
+  const contribution = computeDepartmentContribution(productionDepartment.counts, productionDepartment.morale);
+  return 1 + contribution * trainingMultiplier;
+}
+
+/**
+ * Ventes : multiplicateur de compétitivité — une équipe commerciale vend
+ * mieux ce que l'entreprise produit déjà, distinct du levier marketing (qui,
+ * lui, attire de la demande) — cf. domain/organization.ts.
+ */
+export function computeSalesCompetitivenessMultiplier(salesContribution: number): number {
+  return 1 + Math.min(MAX_SALES_COMPETITIVENESS_BONUS, salesContribution);
+}
+
+/**
+ * R&D : bonus de points de niveau d'innovation apporté par l'équipe, en plus
+ * de l'investissement en argent (cf. domain/organization.ts) — débloque les
+ * gammes plus vite.
+ */
+export function computeRdStaffInnovationBonus(rdContribution: number): number {
+  return Math.min(MAX_RD_STAFF_INNOVATION_BONUS, rdContribution * RD_STAFF_INNOVATION_SCALE);
+}
+
+/**
+ * RH : bonus de base de moral apporté à TOUS les départements, pas seulement
+ * le sien (cf. domain/organization.ts) — le rôle réel d'une équipe RH.
+ */
+export function computeHrStaffMoraleBonus(hrContribution: number): number {
+  return Math.min(MAX_HR_STAFF_MORALE_BONUS, hrContribution * HR_STAFF_MORALE_SCALE);
 }
 
 export function totalEmployeeCount(counts: EmployeeCountsByTier): number {
@@ -344,11 +385,11 @@ export function computeEmployeeSalaryCosts(counts: EmployeeCountsByTier): number
  * s'applique séparément, au niveau de runProductionCycle.
  */
 export function computeProductionCapacity(
-  departmentCounts: DepartmentEmployeeCounts[],
+  productionDepartment: DepartmentEmployeeCounts,
   equipmentLevel: number,
   trainingLevel: number,
 ): number {
-  const employeeMultiplier = computeEmployeeCapacityMultiplier(departmentCounts, trainingLevel);
+  const employeeMultiplier = computeEmployeeCapacityMultiplier(productionDepartment, trainingLevel);
   const equipmentMultiplier = computeEquipmentCapacityMultiplier(equipmentLevel);
   return BASE_CAPACITY_NO_EMPLOYEES * employeeMultiplier * equipmentMultiplier;
 }

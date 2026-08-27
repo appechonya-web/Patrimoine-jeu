@@ -14,6 +14,20 @@ import { EMPLOYEE_TIERS } from "./company.js";
  * La "formation/carrière" demandée est déjà couverte par le levier
  * d'investissement "training" existant (booste la capacité de chaque
  * employé déjà en poste) — pas de système parallèle réinventé ici.
+ *
+ * Chaque département a un effet mécanique DISTINCT (avant, les 4
+ * contribuaient identiquement à la même capacité de production globale,
+ * ce qui rendait le département affecté purement cosmétique) — cf.
+ * game-engine/companies.ts computeDepartmentContribution et les fonctions
+ * per-département juste en dessous :
+ * - production : capacité de production (inchangé, c'était déjà son rôle).
+ * - sales (Ventes) : multiplicateur de compétitivité — une équipe
+ *   commerciale vend ce que l'entreprise produit déjà, distinct du levier
+ *   marketing (qui, lui, attire de la demande).
+ * - rd (R&D) : bonus direct au niveau d'innovation effectif (en plus de
+ *   l'investissement en argent) — débloque les gammes plus vite.
+ * - hr (RH) : relève la base de moral de TOUS les départements, pas
+ *   seulement le sien — le rôle réel d'une équipe RH.
  */
 export const DEPARTMENTS = ["sales", "rd", "production", "hr"] as const;
 export type Department = (typeof DEPARTMENTS)[number];
@@ -54,6 +68,17 @@ export const MORALE_UNMANAGED_PENALTY = 15;
 export const MORALE_DRIFT_RATE = 0.05;
 /** Amplitude de l'aléa quotidien qui secoue le moral autour de sa trajectoire — un peu de vie, pas une formule figée. */
 export const MORALE_RANDOM_WALK_RANGE = 2;
+
+/** Ventes : plafond du bonus multiplicatif de compétitivité (0.5 = jusqu'à +50%, même ordre de grandeur que le levier marketing). */
+export const MAX_SALES_COMPETITIVENESS_BONUS = 0.5;
+
+/** R&D : conversion de la contribution d'équipe en points de niveau d'innovation, et plafond de ce bonus. */
+export const RD_STAFF_INNOVATION_SCALE = 25;
+export const MAX_RD_STAFF_INNOVATION_BONUS = 20;
+
+/** RH : conversion de la contribution d'équipe en points de base de moral (pour TOUS les départements), et plafond de ce bonus. */
+export const HR_STAFF_MORALE_SCALE = 25;
+export const MAX_HR_STAFF_MORALE_BONUS = 20;
 
 export const hireEmployeeInputSchema = z.object({
   tier: z.enum(EMPLOYEE_TIERS),

@@ -58,16 +58,20 @@ import {
   computeCapturedDemand,
   computeCompetitiveness,
   computeDemandGrowthMultiplier,
+  computeDepartmentContribution,
   computeDepartmentMoraleBaseline,
   computeDepartmentMoraleDrift,
   computeEffectiveAttractiveness,
   computeEmployeeSalaryCosts,
+  computeHrStaffMoraleBonus,
   computeInvestmentLevel,
   computeMarketDevelopmentBonus,
   computeMarketPoolSize,
   computeMarketSharePercent,
   computeProductionCapacity,
   computeProductUnitCost,
+  computeRdStaffInnovationBonus,
+  computeSalesCompetitivenessMultiplier,
   computeWorkConditionsReputationTrickle,
   isCompanyBankrupt,
   rollCompanyEvent,
@@ -877,19 +881,41 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
       if (counts) counts[row.tier as EmployeeTier] = row.count;
     }
 
+    // RH : la contribution de l'équipe RH (moral courant, avant dérive)
+    // relève la base de moral de TOUS les départements — calculée avant les
+    // autres car elle influence leur propre calcul de baseline ci-dessous.
+    const hrDeptRow = company.departments.find((d) => d.department === "hr");
+    const hrCurrentMorale = hrDeptRow?.morale.toNumber() ?? 50;
+    const hrContribution = computeDepartmentContribution(countsByDepartment.get("hr")!, hrCurrentMorale);
+    const hrMoraleBaselineBonus = computeHrStaffMoraleBonus(hrContribution);
+
     const departmentUpdates = DEPARTMENTS.map((department) => {
       const deptRow = company.departments.find((d) => d.department === department);
       const currentMorale = deptRow?.morale.toNumber() ?? 50;
       const hasManager = deptRow?.hasManager ?? false;
-      const baseline = computeDepartmentMoraleBaseline(levels.workConditions, hasManager);
+      const baseline = Math.min(
+        100,
+        computeDepartmentMoraleBaseline(levels.workConditions, hasManager) + hrMoraleBaselineBonus,
+      );
       const newMorale = computeDepartmentMoraleDrift(currentMorale, baseline);
       return { department, currentMorale, newMorale, hasManager, counts: countsByDepartment.get(department)! };
     });
 
-    const departmentCounts: DepartmentEmployeeCounts[] = departmentUpdates.map((d) => ({
-      morale: d.currentMorale,
-      counts: d.counts,
-    }));
+    const productionUpdate = departmentUpdates.find((d) => d.department === "production")!;
+    const productionDepartment: DepartmentEmployeeCounts = {
+      morale: productionUpdate.currentMorale,
+      counts: productionUpdate.counts,
+    };
+    // Ventes : multiplicateur de compétitivité (cf. computeSalesCompetitivenessMultiplier).
+    const salesUpdate = departmentUpdates.find((d) => d.department === "sales")!;
+    const salesContribution = computeDepartmentContribution(salesUpdate.counts, salesUpdate.currentMorale);
+    const salesCompetitivenessMultiplier = computeSalesCompetitivenessMultiplier(salesContribution);
+    // R&D : bonus de points de niveau d'innovation en plus de l'investissement en argent.
+    const rdUpdate = departmentUpdates.find((d) => d.department === "rd")!;
+    const rdContribution = computeDepartmentContribution(rdUpdate.counts, rdUpdate.currentMorale);
+    const rdStaffInnovationBonus = computeRdStaffInnovationBonus(rdContribution);
+    const effectiveInnovationLevel = Math.min(100, levels.innovation + rdStaffInnovationBonus);
+
     const departmentManagerSalaryCosts = departmentUpdates
       .filter((d) => d.hasManager)
       .reduce((sum) => sum + DEPARTMENT_MANAGER_SALARY_PER_CYCLE, 0);
@@ -939,7 +965,7 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
     // elle n'a jamais d'allocation réglée directement (cf.
     // domain/company.ts, setProductAllocationInputSchema).
     const totalCapacity =
-      computeProductionCapacity(departmentCounts, levels.equipment, levels.training) * attentionMultiplier;
+      computeProductionCapacity(productionDepartment, levels.equipment, levels.training) * attentionMultiplier;
     const nonCoreAllocationSum = company.products
       .filter((p) => p.type !== "core")
       .reduce((sum, p) => sum + p.capacityAllocation.toNumber(), 0);
@@ -951,15 +977,16 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
       const capacity = totalCapacity * (allocationPercent / 100);
       const unitPrice = product.unitPrice.toNumber();
       const unitCost = computeProductUnitCost(levels.automation, levels.quality, productType);
-      const competitiveness = computeCompetitiveness({
-        effectiveAttractiveness,
-        marketingLevel: levels.marketing,
-        qualityLevel: levels.quality,
-        brandingLevel: levels.branding,
-        innovationLevel: levels.innovation,
-        unitPrice,
-        productType,
-      });
+      const competitiveness =
+        computeCompetitiveness({
+          effectiveAttractiveness,
+          marketingLevel: levels.marketing,
+          qualityLevel: levels.quality,
+          brandingLevel: levels.branding,
+          innovationLevel: effectiveInnovationLevel,
+          unitPrice,
+          productType,
+        }) * salesCompetitivenessMultiplier;
 
       return { product, productType, sectorId: company.sectorId, capacity, unitPrice, unitCost, competitiveness };
     });

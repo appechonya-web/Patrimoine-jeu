@@ -996,7 +996,7 @@ export function CompanyDetail({
               <InfoTip
                 label="💡"
                 title="R&D — nouvelles gammes"
-                mechanic="Le niveau du levier innovation débloque progressivement de nouvelles gammes de produits à lancer (aux paliers 15, 35 et 60) — chacune avec sa propre économie de prix et de coûts."
+                mechanic="Le niveau d'innovation effectif (investissement en argent + bonus de l'équipe R&D, jusqu'à +20 points) débloque progressivement de nouvelles gammes de produits à lancer (aux paliers 15, 35 et 60) — chacune avec sa propre économie de prix et de coûts."
                 realWorld="Investir en recherche & développement pour élargir son offre est un choix stratégique réel : une entreprise qui n'investit jamais en R&D reste dépendante d'un seul marché, avec un risque de disruption si un concurrent innove plus vite."
               />
               <span>R&D — nouvelles gammes</span>
@@ -1084,15 +1084,15 @@ export function CompanyDetail({
               <InfoTip
                 label="🏢"
                 title="Départements"
-                mechanic="Chaque département (ventes, R&D, production, RH) a son propre moral d'équipe, qui dérive vers une base fixée par ton levier 'conditions de travail' — un responsable dédié en amortit les baisses. Le moral pilote directement l'efficacité de production des employés qui y sont assignés."
-                realWorld="Le lien entre moral d'équipe et productivité est un résultat classique de la psychologie du travail : une équipe démotivée produit nettement moins qu'une équipe engagée, à effectif identique — d'où l'intérêt réel des politiques RH et du management de proximité."
+                mechanic="Chaque département a son propre moral d'équipe (dérive vers une base fixée par 'conditions de travail', amortie par un responsable dédié) ET un effet distinct sur l'entreprise, propre à son rôle : Production alimente la capacité de production ; Ventes multiplie la compétitivité de tes gammes (jusqu'à +50%) — elle vend mieux ce que tu produis déjà, contrairement au marketing qui attire de la demande ; R&D ajoute des points au niveau d'innovation effectif (jusqu'à +20), en plus de l'argent investi — débloque les gammes plus vite ; RH relève la base de moral de TOUS les départements (jusqu'à +20 points), pas seulement le sien."
+                realWorld="Une vraie organisation n'a pas 4 équipes interchangeables : les ventes vendent, la R&D innove, la production fabrique, et les RH font tourner l'ensemble en maintenant l'engagement des équipes — chacune a un impact différent et complémentaire sur la performance globale, pas un simple total d'effectif."
               />
               <span>Départements</span>
             </h2>
             <p className={styles.jobMeta}>
-              Chaque département a son propre moral d'équipe — un responsable dédié en amortit les baisses, en
-              plus du dirigeant général de l'entreprise. Le moral pilote directement l'efficacité des employés qui
-              y sont assignés.
+              Chaque département a son propre moral d'équipe (un responsable dédié en amortit les baisses) ET un
+              effet distinct : Production → capacité de production, Ventes → compétitivité, R&D → bonus de niveau
+              d'innovation, RH → base de moral de toute l'entreprise.
             </p>
             <div className={styles.jobList}>
               {company.departments.map((department) => (

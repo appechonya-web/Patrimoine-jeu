@@ -315,11 +315,20 @@ export default async function GuidePage() {
             <li><strong>Réserve de trésorerie</strong> — pas un levier de production, une allocation de profit.</li>
           </ul>
           <p>
-            <strong>Départements & employés :</strong> 4 départements (ventes, R&D, production, RH), chacun avec
-            son propre moral vivant (dérive lentement vers une baseline, amputée sans responsable dédié) qui
-          pondère directement la capacité de production. Un manager par département stabilise le moral. Posséder
-            plusieurs entreprises sans manager dédié pénalise leur capacité (attention divisée) — un vrai
-            arbitrage entre expansion et gestion de proximité.
+            <strong>Départements & employés :</strong> 4 départements, chacun avec son propre moral vivant (dérive
+            lentement vers une baseline financée par "conditions de travail", amputée sans responsable dédié) ET
+            un effet mécanique distinct — plus d'effectif comme plus de moral renforcent l'effet du département :
+          </p>
+          <ul className={guideStyles.list}>
+            <li><strong>Production</strong> — alimente directement la capacité de production (le seul rôle qu'avaient tous les départements auparavant).</li>
+            <li><strong>Ventes</strong> — multiplie la compétitivité de tes gammes (jusqu'à +50%) : une équipe commerciale vend mieux ce que tu produis déjà, contrairement au marketing qui attire de la demande neuve.</li>
+            <li><strong>R&D</strong> — ajoute des points au niveau d'innovation effectif (jusqu'à +20), en plus de l'argent investi dans le levier R&D/Innovation — débloque les gammes plus vite.</li>
+            <li><strong>RH</strong> — relève la base de moral de TOUS les départements (jusqu'à +20 points), pas seulement le sien.</li>
+          </ul>
+          <p>
+            Un manager par département stabilise son moral. Posséder plusieurs entreprises sans manager général
+            dédié pénalise leur capacité (attention divisée) — un vrai arbitrage entre expansion et gestion de
+            proximité.
           </p>
         </section>
 
