@@ -19,6 +19,7 @@ const NAV_LINKS = [
   { href: "/prestige", label: "🏰 Immobilier de prestige", primary: false },
   { href: "/provinces", label: "🏛️ Provinces", primary: false },
   { href: "/presse", label: "📰 Presse économique", primary: false },
+  { href: "/guide", label: "📖 Guide du jeu", primary: false },
 ] as const;
 
 export function MainNav({ unreadCount = 0 }: { unreadCount?: number }) {
