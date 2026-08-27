@@ -64,8 +64,16 @@ export const MORALE_BASELINE_MIN = 30;
 export const MORALE_BASELINE_MAX = 70;
 export const MORALE_UNMANAGED_PENALTY = 15;
 
-/** Vitesse à laquelle le moral dérive vers sa base à chaque cycle. */
-export const MORALE_DRIFT_RATE = 0.05;
+/**
+ * Vitesse à laquelle le moral dérive vers sa base à chaque cycle — 90% de
+ * l'écart comblé en ~14 cycles (deux cooldowns de levier de 7 cycles), pas
+ * plus : une décision RH (nommer un responsable, relever "conditions de
+ * travail") doit se voir dans la même session de jeu, pas sur des dizaines
+ * d'heures. À 0.05 (valeur précédente), il fallait ~45 cycles pour ça, noyé
+ * dans le bruit de MORALE_RANDOM_WALK_RANGE — un joueur qui vient d'embaucher
+ * ne voyait quasiment rien bouger d'un cycle à l'autre.
+ */
+export const MORALE_DRIFT_RATE = 0.15;
 /** Amplitude de l'aléa quotidien qui secoue le moral autour de sa trajectoire — un peu de vie, pas une formule figée. */
 export const MORALE_RANDOM_WALK_RANGE = 2;
 
