@@ -13,6 +13,8 @@ import {
   EMPLOYEE_TIERS,
   INFRASTRUCTURE_ECONOMIC_ACTIVITY_CONVERSION,
   INVESTMENT_LEVEL_SCALE,
+  MARKET_DEVELOPMENT_SCALE,
+  MAX_MARKET_DEVELOPMENT_BONUS,
   MAX_STOCK_CYCLES,
   MORALE_BASELINE_MAX,
   MORALE_BASELINE_MIN,
@@ -422,6 +424,16 @@ export function computeMarketPoolSize(productType: ProductType, npcCompetitivene
   const referenceSize =
     productType === "core" ? npcCompetitivenessSum + CORE_MARKET_NPC_REFERENCE_OFFSET : NON_CORE_MARKET_REFERENCE_SIZE;
   return BASE_DEMAND_UNITS * PRODUCT_CATALOG[productType].demandMultiplier * referenceSize;
+}
+
+/**
+ * Bonus multiplicatif de taille de marché issu de l'investissement marketing
+ * COLLECTIF de toutes les entreprises actives sur ce (secteur, gamme) — cf.
+ * domain/market.ts MARKET_DEVELOPMENT_SCALE. Contrairement à la compétitivité
+ * (qui ne change que la part captée), ceci fait grossir le gâteau lui-même.
+ */
+export function computeMarketDevelopmentBonus(marketingLevelSum: number): number {
+  return Math.min(MAX_MARKET_DEVELOPMENT_BONUS, Math.sqrt(Math.max(0, marketingLevelSum) / MARKET_DEVELOPMENT_SCALE));
 }
 
 /** Part du marché captée par une entreprise, proportionnelle à sa compétitivité relative dans ce (secteur, gamme). */

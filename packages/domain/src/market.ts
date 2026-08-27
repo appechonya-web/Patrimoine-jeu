@@ -67,3 +67,26 @@ export const POPULATION_DEMAND_SCALE = 10;
 
 /** € de fonds d'infrastructure cumulés (toutes communes confondues) équivalents à un joueur inscrit de plus, dans l'indice d'activité économique. */
 export const INFRASTRUCTURE_ECONOMIC_ACTIVITY_CONVERSION = 1_000;
+
+/**
+ * Développement du marché par l'investissement marketing collectif —
+ * jusqu'ici, seuls le nombre de joueurs et l'infrastructure communale
+ * (POPULATION_DEMAND_SCALE ci-dessus) faisaient grossir la demande
+ * nationale ; l'investissement d'UNE entreprise dans un (secteur, gamme)
+ * donné ne changeait jamais que SA part du gâteau (cf.
+ * computeCapturedDemand), jamais la taille du gâteau lui-même — un
+ * plafond bien réel en petite partie (peu de concurrents, marché déjà
+ * saturé à capacité de base).
+ *
+ * Ici, la somme des niveaux marketing de toutes les entreprises actives
+ * sur un même (secteur, gamme) fait réellement grossir CE marché précis
+ * — un effet de catégorie réaliste (une pub qui fait connaître un type de
+ * produit profite à tout le vendeurs du secteur, pas seulement à qui l'a
+ * payée), tout en gardant un avantage net à investir soi-même : la
+ * compétitivité gagnée capte une part plus grande d'un gâteau qui, en
+ * plus, est devenu plus gros. Même forme de rendements décroissants
+ * (racine carrée) que le reste du jeu.
+ */
+export const MARKET_DEVELOPMENT_SCALE = 200;
+/** Plafond du bonus multiplicatif sur la taille du marché (2 = jusqu'à ×3 la taille de base). */
+export const MAX_MARKET_DEVELOPMENT_BONUS = 2;

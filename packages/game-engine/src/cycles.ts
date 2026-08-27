@@ -63,6 +63,7 @@ import {
   computeEffectiveAttractiveness,
   computeEmployeeSalaryCosts,
   computeInvestmentLevel,
+  computeMarketDevelopmentBonus,
   computeMarketPoolSize,
   computeMarketSharePercent,
   computeProductionCapacity,
@@ -1002,12 +1003,13 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
   // (cf. domain/market.ts, computeMarketPoolSize) — chaque entreprise ne
   // capte plus une demande indépendante, elle se dispute une part d'un même
   // gâteau avec ses concurrents du même marché (cf. computeCapturedDemand).
-  const marketPools = new Map<string, { totalCompetitiveness: number; poolSize: number }>();
+  const marketPools = new Map<string, { totalCompetitiveness: number; poolSize: number; marketingLevelSum: number }>();
   for (const ctx of companyContexts) {
     for (const pc of ctx.productContexts) {
       const key = `${pc.sectorId}:${pc.productType}`;
-      const pool = marketPools.get(key) ?? { totalCompetitiveness: 0, poolSize: 0 };
+      const pool = marketPools.get(key) ?? { totalCompetitiveness: 0, poolSize: 0, marketingLevelSum: 0 };
       pool.totalCompetitiveness += pc.competitiveness;
+      pool.marketingLevelSum += ctx.levels.marketing;
       marketPools.set(key, pool);
     }
   }
@@ -1020,7 +1022,13 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
     // ensemble, le mérite relatif (compétitivité) continue de décider du
     // partage.
     const nationalSectoralMultiplier = computeSectoralDemandMultiplier(activeSectoralEffects, sectorId, "NATIONAL", null);
-    pool.poolSize = computeMarketPoolSize(productType, npcSum) * nationalSectoralMultiplier * demandGrowthMultiplier;
+    // Développement du marché (cf. domain/market.ts) : l'investissement
+    // marketing cumulé de toutes les entreprises actives sur CE (secteur,
+    // gamme) fait grossir le gâteau lui-même, pas seulement la part de
+    // chacune — jusqu'ici seul le nombre de joueurs le faisait.
+    const marketDevelopmentMultiplier = 1 + computeMarketDevelopmentBonus(pool.marketingLevelSum);
+    pool.poolSize =
+      computeMarketPoolSize(productType, npcSum) * nationalSectoralMultiplier * demandGrowthMultiplier * marketDevelopmentMultiplier;
     if (productType === "core") {
       pool.totalCompetitiveness += npcSum;
     } else {
