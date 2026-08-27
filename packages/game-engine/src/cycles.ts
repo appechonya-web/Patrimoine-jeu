@@ -94,7 +94,7 @@ import { computeBankDepositInterest } from "./banking.js";
 import { rollGuildDetection } from "./guild.js";
 import { computeDividendDistribution, computeLiquidationReserveEntry } from "./dividends.js";
 import { computeSectoralDemandMultiplier, rollSectoralEvent, type ActiveSectoralEffect } from "./sectoral-events.js";
-import { computeInfrastructureAttractivenessBonus } from "./municipality.js";
+import { computeInfrastructureAttractivenessBonus, computeLocalInfrastructureDemandBonus } from "./municipality.js";
 import {
   clampStat,
   computeBaselineWellbeingRegen,
@@ -1054,7 +1054,13 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
   ) {
     return ctx.productContexts.map((pc) => {
       const pool = marketPools.get(`${pc.sectorId}:${pc.productType}`)!;
-      const demand = computeCapturedDemand(pool.poolSize, pc.competitiveness, pool.totalCompetitiveness);
+      // "Plus d'habitants, plus de clients" — demande NETTE propre à cette
+      // entreprise selon le développement de SA commune, qui ne vient du
+      // panier d'aucun concurrent (contrairement au bonus d'attractivité,
+      // qui ne redistribue qu'une part du même marché national partagé).
+      const localDemandBonus = computeLocalInfrastructureDemandBonus(ctx.company.municipality.infrastructureFund.toNumber());
+      const demand =
+        computeCapturedDemand(pool.poolSize, pc.competitiveness, pool.totalCompetitiveness) * (1 + localDemandBonus);
       const marketSharePercent = computeMarketSharePercent(pc.competitiveness, pool.totalCompetitiveness);
       const override = overrides?.get(pc.product.id);
       const capacity = override?.capacity ?? pc.capacity;

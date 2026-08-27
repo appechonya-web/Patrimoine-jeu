@@ -36,6 +36,17 @@ export const MIN_INFRASTRUCTURE_CONTRIBUTION = 50;
 export const INFRASTRUCTURE_FUND_SCALE = 8;
 /** Bonus d'attractivité maximal atteignable (rendement décroissant, jamais totalement plafonné mais négligeable au-delà). */
 export const MAX_INFRASTRUCTURE_ATTRACTIVENESS_BONUS = 15;
+/**
+ * "Plus d'habitants, plus de clients" (cf. game-engine/municipality.ts
+ * computeLocalInfrastructureDemandBonus) — contrairement au bonus
+ * d'attractivité ci-dessus (une part plus grande d'un marché national
+ * partagé avec les concurrents du secteur), ceci ajoute de la demande NETTE
+ * propre à chaque entreprise de la commune, qui ne vient du panier
+ * d'aucun concurrent. Exprimé en fraction multiplicative (0.5 = jusqu'à
+ * +50% de clients locaux en plus, au même niveau de développement communal
+ * qui plafonne le bonus d'attractivité ci-dessus).
+ */
+export const MAX_LOCAL_INFRASTRUCTURE_DEMAND_BONUS = 0.5;
 
 export const contributeToInfrastructureInputSchema = z.object({
   amount: z.number().min(MIN_INFRASTRUCTURE_CONTRIBUTION),
