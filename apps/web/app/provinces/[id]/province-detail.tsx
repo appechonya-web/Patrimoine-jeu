@@ -169,14 +169,15 @@ export function ProvinceDetail({
           <InfoTip
             label="🏗️"
             title="Fonds d'infrastructure"
-            mechanic="Le fonds cumulé de la province relève l'attractivité de TOUTES les entreprises qui y sont installées, à rendement décroissant (les premiers euros comptent plus que les suivants) — un bonus partagé, pas individuel à ta contribution. Le total investi dans TOUTES les provinces du jeu contribue aussi à faire grossir la demande nationale elle-même, pas seulement la part que chacun en capte."
-            realWorld="C'est un vrai bien public local financé collectivement : personne n'est exclu du bénéfice même sans contribuer, mais plus la province investit collectivement, plus la zone devient attractive pour toutes les entreprises qui s'y trouvent — et à l'échelle du pays, plus d'infrastructures signifie une économie qui grossit vraiment, pas juste des parts de marché qui changent de mains."
+            mechanic="Le fonds cumulé de la province a deux effets distincts pour TOUTES les entreprises qui y sont installées, à rendement décroissant (les premiers euros comptent plus que les suivants) : un bonus d'attractivité (une part plus grande d'un marché national partagé avec les concurrents du secteur) ET un bonus de clientèle locale — de la demande neuve, propre à chaque entreprise de la province, qui ne vient du panier d'aucun concurrent. Le total investi dans TOUTES les provinces du jeu contribue aussi à faire grossir la demande nationale elle-même."
+            realWorld="C'est un vrai bien public local financé collectivement : personne n'est exclu du bénéfice même sans contribuer. Une région qui investit dans ses infrastructures attire de nouveaux habitants (plus de clients pour tout le monde) ET rend son tissu économique plus compétitif à l'échelle nationale — deux effets réels et distincts d'un même investissement."
           />
           <span>Fonds d'infrastructure</span>
         </h2>
         <div className={styles.jobStats}>
           <span>💰 Fonds cumulé {currencyFormatter.format(summary.infrastructureFund)}</span>
           <span>⭐ Bonus d'attractivité +{summary.attractivenessBonus.toFixed(1)} pour toutes les entreprises de la province</span>
+          <span>👥 +{(summary.localDemandBonus * 100).toFixed(1)}% de clientèle locale pour les entreprises de la province</span>
           <span>📋 Droits d'enregistrement {(summary.registrationDutyRate * 100).toFixed(1)}%</span>
         </div>
         <ContributeForm municipalityId={municipalityId} onDone={handleDone} />

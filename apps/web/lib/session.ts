@@ -616,6 +616,7 @@ export interface MunicipalitySummaryView {
   id: string;
   infrastructureFund: number;
   attractivenessBonus: number;
+  localDemandBonus: number;
   registrationDutyRate: number;
 }
 

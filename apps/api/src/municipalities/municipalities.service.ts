@@ -7,7 +7,7 @@ import {
   type ContributeToInfrastructureInput,
   type CreateCouncilProposalInput,
 } from "@patrimoine-jeu/domain";
-import { computeInfrastructureAttractivenessBonus } from "@patrimoine-jeu/game-engine";
+import { computeInfrastructureAttractivenessBonus, computeLocalInfrastructureDemandBonus } from "@patrimoine-jeu/game-engine";
 import { CyclesService } from "../cycles/cycles.service.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 
@@ -59,6 +59,7 @@ export class MunicipalitiesService {
       id: municipality.id,
       infrastructureFund: fund,
       attractivenessBonus: computeInfrastructureAttractivenessBonus(fund),
+      localDemandBonus: computeLocalInfrastructureDemandBonus(fund),
       registrationDutyRate: municipality.registrationDutyRate.toNumber(),
     };
   }
