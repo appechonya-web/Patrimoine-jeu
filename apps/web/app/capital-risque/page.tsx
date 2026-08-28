@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { getCapitalRaises, getCurrentPlayer } from "../../lib/session";
+import { getCapitalRaises, getCurrentPlayer, getMyCompanies } from "../../lib/session";
 import { CapitalRaiseList } from "./capital-raise-list";
 import { InfoTip } from "../info-tip";
 import styles from "../page.module.css";
@@ -11,7 +11,10 @@ export default async function CapitalRisquePage() {
     redirect("/login");
   }
 
-  const raises = await getCapitalRaises();
+  const [raises, myCompanies] = await Promise.all([getCapitalRaises(), getMyCompanies()]);
+  const myControlledCompanies = myCompanies.companies
+    .filter((c) => c.sharePercentage > 50)
+    .map((c) => ({ id: c.id, name: c.name }));
 
   return (
     <main className={styles.main}>
@@ -33,7 +36,7 @@ export default async function CapitalRisquePage() {
         </Link>
       </header>
 
-      <CapitalRaiseList raises={raises} />
+      <CapitalRaiseList raises={raises} myControlledCompanies={myControlledCompanies} />
     </main>
   );
 }

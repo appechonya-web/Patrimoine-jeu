@@ -53,10 +53,17 @@ export default async function CompanyPage({ params }: { params: Promise<{ id: st
   const myListing = saleListings.find((listing) => listing.companyId === id) ?? null;
   const saleBids = company.isPrimaryOwner && myListing ? await getSaleBids(myListing.id) : [];
   const myCapitalRaise = capitalRaises.find((raise) => raise.companyId === id) ?? null;
+  // Groupe/holding : entreprises que je contrôle (>50% des parts, hors
+  // celle-ci) — utilisables comme acquéreuse à la place de mon patrimoine
+  // personnel sur les mécanismes de rachat (OPA, capital-risque...).
+  const myControlledCompanies = myCompanies.companies
+    .filter((c) => c.id !== id && c.sharePercentage > 50)
+    .map((c) => ({ id: c.id, name: c.name }));
 
   return (
     <CompanyDetail
       company={company}
+      myControlledCompanies={myControlledCompanies}
       expansionRequirement={myCompanies.canFoundAnother ? null : myCompanies.expansionRequirement}
       supplyContracts={supplyContracts}
       tenderOffers={tenderOffers}

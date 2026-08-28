@@ -1,5 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import type {
+  BuyShareListingInput,
   CastVoteInput,
   ContributeToCapitalRaiseInput,
   CreateCapitalRaiseInput,
@@ -137,7 +138,8 @@ interface OwnedCompanySummary {
 }
 
 interface ShareLike {
-  playerId: string;
+  playerId: string | null;
+  holderCompanyId?: string | null;
   sharePercentage: { toNumber(): number };
 }
 
@@ -162,24 +164,19 @@ export class CompaniesService {
   }
 
   async listMyCompanies(playerId: string) {
-    const [shares, currentCycle] = await Promise.all([
+    const [shares, currentCycle, primaryOwned] = await Promise.all([
       this.prisma.client.companyShare.findMany({
         where: { playerId },
         include: { company: { include: { ...COMPANY_VIEW_INCLUDE, shares: true } } },
       }),
       this.cyclesService.getOrCreateOpenCycle(),
+      // Seules les entreprises qu'on dirige réellement (actionnaire
+      // principal, directement ou via une holding qu'on contrôle) comptent
+      // pour le seuil de maturité — une participation minoritaire achetée
+      // sur le marché ne doit pas permettre de débloquer la fondation d'une
+      // nouvelle entreprise à sa place.
+      this.getUltimatelyControlledActiveCompanies(playerId),
     ]);
-
-    // Seules les entreprises qu'on dirige réellement (actionnaire
-    // principal) comptent pour le seuil de maturité — une participation
-    // minoritaire achetée sur le marché ne doit pas permettre de débloquer
-    // la fondation d'une nouvelle entreprise à sa place.
-    const primaryOwned: OwnedCompanySummary[] = shares
-      .filter((share) => share.company.status === "ACTIVE" && this.getPrimaryOwnerId(share.company.shares) === playerId)
-      .map((share) => ({
-        foundedCycle: share.company.foundedCycle,
-        cumulativeNetProfit: share.company.cumulativeNetProfit.toNumber(),
-      }));
 
     return {
       companies: shares.map((share) =>
@@ -196,12 +193,12 @@ export class CompaniesService {
   }
 
   async found(playerId: string, input: CreateCompanyInput) {
-    const [sector, municipality, stats, currentCycle, existingShares] = await Promise.all([
+    const [sector, municipality, stats, currentCycle, primaryOwned] = await Promise.all([
       this.prisma.client.sector.findUnique({ where: { id: input.sectorId } }),
       this.prisma.client.municipality.findUnique({ where: { id: input.municipalityId } }),
       this.prisma.client.playerStats.findUnique({ where: { playerId } }),
       this.cyclesService.getOrCreateOpenCycle(),
-      this.prisma.client.companyShare.findMany({ where: { playerId }, include: { company: { include: { shares: true } } } }),
+      this.getUltimatelyControlledActiveCompanies(playerId),
     ]);
 
     if (!sector) {
@@ -216,11 +213,10 @@ export class CompaniesService {
     // parent (cf. game-engine/supply-chain.ts) — le fonder suppose d'avoir
     // déjà dirigé une entreprise dans ce secteur parent, l'"expérience
     // minimale" demandée par le document de conception, en plus d'un
-    // capital de départ plus élevé (cf. STARTUP_COST_LEVEL_1).
+    // capital de départ plus élevé (cf. STARTUP_COST_LEVEL_1), directement
+    // ou via une holding qu'on contrôle.
     if (sector.level === 1) {
-      const hasParentSectorExperience = existingShares.some(
-        (share) => share.company.sectorId === sector.parentSectorId && this.getPrimaryOwnerId(share.company.shares) === playerId,
-      );
+      const hasParentSectorExperience = primaryOwned.some((company) => company.sectorId === sector.parentSectorId);
       if (!hasParentSectorExperience) {
         throw new BadRequestException(
           "Il faut d'abord avoir dirigé une entreprise dans le secteur parent avant de fonder à ce palier",
@@ -229,13 +225,6 @@ export class CompaniesService {
     } else if (sector.level !== LEVEL_0) {
       throw new BadRequestException("Secteur non accessible pour l'instant");
     }
-
-    const primaryOwned: OwnedCompanySummary[] = existingShares
-      .filter((share) => share.company.status === "ACTIVE" && this.getPrimaryOwnerId(share.company.shares) === playerId)
-      .map((share) => ({
-        foundedCycle: share.company.foundedCycle,
-        cumulativeNetProfit: share.company.cumulativeNetProfit.toNumber(),
-      }));
 
     if (primaryOwned.length > 0 && !this.hasMatureCompany(primaryOwned, currentCycle.number)) {
       throw new BadRequestException(
@@ -631,10 +620,17 @@ export class CompaniesService {
         const shareFraction = share.sharePercentage.toNumber() / 100;
         const amount = net * shareFraction;
         if (amount <= 0) continue;
-        await tx.playerStats.update({
-          where: { playerId: share.playerId },
-          data: { wealthLiquid: { increment: amount } },
-        });
+        if (share.playerId) {
+          await tx.playerStats.update({
+            where: { playerId: share.playerId },
+            data: { wealthLiquid: { increment: amount } },
+          });
+        } else if (share.holderCompanyId) {
+          await tx.company.update({
+            where: { id: share.holderCompanyId },
+            data: { cashReserve: { increment: amount } },
+          });
+        }
       }
     });
 
@@ -644,10 +640,13 @@ export class CompaniesService {
   async getCompany(playerId: string, companyId: string) {
     await this.assertHasShare(playerId, companyId);
 
-    const [company, share, currentCycle, openListings] = await Promise.all([
+    const [company, share, currentCycle, openListings, subsidiaryShares] = await Promise.all([
       this.prisma.client.company.findUnique({
         where: { id: companyId },
-        include: { ...COMPANY_VIEW_INCLUDE, shares: { include: { player: { select: { pseudo: true } } } } },
+        include: {
+          ...COMPANY_VIEW_INCLUDE,
+          shares: { include: { player: { select: { pseudo: true } }, holderCompany: { select: { id: true, name: true } } } },
+        },
       }),
       this.prisma.client.companyShare.findUnique({ where: { companyId_playerId: { companyId, playerId } } }),
       this.cyclesService.getOrCreateOpenCycle(),
@@ -655,6 +654,11 @@ export class CompaniesService {
         where: { companyId, status: "OPEN" },
         include: { seller: { select: { pseudo: true } } },
         orderBy: { createdAt: "desc" },
+      }),
+      // Groupe/holding : filiales dont CETTE entreprise détient des parts (cf. CompanyShare.holderCompany).
+      this.prisma.client.companyShare.findMany({
+        where: { holderCompanyId: companyId },
+        include: { company: { select: { id: true, name: true } } },
       }),
     ]);
 
@@ -672,7 +676,7 @@ export class CompaniesService {
       }),
     ]);
 
-    const primaryOwnerId = this.getPrimaryOwnerId(company.shares);
+    const primaryOwnerId = await this.resolveUltimateControllerId(company.shares);
     const innovationLevel = this.computeEffectiveInnovationLevel(
       company.innovationInvestment.toNumber(),
       company.departments,
@@ -680,13 +684,25 @@ export class CompaniesService {
     );
     const activeTypes = new Set(company.products.map((p) => p.type));
     const balanceSheet = this.computeBalanceSheetForCompany(company);
+    const parentHoldingShare = company.shares.find((s) => s.holderCompanyId);
 
     return {
       ...this.toCompanyView(company, share?.sharePercentage.toNumber() ?? 0, currentCycle.number),
       isPrimaryOwner: primaryOwnerId === playerId,
       shareholders: company.shares
-        .map((s) => ({ pseudo: s.player.pseudo, sharePercentage: s.sharePercentage.toNumber() }))
+        .map((s) => ({
+          pseudo: s.player?.pseudo ?? `🏢 ${s.holderCompany?.name ?? "?"}`,
+          sharePercentage: s.sharePercentage.toNumber(),
+        }))
         .sort((a, b) => b.sharePercentage - a.sharePercentage),
+      parentHolding: parentHoldingShare?.holderCompany
+        ? { id: parentHoldingShare.holderCompany.id, name: parentHoldingShare.holderCompany.name, sharePercentage: parentHoldingShare.sharePercentage.toNumber() }
+        : null,
+      subsidiaries: subsidiaryShares.map((s) => ({
+        id: s.company.id,
+        name: s.company.name,
+        sharePercentage: s.sharePercentage.toNumber(),
+      })),
       openListings: openListings.map((listing) => ({
         id: listing.id,
         sellerPseudo: listing.seller.pseudo,
@@ -908,7 +924,7 @@ export class CompaniesService {
     });
   }
 
-  async buyShareListing(playerId: string, listingId: string) {
+  async buyShareListing(playerId: string, listingId: string, input?: BuyShareListingInput) {
     const listing = await this.prisma.client.companyShareListing.findUnique({ where: { id: listingId } });
     if (!listing || listing.status !== "OPEN") {
       throw new NotFoundException("Cette offre n'est plus disponible");
@@ -916,10 +932,22 @@ export class CompaniesService {
     if (listing.sellerId === playerId) {
       throw new BadRequestException("Tu ne peux pas acheter ta propre offre");
     }
+    const acquirerCompanyId = input?.acquirerCompanyId;
+    if (acquirerCompanyId) {
+      await this.assertControlsCompany(playerId, acquirerCompanyId);
+      await this.assertNoCircularHolding(acquirerCompanyId, listing.companyId);
+    }
 
-    const buyerStats = await this.prisma.client.playerStats.findUnique({ where: { playerId } });
-    if (!buyerStats || buyerStats.wealthLiquid.toNumber() < listing.price.toNumber()) {
-      throw new BadRequestException("Fonds insuffisants pour cet achat");
+    if (acquirerCompanyId) {
+      const acquirerCompany = await this.prisma.client.company.findUnique({ where: { id: acquirerCompanyId } });
+      if (!acquirerCompany || acquirerCompany.cashReserve.toNumber() < listing.price.toNumber()) {
+        throw new BadRequestException("Trésorerie insuffisante pour cet achat");
+      }
+    } else {
+      const buyerStats = await this.prisma.client.playerStats.findUnique({ where: { playerId } });
+      if (!buyerStats || buyerStats.wealthLiquid.toNumber() < listing.price.toNumber()) {
+        throw new BadRequestException("Fonds insuffisants pour cet achat");
+      }
     }
 
     const [company, currentCycle] = await Promise.all([
@@ -932,16 +960,22 @@ export class CompaniesService {
       // achetée entre-temps, ce update ne touche aucune ligne.
       const claimed = await tx.companyShareListing.updateMany({
         where: { id: listingId, status: "OPEN" },
-        data: { status: "SOLD", buyerId: playerId, soldAt: new Date() },
+        data: acquirerCompanyId
+          ? { status: "SOLD", buyerCompanyId: acquirerCompanyId, soldAt: new Date() }
+          : { status: "SOLD", buyerId: playerId, soldAt: new Date() },
       });
       if (claimed.count === 0) {
         throw new BadRequestException("Cette offre vient d'être achetée par quelqu'un d'autre");
       }
 
-      await tx.playerStats.update({
-        where: { playerId },
-        data: { wealthLiquid: { decrement: listing.price } },
-      });
+      if (acquirerCompanyId) {
+        await tx.company.update({ where: { id: acquirerCompanyId }, data: { cashReserve: { decrement: listing.price } } });
+      } else {
+        await tx.playerStats.update({
+          where: { playerId },
+          data: { wealthLiquid: { decrement: listing.price } },
+        });
+      }
       await tx.playerStats.update({
         where: { playerId: listing.sellerId },
         data: { wealthLiquid: { increment: listing.price } },
@@ -962,11 +996,19 @@ export class CompaniesService {
         });
       }
 
-      await tx.companyShare.upsert({
-        where: { companyId_playerId: { companyId: listing.companyId, playerId } },
-        create: { companyId: listing.companyId, playerId, sharePercentage: listing.sharePercentage },
-        update: { sharePercentage: { increment: listing.sharePercentage } },
-      });
+      if (acquirerCompanyId) {
+        await tx.companyShare.upsert({
+          where: { companyId_holderCompanyId: { companyId: listing.companyId, holderCompanyId: acquirerCompanyId } },
+          create: { companyId: listing.companyId, holderCompanyId: acquirerCompanyId, sharePercentage: listing.sharePercentage },
+          update: { sharePercentage: { increment: listing.sharePercentage } },
+        });
+      } else {
+        await tx.companyShare.upsert({
+          where: { companyId_playerId: { companyId: listing.companyId, playerId } },
+          create: { companyId: listing.companyId, playerId, sharePercentage: listing.sharePercentage },
+          update: { sharePercentage: { increment: listing.sharePercentage } },
+        });
+      }
 
       await tx.playerNotification.create({
         data: {
@@ -1427,6 +1469,11 @@ export class CompaniesService {
       throw new NotFoundException("Entreprise introuvable");
     }
 
+    if (input.acquirerCompanyId) {
+      await this.assertControlsCompany(playerId, input.acquirerCompanyId);
+      await this.assertNoCircularHolding(input.acquirerCompanyId, companyId);
+    }
+
     const existingOffer = await this.prisma.client.companyTenderOffer.findFirst({ where: { companyId, status: "OPEN" } });
     if (existingOffer) {
       throw new BadRequestException("Une offre de rachat est déjà ouverte sur cette entreprise");
@@ -1444,7 +1491,8 @@ export class CompaniesService {
     return this.prisma.client.companyTenderOffer.create({
       data: {
         companyId,
-        acquirerPlayerId: playerId,
+        acquirerPlayerId: input.acquirerCompanyId ? null : playerId,
+        acquirerCompanyId: input.acquirerCompanyId ?? null,
         pricePerPercent: input.pricePerPercent,
         createdCycle: currentCycle.number,
         expiresCycle: currentCycle.number + TENDER_OFFER_DURATION_CYCLES,
@@ -1454,7 +1502,15 @@ export class CompaniesService {
 
   async cancelTenderOffer(playerId: string, offerId: string) {
     const offer = await this.prisma.client.companyTenderOffer.findUnique({ where: { id: offerId } });
-    if (!offer || offer.acquirerPlayerId !== playerId) {
+    if (!offer) {
+      throw new ForbiddenException("Cette offre ne t'appartient pas");
+    }
+    const isAcquirer = offer.acquirerPlayerId
+      ? offer.acquirerPlayerId === playerId
+      : offer.acquirerCompanyId
+        ? await this.controlsCompany(playerId, offer.acquirerCompanyId)
+        : false;
+    if (!isAcquirer) {
       throw new ForbiddenException("Cette offre ne t'appartient pas");
     }
     if (offer.status !== "OPEN") {
@@ -1484,11 +1540,18 @@ export class CompaniesService {
       orderBy: { createdCycle: "desc" },
     });
 
-    const acquirers = await this.prisma.client.player.findMany({
-      where: { id: { in: offers.map((o) => o.acquirerPlayerId) } },
-      select: { id: true, pseudo: true },
-    });
+    const [acquirers, acquirerCompanies] = await Promise.all([
+      this.prisma.client.player.findMany({
+        where: { id: { in: offers.map((o) => o.acquirerPlayerId).filter((id): id is string => !!id) } },
+        select: { id: true, pseudo: true },
+      }),
+      this.prisma.client.company.findMany({
+        where: { id: { in: offers.map((o) => o.acquirerCompanyId).filter((id): id is string => !!id) } },
+        select: { id: true, name: true },
+      }),
+    ]);
     const pseudoById = new Map(acquirers.map((p) => [p.id, p.pseudo]));
+    const companyNameById = new Map(acquirerCompanies.map((c) => [c.id, c.name]));
 
     return offers.map((offer) => ({
       id: offer.id,
@@ -1496,7 +1559,9 @@ export class CompaniesService {
       companyName: offer.company.name,
       sector: offer.company.sector.name,
       municipality: offer.company.municipality.name,
-      acquirerPseudo: pseudoById.get(offer.acquirerPlayerId) ?? "?",
+      acquirerPseudo: offer.acquirerPlayerId
+        ? (pseudoById.get(offer.acquirerPlayerId) ?? "?")
+        : `🏢 ${companyNameById.get(offer.acquirerCompanyId!) ?? "?"}`,
       pricePerPercent: offer.pricePerPercent.toNumber(),
       createdCycle: offer.createdCycle,
       expiresCycle: offer.expiresCycle,
@@ -1515,7 +1580,12 @@ export class CompaniesService {
       await this.prisma.client.companyTenderOffer.update({ where: { id: offerId }, data: { status: "CANCELLED" } });
       throw new BadRequestException("Cette offre a expiré");
     }
-    if (offer.acquirerPlayerId === playerId) {
+    const acquirerIsSelf = offer.acquirerPlayerId
+      ? offer.acquirerPlayerId === playerId
+      : offer.acquirerCompanyId
+        ? await this.controlsCompany(playerId, offer.acquirerCompanyId)
+        : false;
+    if (acquirerIsSelf) {
       throw new BadRequestException("Tu ne peux pas répondre à ta propre offre");
     }
 
@@ -1527,19 +1597,34 @@ export class CompaniesService {
     }
 
     const totalPrice = offer.pricePerPercent.toNumber() * input.percentage;
-    const acquirerStats = await this.prisma.client.playerStats.findUnique({ where: { playerId: offer.acquirerPlayerId } });
-    if (!acquirerStats || acquirerStats.wealthLiquid.toNumber() < totalPrice) {
-      throw new BadRequestException("L'acquéreur n'a plus les fonds pour honorer cette offre");
+    let acquirerUltimateControllerId: string | undefined;
+    if (offer.acquirerPlayerId) {
+      const acquirerStats = await this.prisma.client.playerStats.findUnique({ where: { playerId: offer.acquirerPlayerId } });
+      if (!acquirerStats || acquirerStats.wealthLiquid.toNumber() < totalPrice) {
+        throw new BadRequestException("L'acquéreur n'a plus les fonds pour honorer cette offre");
+      }
+      acquirerUltimateControllerId = offer.acquirerPlayerId;
+    } else if (offer.acquirerCompanyId) {
+      const acquirerCompany = await this.prisma.client.company.findUnique({ where: { id: offer.acquirerCompanyId } });
+      if (!acquirerCompany || acquirerCompany.cashReserve.toNumber() < totalPrice) {
+        throw new BadRequestException("L'entreprise acquéreuse n'a plus la trésorerie pour honorer cette offre");
+      }
+      const acquirerShares = await this.prisma.client.companyShare.findMany({ where: { companyId: offer.acquirerCompanyId } });
+      acquirerUltimateControllerId = await this.resolveUltimateControllerId(acquirerShares);
     }
 
     const company = await this.prisma.client.company.findUniqueOrThrow({
       where: { id: offer.companyId },
       include: { shares: true },
     });
-    const previousPrimaryOwnerId = this.getPrimaryOwnerId(company.shares);
+    const previousPrimaryOwnerId = await this.resolveUltimateControllerId(company.shares);
 
     await this.prisma.client.$transaction(async (tx) => {
-      await tx.playerStats.update({ where: { playerId: offer.acquirerPlayerId }, data: { wealthLiquid: { decrement: totalPrice } } });
+      if (offer.acquirerPlayerId) {
+        await tx.playerStats.update({ where: { playerId: offer.acquirerPlayerId }, data: { wealthLiquid: { decrement: totalPrice } } });
+      } else if (offer.acquirerCompanyId) {
+        await tx.company.update({ where: { id: offer.acquirerCompanyId }, data: { cashReserve: { decrement: totalPrice } } });
+      }
       await tx.playerStats.update({ where: { playerId }, data: { wealthLiquid: { increment: totalPrice } } });
 
       const sellerShare = await tx.companyShare.findUniqueOrThrow({
@@ -1555,15 +1640,25 @@ export class CompaniesService {
         });
       }
 
-      await tx.companyShare.upsert({
-        where: { companyId_playerId: { companyId: offer.companyId, playerId: offer.acquirerPlayerId } },
-        create: { companyId: offer.companyId, playerId: offer.acquirerPlayerId, sharePercentage: input.percentage },
-        update: { sharePercentage: { increment: input.percentage } },
-      });
+      if (offer.acquirerPlayerId) {
+        await tx.companyShare.upsert({
+          where: { companyId_playerId: { companyId: offer.companyId, playerId: offer.acquirerPlayerId } },
+          create: { companyId: offer.companyId, playerId: offer.acquirerPlayerId, sharePercentage: input.percentage },
+          update: { sharePercentage: { increment: input.percentage } },
+        });
+      } else if (offer.acquirerCompanyId) {
+        await tx.companyShare.upsert({
+          where: { companyId_holderCompanyId: { companyId: offer.companyId, holderCompanyId: offer.acquirerCompanyId } },
+          create: { companyId: offer.companyId, holderCompanyId: offer.acquirerCompanyId, sharePercentage: input.percentage },
+          update: { sharePercentage: { increment: input.percentage } },
+        });
+      }
 
       const updatedShares = await tx.companyShare.findMany({ where: { companyId: offer.companyId } });
-      const newPrimaryOwnerId = this.getPrimaryOwnerId(updatedShares);
-      const acquirerShare = updatedShares.find((s) => s.playerId === offer.acquirerPlayerId);
+      const newPrimaryOwnerId = await this.resolveUltimateControllerId(updatedShares);
+      const acquirerShare = updatedShares.find((s) =>
+        offer.acquirerPlayerId ? s.playerId === offer.acquirerPlayerId : s.holderCompanyId === offer.acquirerCompanyId,
+      );
       if ((acquirerShare?.sharePercentage.toNumber() ?? 0) >= 99.99) {
         await tx.companyTenderOffer.update({ where: { id: offerId }, data: { status: "COMPLETED" } });
       }
@@ -1577,7 +1672,7 @@ export class CompaniesService {
         },
       });
 
-      if (newPrimaryOwnerId !== previousPrimaryOwnerId && newPrimaryOwnerId === offer.acquirerPlayerId && previousPrimaryOwnerId) {
+      if (newPrimaryOwnerId !== previousPrimaryOwnerId && newPrimaryOwnerId === acquirerUltimateControllerId && previousPrimaryOwnerId) {
         await tx.playerNotification.create({
           data: {
             playerId: previousPrimaryOwnerId,
@@ -1698,9 +1793,15 @@ export class CompaniesService {
     if (listing.sellerId === playerId) {
       throw new BadRequestException("Tu ne peux pas enchérir sur ta propre annonce");
     }
+    if (input.buyerCompanyId) {
+      await this.assertControlsCompany(playerId, input.buyerCompanyId);
+      await this.assertNoCircularHolding(input.buyerCompanyId, listing.companyId);
+    }
 
     const existingBid = await this.prisma.client.companySaleBid.findFirst({
-      where: { listingId, buyerId: playerId, status: "PENDING" },
+      where: input.buyerCompanyId
+        ? { listingId, buyerCompanyId: input.buyerCompanyId, status: "PENDING" }
+        : { listingId, buyerId: playerId, status: "PENDING" },
     });
     if (existingBid) {
       await this.prisma.client.companySaleBid.update({
@@ -1711,7 +1812,13 @@ export class CompaniesService {
     }
 
     await this.prisma.client.companySaleBid.create({
-      data: { listingId, buyerId: playerId, pricePerPercent: input.pricePerPercent, createdCycle: currentCycle.number },
+      data: {
+        listingId,
+        buyerId: input.buyerCompanyId ? null : playerId,
+        buyerCompanyId: input.buyerCompanyId ?? null,
+        pricePerPercent: input.pricePerPercent,
+        createdCycle: currentCycle.number,
+      },
     });
     await this.prisma.client.playerNotification.create({
       data: {
@@ -1727,7 +1834,11 @@ export class CompaniesService {
 
   async cancelSaleBid(playerId: string, bidId: string) {
     const bid = await this.prisma.client.companySaleBid.findUnique({ where: { id: bidId } });
-    if (!bid || bid.buyerId !== playerId) {
+    if (!bid) {
+      throw new ForbiddenException("Cette offre ne t'appartient pas");
+    }
+    const isBuyer = bid.buyerId ? bid.buyerId === playerId : bid.buyerCompanyId ? await this.controlsCompany(playerId, bid.buyerCompanyId) : false;
+    if (!isBuyer) {
       throw new ForbiddenException("Cette offre ne t'appartient pas");
     }
     if (bid.status !== "PENDING") {
@@ -1748,15 +1859,22 @@ export class CompaniesService {
       where: { listingId, status: "PENDING" },
       orderBy: { pricePerPercent: "desc" },
     });
-    const buyers = await this.prisma.client.player.findMany({
-      where: { id: { in: bids.map((b) => b.buyerId) } },
-      select: { id: true, pseudo: true },
-    });
+    const [buyers, buyerCompanies] = await Promise.all([
+      this.prisma.client.player.findMany({
+        where: { id: { in: bids.map((b) => b.buyerId).filter((id): id is string => !!id) } },
+        select: { id: true, pseudo: true },
+      }),
+      this.prisma.client.company.findMany({
+        where: { id: { in: bids.map((b) => b.buyerCompanyId).filter((id): id is string => !!id) } },
+        select: { id: true, name: true },
+      }),
+    ]);
     const pseudoById = new Map(buyers.map((p) => [p.id, p.pseudo]));
+    const companyNameById = new Map(buyerCompanies.map((c) => [c.id, c.name]));
 
     return bids.map((bid) => ({
       id: bid.id,
-      buyerPseudo: pseudoById.get(bid.buyerId) ?? "?",
+      buyerPseudo: bid.buyerId ? (pseudoById.get(bid.buyerId) ?? "?") : `🏢 ${companyNameById.get(bid.buyerCompanyId!) ?? "?"}`,
       pricePerPercent: bid.pricePerPercent.toNumber(),
       totalPrice: bid.pricePerPercent.toNumber() * listing.sharePercentage.toNumber(),
       createdCycle: bid.createdCycle,
@@ -1774,9 +1892,16 @@ export class CompaniesService {
     }
 
     const totalPrice = bid.pricePerPercent.toNumber() * listing.sharePercentage.toNumber();
-    const buyerStats = await this.prisma.client.playerStats.findUnique({ where: { playerId: bid.buyerId } });
-    if (!buyerStats || buyerStats.wealthLiquid.toNumber() < totalPrice) {
-      throw new BadRequestException("L'acheteur n'a plus les fonds pour honorer cette offre");
+    if (bid.buyerId) {
+      const buyerStats = await this.prisma.client.playerStats.findUnique({ where: { playerId: bid.buyerId } });
+      if (!buyerStats || buyerStats.wealthLiquid.toNumber() < totalPrice) {
+        throw new BadRequestException("L'acheteur n'a plus les fonds pour honorer cette offre");
+      }
+    } else if (bid.buyerCompanyId) {
+      const buyerCompany = await this.prisma.client.company.findUnique({ where: { id: bid.buyerCompanyId } });
+      if (!buyerCompany || buyerCompany.cashReserve.toNumber() < totalPrice) {
+        throw new BadRequestException("L'entreprise acheteuse n'a plus la trésorerie pour honorer cette offre");
+      }
     }
 
     const sellerShare = await this.prisma.client.companyShare.findUnique({
@@ -1798,7 +1923,11 @@ export class CompaniesService {
         throw new BadRequestException("Cette annonce n'est plus disponible");
       }
 
-      await tx.playerStats.update({ where: { playerId: bid.buyerId }, data: { wealthLiquid: { decrement: totalPrice } } });
+      if (bid.buyerId) {
+        await tx.playerStats.update({ where: { playerId: bid.buyerId }, data: { wealthLiquid: { decrement: totalPrice } } });
+      } else if (bid.buyerCompanyId) {
+        await tx.company.update({ where: { id: bid.buyerCompanyId }, data: { cashReserve: { decrement: totalPrice } } });
+      }
       await tx.playerStats.update({ where: { playerId }, data: { wealthLiquid: { increment: totalPrice } } });
 
       const remaining = sellerShare.sharePercentage.toNumber() - listing.sharePercentage.toNumber();
@@ -1810,11 +1939,19 @@ export class CompaniesService {
           data: { sharePercentage: remaining },
         });
       }
-      await tx.companyShare.upsert({
-        where: { companyId_playerId: { companyId: listing.companyId, playerId: bid.buyerId } },
-        create: { companyId: listing.companyId, playerId: bid.buyerId, sharePercentage: listing.sharePercentage },
-        update: { sharePercentage: { increment: listing.sharePercentage } },
-      });
+      if (bid.buyerId) {
+        await tx.companyShare.upsert({
+          where: { companyId_playerId: { companyId: listing.companyId, playerId: bid.buyerId } },
+          create: { companyId: listing.companyId, playerId: bid.buyerId, sharePercentage: listing.sharePercentage },
+          update: { sharePercentage: { increment: listing.sharePercentage } },
+        });
+      } else if (bid.buyerCompanyId) {
+        await tx.companyShare.upsert({
+          where: { companyId_holderCompanyId: { companyId: listing.companyId, holderCompanyId: bid.buyerCompanyId } },
+          create: { companyId: listing.companyId, holderCompanyId: bid.buyerCompanyId, sharePercentage: listing.sharePercentage },
+          update: { sharePercentage: { increment: listing.sharePercentage } },
+        });
+      }
 
       await tx.companySaleBid.update({ where: { id: bid.id }, data: { status: "ACCEPTED" } });
 
@@ -1825,9 +1962,13 @@ export class CompaniesService {
           data: { status: "REJECTED" },
         });
         for (const rejected of bidsToReject) {
+          const rejectedPlayerId = rejected.buyerId ?? (await this.resolveUltimateControllerId(
+            await tx.companyShare.findMany({ where: { companyId: rejected.buyerCompanyId! } }),
+          ));
+          if (!rejectedPlayerId) continue;
           await tx.playerNotification.create({
             data: {
-              playerId: rejected.buyerId,
+              playerId: rejectedPlayerId,
               type: "sale-bid-rejected",
               message: `Ton offre pour ${company.name} n'a pas été retenue par le vendeur.`,
               cycle: currentCycle.number,
@@ -1836,14 +1977,19 @@ export class CompaniesService {
         }
       }
 
-      await tx.playerNotification.create({
-        data: {
-          playerId: bid.buyerId,
-          type: "sale-bid-accepted",
-          message: `Ton offre de ${totalPrice.toFixed(0)} € pour ${listing.sharePercentage.toNumber()}% de ${company.name} a été acceptée.`,
-          cycle: currentCycle.number,
-        },
-      });
+      const acceptedPlayerId = bid.buyerId ?? (await this.resolveUltimateControllerId(
+        await tx.companyShare.findMany({ where: { companyId: bid.buyerCompanyId! } }),
+      ));
+      if (acceptedPlayerId) {
+        await tx.playerNotification.create({
+          data: {
+            playerId: acceptedPlayerId,
+            type: "sale-bid-accepted",
+            message: `Ton offre de ${totalPrice.toFixed(0)} € pour ${listing.sharePercentage.toNumber()}% de ${company.name} a été acceptée.`,
+            cycle: currentCycle.number,
+          },
+        });
+      }
     });
 
     return { accepted: true };
@@ -1939,11 +2085,11 @@ export class CompaniesService {
   async getCapitalRaiseContributions(raiseId: string) {
     const contributions = await this.prisma.client.capitalRaiseContribution.findMany({
       where: { raiseId },
-      include: { investor: { select: { pseudo: true } } },
+      include: { investor: { select: { pseudo: true } }, investorCompany: { select: { name: true } } },
       orderBy: { cycle: "asc" },
     });
     return contributions.map((c) => ({
-      investorPseudo: c.investor.pseudo,
+      investorPseudo: c.investor?.pseudo ?? `🏢 ${c.investorCompany?.name ?? "?"}`,
       amount: c.amount.toNumber(),
       sharePercentage: c.sharePercentage.toNumber(),
       cycle: c.cycle,
@@ -1976,8 +2122,11 @@ export class CompaniesService {
       where: { id: raise.companyId },
       include: { shares: true },
     });
-    const previousPrimaryOwnerId = this.getPrimaryOwnerId(company.shares);
-    if (previousPrimaryOwnerId === playerId) {
+    const previousPrimaryOwnerId = await this.resolveUltimateControllerId(company.shares);
+    if (input.investorCompanyId) {
+      await this.assertControlsCompany(playerId, input.investorCompanyId);
+      await this.assertNoCircularHolding(input.investorCompanyId, raise.companyId);
+    } else if (previousPrimaryOwnerId === playerId) {
       throw new BadRequestException("Tu ne peux pas financer ta propre levée de fonds");
     }
 
@@ -1989,9 +2138,16 @@ export class CompaniesService {
     }
     const amount = Math.min(input.amount, remaining);
 
-    const investorStats = await this.prisma.client.playerStats.findUnique({ where: { playerId } });
-    if (!investorStats || investorStats.wealthLiquid.toNumber() < amount) {
-      throw new BadRequestException("Fonds insuffisants pour ce montant");
+    if (input.investorCompanyId) {
+      const investorCompany = await this.prisma.client.company.findUnique({ where: { id: input.investorCompanyId } });
+      if (!investorCompany || investorCompany.cashReserve.toNumber() < amount) {
+        throw new BadRequestException("Trésorerie insuffisante pour ce montant");
+      }
+    } else {
+      const investorStats = await this.prisma.client.playerStats.findUnique({ where: { playerId } });
+      if (!investorStats || investorStats.wealthLiquid.toNumber() < amount) {
+        throw new BadRequestException("Fonds insuffisants pour ce montant");
+      }
     }
 
     const newSharePercentage = raise.newSharePercentage.toNumber();
@@ -2008,12 +2164,18 @@ export class CompaniesService {
         throw new BadRequestException("Cette levée de fonds vient de changer, réessaie");
       }
 
-      await tx.playerStats.update({ where: { playerId }, data: { wealthLiquid: { decrement: amount } } });
+      if (input.investorCompanyId) {
+        await tx.company.update({ where: { id: input.investorCompanyId }, data: { cashReserve: { decrement: amount } } });
+      } else {
+        await tx.playerStats.update({ where: { playerId }, data: { wealthLiquid: { decrement: amount } } });
+      }
       await tx.company.update({ where: { id: raise.companyId }, data: { cashReserve: { increment: amount } } });
 
       for (const existingShare of company.shares) {
         await tx.companyShare.update({
-          where: { companyId_playerId: { companyId: raise.companyId, playerId: existingShare.playerId } },
+          where: existingShare.playerId
+            ? { companyId_playerId: { companyId: raise.companyId, playerId: existingShare.playerId } }
+            : { companyId_holderCompanyId: { companyId: raise.companyId, holderCompanyId: existingShare.holderCompanyId! } },
           data: {
             sharePercentage: computeDilutedSharePercentage(
               existingShare.sharePercentage.toNumber(),
@@ -2022,25 +2184,47 @@ export class CompaniesService {
           },
         });
       }
-      await tx.companyShare.upsert({
-        where: { companyId_playerId: { companyId: raise.companyId, playerId } },
-        create: { companyId: raise.companyId, playerId, sharePercentage: shareForContribution },
-        update: { sharePercentage: { increment: shareForContribution } },
-      });
-      await tx.capitalRaiseContribution.upsert({
-        where: { raiseId_investorId: { raiseId, investorId: playerId } },
-        create: {
-          raiseId,
-          investorId: playerId,
-          amount,
-          sharePercentage: shareForContribution,
-          cycle: currentCycle.number,
-        },
-        update: {
-          amount: { increment: amount },
-          sharePercentage: { increment: shareForContribution },
-        },
-      });
+      if (input.investorCompanyId) {
+        await tx.companyShare.upsert({
+          where: { companyId_holderCompanyId: { companyId: raise.companyId, holderCompanyId: input.investorCompanyId } },
+          create: { companyId: raise.companyId, holderCompanyId: input.investorCompanyId, sharePercentage: shareForContribution },
+          update: { sharePercentage: { increment: shareForContribution } },
+        });
+        await tx.capitalRaiseContribution.upsert({
+          where: { raiseId_investorCompanyId: { raiseId, investorCompanyId: input.investorCompanyId } },
+          create: {
+            raiseId,
+            investorCompanyId: input.investorCompanyId,
+            amount,
+            sharePercentage: shareForContribution,
+            cycle: currentCycle.number,
+          },
+          update: {
+            amount: { increment: amount },
+            sharePercentage: { increment: shareForContribution },
+          },
+        });
+      } else {
+        await tx.companyShare.upsert({
+          where: { companyId_playerId: { companyId: raise.companyId, playerId } },
+          create: { companyId: raise.companyId, playerId, sharePercentage: shareForContribution },
+          update: { sharePercentage: { increment: shareForContribution } },
+        });
+        await tx.capitalRaiseContribution.upsert({
+          where: { raiseId_investorId: { raiseId, investorId: playerId } },
+          create: {
+            raiseId,
+            investorId: playerId,
+            amount,
+            sharePercentage: shareForContribution,
+            cycle: currentCycle.number,
+          },
+          update: {
+            amount: { increment: amount },
+            sharePercentage: { increment: shareForContribution },
+          },
+        });
+      }
 
       if (previousPrimaryOwnerId) {
         await tx.playerNotification.create({
@@ -2055,7 +2239,7 @@ export class CompaniesService {
         });
 
         const updatedShares = await tx.companyShare.findMany({ where: { companyId: raise.companyId } });
-        const newPrimaryOwnerId = this.getPrimaryOwnerId(updatedShares);
+        const newPrimaryOwnerId = await this.resolveUltimateControllerId(updatedShares);
         if (newPrimaryOwnerId !== previousPrimaryOwnerId && newPrimaryOwnerId === playerId) {
           await tx.playerNotification.create({
             data: {
@@ -2241,6 +2425,7 @@ export class CompaniesService {
         : `Proposition rejetée pour ${company.name}.`;
 
     for (const share of shares) {
+      if (!share.playerId) continue;
       await this.prisma.client.playerNotification.create({
         data: {
           playerId: share.playerId,
@@ -2290,8 +2475,91 @@ export class CompaniesService {
    */
   private async assertPrimaryOwner(playerId: string, companyId: string) {
     const shares = await this.prisma.client.companyShare.findMany({ where: { companyId } });
-    if (this.getPrimaryOwnerId(shares) !== playerId) {
+    if ((await this.resolveUltimateControllerId(shares)) !== playerId) {
       throw new ForbiddenException("Seul l'actionnaire principal peut piloter cette entreprise");
+    }
+  }
+
+  /**
+   * Remonte les chaînes de holding (cf. CompanyShare.holderCompany) pour
+   * trouver le JOUEUR qui contrôle en dernier ressort une entreprise —
+   * contrairement à getPrimaryOwnerId (l'actionnaire DIRECT le plus
+   * important, qui peut lui-même être une société), c'est cette résolution
+   * qui doit piloter les actions (embaucher, investir, changer la politique
+   * de distribution...) pour qu'une filiale détenue à 100% par une holding
+   * reste gérable par le joueur qui contrôle cette holding. Profondeur
+   * plafonnée pour ne jamais boucler, même si une chaîne circulaire
+   * échappait à la garde de création (cf. assertNoCircularHolding).
+   */
+  private async resolveUltimateControllerId(shares: ShareLike[], depth = 0): Promise<string | undefined> {
+    if (depth > 6 || shares.length === 0) return undefined;
+    const top = shares.reduce((max, share) => (share.sharePercentage.toNumber() > max.sharePercentage.toNumber() ? share : max));
+    if (top.playerId) return top.playerId;
+    if (!top.holderCompanyId) return undefined;
+    const holderShares = await this.prisma.client.companyShare.findMany({ where: { companyId: top.holderCompanyId } });
+    return this.resolveUltimateControllerId(holderShares, depth + 1);
+  }
+
+  /**
+   * Entreprises ACTIVES dont ce joueur est le contrôleur ultime — directement
+   * OU via une chaîne de holding (cf. resolveUltimateControllerId). Sert au
+   * seuil de fondation d'une entreprise supplémentaire (computeFoundingCost,
+   * hasMatureCompany) : sans ça, un joueur pourrait loger une entreprise dans
+   * une holding qu'il contrôle pour faire artificiellement baisser son
+   * compteur et re-payer le tarif de départ à chaque fois.
+   */
+  private async getUltimatelyControlledActiveCompanies(
+    playerId: string,
+  ): Promise<{ id: string; sectorId: string; foundedCycle: number; cumulativeNetProfit: number }[]> {
+    const companies = await this.prisma.client.company.findMany({
+      where: { status: "ACTIVE" },
+      include: { shares: true },
+    });
+    const controlled: { id: string; sectorId: string; foundedCycle: number; cumulativeNetProfit: number }[] = [];
+    for (const company of companies) {
+      if ((await this.resolveUltimateControllerId(company.shares)) === playerId) {
+        controlled.push({
+          id: company.id,
+          sectorId: company.sectorId,
+          foundedCycle: company.foundedCycle,
+          cumulativeNetProfit: company.cumulativeNetProfit.toNumber(),
+        });
+      }
+    }
+    return controlled;
+  }
+
+  /** Le joueur contrôle-t-il (directement ou via une chaîne de holding) cette entreprise ? */
+  private async controlsCompany(playerId: string, companyId: string): Promise<boolean> {
+    const shares = await this.prisma.client.companyShare.findMany({ where: { companyId } });
+    return (await this.resolveUltimateControllerId(shares)) === playerId;
+  }
+
+  /** Vérifie que le joueur contrôle bien l'entreprise pour le compte de laquelle il agit. */
+  private async assertControlsCompany(playerId: string, companyId: string) {
+    if (!(await this.controlsCompany(playerId, companyId))) {
+      throw new ForbiddenException("Tu ne contrôles pas cette entreprise");
+    }
+  }
+
+  /**
+   * Empêche une participation circulaire (A détient B qui détient A) lors
+   * de la création d'une part détenue par une société — remonte la chaîne
+   * de contrôle de l'ACQUÉREUSE et rejette si la CIBLE y apparaît déjà.
+   */
+  private async assertNoCircularHolding(acquirerCompanyId: string, targetCompanyId: string, depth = 0) {
+    if (depth > 6) return;
+    if (acquirerCompanyId === targetCompanyId) {
+      throw new BadRequestException("Participation circulaire interdite");
+    }
+    const acquirerShares = await this.prisma.client.companyShare.findMany({ where: { companyId: acquirerCompanyId } });
+    for (const share of acquirerShares) {
+      if (share.holderCompanyId === targetCompanyId) {
+        throw new BadRequestException("Participation circulaire interdite");
+      }
+      if (share.holderCompanyId) {
+        await this.assertNoCircularHolding(share.holderCompanyId, targetCompanyId, depth + 1);
+      }
     }
   }
 
@@ -2314,7 +2582,10 @@ export class CompaniesService {
 
   private getPrimaryOwnerId(shares: ShareLike[]): string | undefined {
     if (shares.length === 0) return undefined;
-    return shares.reduce((max, share) => (share.sharePercentage.toNumber() > max.sharePercentage.toNumber() ? share : max)).playerId;
+    return (
+      shares.reduce((max, share) => (share.sharePercentage.toNumber() > max.sharePercentage.toNumber() ? share : max)).playerId ??
+      undefined
+    );
   }
 
   private hasMatureCompany(companies: OwnedCompanySummary[], currentCycleNumber: number): boolean {

@@ -19,7 +19,8 @@ import { AchievementsService } from "../engagement/achievements.service.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 
 interface ShareLike {
-  playerId: string;
+  playerId: string | null;
+  holderCompanyId?: string | null;
   sharePercentage: { toNumber(): number };
 }
 
@@ -470,13 +471,25 @@ export class EmploymentService {
 
   private getPrimaryOwnerId(shares: ShareLike[]): string | undefined {
     if (shares.length === 0) return undefined;
-    return shares.reduce((max, share) => (share.sharePercentage.toNumber() > max.sharePercentage.toNumber() ? share : max))
-      .playerId;
+    return (
+      shares.reduce((max, share) => (share.sharePercentage.toNumber() > max.sharePercentage.toNumber() ? share : max)).playerId ??
+      undefined
+    );
+  }
+
+  /** Remonte les chaînes de holding (cf. CompanyShare.holderCompany) — même logique que companies.service.ts. */
+  private async resolveUltimateControllerId(shares: ShareLike[], depth = 0): Promise<string | undefined> {
+    if (depth > 6 || shares.length === 0) return undefined;
+    const top = shares.reduce((max, share) => (share.sharePercentage.toNumber() > max.sharePercentage.toNumber() ? share : max));
+    if (top.playerId) return top.playerId;
+    if (!top.holderCompanyId) return undefined;
+    const holderShares = await this.prisma.client.companyShare.findMany({ where: { companyId: top.holderCompanyId } });
+    return this.resolveUltimateControllerId(holderShares, depth + 1);
   }
 
   private async assertPrimaryOwner(playerId: string, companyId: string) {
     const shares = await this.prisma.client.companyShare.findMany({ where: { companyId } });
-    if (this.getPrimaryOwnerId(shares) !== playerId) {
+    if ((await this.resolveUltimateControllerId(shares)) !== playerId) {
       throw new ForbiddenException("Seul l'actionnaire principal peut piloter cette entreprise");
     }
   }

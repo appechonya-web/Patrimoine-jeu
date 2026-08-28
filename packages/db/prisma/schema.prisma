@@ -870,6 +870,10 @@ model Company {
   loans CompanyLoan[]
 
   shares                     CompanyShare[]
+  /// Filiales dont cette entreprise détient des parts (cf. CompanyShare.holderCompany) — le versant "groupe/holding" du cap table.
+  heldShares                 CompanyShare[]          @relation("CompanyShareHolder")
+  shareListingsAsBuyer       CompanyShareListing[]   @relation("ShareListingBuyerCompany")
+  capitalRaiseContributionsAsInvestor CapitalRaiseContribution[] @relation("CapitalRaiseInvestorCompany")
   employments                Employment[]
   jobPostings                CompanyJobPosting[]
   insuranceOffersAsInsurer   InsurancePolicy[]       @relation("InsurerCompany")
@@ -998,14 +1002,23 @@ model CompanyActionCooldown {
 /// Base de l'actionnariat et du rachat hostile (section 12septies) : la somme
 /// des sharePercentage pour une entreprise doit être maintenue à 100 côté
 /// application.
+/// L'actionnaire d'une part est SOIT un joueur SOIT une autre entreprise
+/// (holding), jamais les deux (cf. contrainte CHECK en base) — une société
+/// peut ainsi détenir des parts d'une autre (groupe/holding), ses dividendes
+/// alimentant alors sa PROPRE trésorerie (cashReserve) plutôt que le
+/// patrimoine personnel d'un joueur (cf. game-engine/cycles.ts).
 model CompanyShare {
-  company         Company @relation(fields: [companyId], references: [id])
+  id              String   @id @default(uuid())
+  company         Company  @relation(fields: [companyId], references: [id])
   companyId       String
-  player          Player  @relation(fields: [playerId], references: [id])
-  playerId        String
-  sharePercentage Decimal @db.Decimal(5, 2)
+  player          Player?  @relation(fields: [playerId], references: [id])
+  playerId        String?
+  holderCompany   Company? @relation("CompanyShareHolder", fields: [holderCompanyId], references: [id])
+  holderCompanyId String?
+  sharePercentage Decimal  @db.Decimal(5, 2)
 
-  @@id([companyId, playerId])
+  @@unique([companyId, playerId])
+  @@unique([companyId, holderCompanyId])
 }
 
 enum ShareListingStatus {
@@ -1027,14 +1040,16 @@ enum TenderOfferStatus {
 /// de mains automatiquement dès que l'acquéreur dépasse les autres en
 /// parts détenues, aucun champ dédié à tenir à jour.
 model CompanyTenderOffer {
-  id               String            @id @default(uuid())
-  company          Company           @relation(fields: [companyId], references: [id])
-  companyId        String
-  acquirerPlayerId String
-  pricePerPercent  Decimal           @db.Decimal(12, 2)
-  status           TenderOfferStatus @default(OPEN)
-  createdCycle     Int
-  expiresCycle     Int
+  id                String            @id @default(uuid())
+  company           Company           @relation(fields: [companyId], references: [id])
+  companyId         String
+  acquirerPlayerId  String?
+  /// Si l'OPA est lancée pour le compte d'une entreprise que le joueur contrôle (holding) plutôt qu'en son nom propre — payée par la trésorerie de cette entreprise.
+  acquirerCompanyId String?
+  pricePerPercent   Decimal           @db.Decimal(12, 2)
+  status            TenderOfferStatus @default(OPEN)
+  createdCycle      Int
+  expiresCycle      Int
 }
 
 enum CompanySaleListingStatus {
@@ -1073,7 +1088,9 @@ model CompanySaleBid {
   id              String               @id @default(uuid())
   listing         CompanySaleListing   @relation(fields: [listingId], references: [id])
   listingId       String
-  buyerId         String
+  buyerId         String?
+  /// Si l'offre est soumise pour le compte d'une entreprise contrôlée par le joueur plutôt qu'en son nom propre.
+  buyerCompanyId  String?
   pricePerPercent Decimal              @db.Decimal(12, 2)
   status          CompanySaleBidStatus @default(PENDING)
   createdCycle    Int
@@ -1113,16 +1130,20 @@ model CompanyCapitalRaise {
 /// (amount / targetAmount du tour au moment de sa contribution), pas une
 /// part égale entre investisseurs.
 model CapitalRaiseContribution {
-  id              String              @id @default(uuid())
-  raise           CompanyCapitalRaise @relation(fields: [raiseId], references: [id])
-  raiseId         String
-  investor        Player              @relation(fields: [investorId], references: [id])
-  investorId      String
-  amount          Decimal             @db.Decimal(12, 2)
-  sharePercentage Decimal             @db.Decimal(6, 2)
-  cycle           Int
+  id                String              @id @default(uuid())
+  raise             CompanyCapitalRaise @relation(fields: [raiseId], references: [id])
+  raiseId           String
+  investor          Player?             @relation(fields: [investorId], references: [id])
+  investorId        String?
+  /// Si la contribution vient de la trésorerie d'une entreprise contrôlée par le joueur plutôt que de son patrimoine personnel.
+  investorCompany   Company?            @relation("CapitalRaiseInvestorCompany", fields: [investorCompanyId], references: [id])
+  investorCompanyId String?
+  amount            Decimal             @db.Decimal(12, 2)
+  sharePercentage   Decimal             @db.Decimal(6, 2)
+  cycle             Int
 
   @@unique([raiseId, investorId])
+  @@unique([raiseId, investorCompanyId])
 }
 
 enum ProposalType {
@@ -1269,6 +1290,9 @@ model CompanyShareListing {
   sellerId        String
   buyer           Player?            @relation("ShareListingBuyer", fields: [buyerId], references: [id])
   buyerId         String?
+  /// Si la cotation est achetée pour le compte d'une entreprise contrôlée par le joueur plutôt qu'en son nom propre.
+  buyerCompany    Company?           @relation("ShareListingBuyerCompany", fields: [buyerCompanyId], references: [id])
+  buyerCompanyId  String?
   sharePercentage Decimal            @db.Decimal(5, 2)
   price           Decimal            @db.Decimal(12, 2)
   status          ShareListingStatus @default(OPEN)

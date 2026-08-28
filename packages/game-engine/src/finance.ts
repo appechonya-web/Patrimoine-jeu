@@ -73,6 +73,15 @@ export interface CompanyBalanceSheetInputs {
   loansReceivable: number;
   /** Réserve de liquidation (cf. domain/dividends.ts) — du cash déjà taxé à 10% mais toujours un actif de l'entreprise tant qu'il n'est pas distribué. */
   liquidationReserve: number;
+  /**
+   * Valeur comptable des participations détenues dans d'autres entreprises
+   * (cf. CompanyShare.holderCompany, groupe/holding) — quote-part de
+   * l'équité AUTONOME de chaque filiale (pas sa propre valeur consolidée :
+   * une holding-de-holding ne remonte qu'un niveau, cf. cycles.ts). Un vrai
+   * actif : c'est ce qui reviendrait à cette entreprise si elle revendait
+   * ses parts.
+   */
+  equityStakesHeldValue: number;
 }
 
 export interface CompanyBalanceSheet {
@@ -88,10 +97,24 @@ export interface CompanyBalanceSheet {
  * toujours par construction, comme en comptabilité réelle.
  */
 export function computeCompanyBalanceSheet(inputs: CompanyBalanceSheetInputs): CompanyBalanceSheet {
-  const { cashReserve, equipmentBookValue, otherInvestmentsCumulative, inventoryValue, totalDebt, loansReceivable, liquidationReserve } =
-    inputs;
+  const {
+    cashReserve,
+    equipmentBookValue,
+    otherInvestmentsCumulative,
+    inventoryValue,
+    totalDebt,
+    loansReceivable,
+    liquidationReserve,
+    equityStakesHeldValue,
+  } = inputs;
   const totalAssets =
-    cashReserve + equipmentBookValue + otherInvestmentsCumulative + inventoryValue + loansReceivable + liquidationReserve;
+    cashReserve +
+    equipmentBookValue +
+    otherInvestmentsCumulative +
+    inventoryValue +
+    loansReceivable +
+    liquidationReserve +
+    equityStakesHeldValue;
   const equity = totalAssets - totalDebt;
   return {
     totalAssets,

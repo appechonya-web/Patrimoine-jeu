@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { getCurrentPlayer, getSaleListings } from "../../lib/session";
+import { getCurrentPlayer, getMyCompanies, getSaleListings } from "../../lib/session";
 import { SaleListingList } from "./sale-listing-list";
 import { InfoTip } from "../info-tip";
 import styles from "../page.module.css";
@@ -11,7 +11,10 @@ export default async function RachatAmicalPage() {
     redirect("/login");
   }
 
-  const listings = await getSaleListings();
+  const [listings, myCompanies] = await Promise.all([getSaleListings(), getMyCompanies()]);
+  const myControlledCompanies = myCompanies.companies
+    .filter((c) => c.sharePercentage > 50)
+    .map((c) => ({ id: c.id, name: c.name }));
 
   return (
     <main className={styles.main}>
@@ -33,7 +36,7 @@ export default async function RachatAmicalPage() {
         </Link>
       </header>
 
-      <SaleListingList listings={listings} />
+      <SaleListingList listings={listings} myControlledCompanies={myControlledCompanies} />
     </main>
   );
 }

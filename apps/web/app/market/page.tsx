@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { getCurrentPlayer, getMarketplace } from "../../lib/session";
+import { getCurrentPlayer, getMarketplace, getMyCompanies } from "../../lib/session";
 import { MarketList } from "./market-list";
 import { InfoTip } from "../info-tip";
 import styles from "../page.module.css";
@@ -11,7 +11,10 @@ export default async function MarketPage() {
     redirect("/login");
   }
 
-  const listings = await getMarketplace();
+  const [listings, myCompanies] = await Promise.all([getMarketplace(), getMyCompanies()]);
+  const myControlledCompanies = myCompanies.companies
+    .filter((c) => c.sharePercentage > 50)
+    .map((c) => ({ id: c.id, name: c.name }));
 
   return (
     <main className={styles.main}>
@@ -33,7 +36,7 @@ export default async function MarketPage() {
         </Link>
       </header>
 
-      <MarketList listings={listings} />
+      <MarketList listings={listings} myControlledCompanies={myControlledCompanies} />
     </main>
   );
 }

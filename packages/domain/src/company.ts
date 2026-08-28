@@ -217,6 +217,12 @@ export const listShareInputSchema = z.object({
 
 export type ListShareInput = z.infer<typeof listShareInputSchema>;
 
+/** Si l'achat d'une cotation est fait pour le compte d'une entreprise contrôlée par le joueur (holding) plutôt qu'en son nom propre. */
+export const buyShareListingInputSchema = z.object({
+  acquirerCompanyId: z.string().optional(),
+});
+export type BuyShareListingInput = z.infer<typeof buyShareListingInputSchema>;
+
 // --- Production & produit --------------------------------------------------
 
 /**

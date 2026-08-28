@@ -761,10 +761,35 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
     propertyEquityByPlayer.set(property.ownerId!, (propertyEquityByPlayer.get(property.ownerId!) ?? 0) + equity);
   }
 
+  // Bilan consolidé (groupe/holding, cf. CompanyShare.holderCompany) : une
+  // société qui détient des parts d'une autre voit la valeur de cette
+  // participation comptée comme un actif propre (assembleCompanyBalanceSheet,
+  // equityStakesHeldValue) — à UN niveau seulement (l'équité "autonome" de la
+  // filiale, pas sa propre consolidation) pour éviter toute récursion sur des
+  // chaînes de holdings, cf. plan.
+  const standaloneEquityByCompany = new Map<string, number>();
+  for (const company of companies) {
+    standaloneEquityByCompany.set(company.id, assembleCompanyBalanceSheet(company).equity);
+  }
+  const equityStakesHeldValueByCompany = new Map<string, number>();
+  for (const company of companies) {
+    for (const share of company.shares) {
+      if (!share.holderCompanyId) continue;
+      const sharePercentage = share.sharePercentage.toNumber();
+      if (sharePercentage <= 0) continue;
+      const stake = (standaloneEquityByCompany.get(company.id) ?? 0) * (sharePercentage / 100);
+      equityStakesHeldValueByCompany.set(
+        share.holderCompanyId,
+        (equityStakesHeldValueByCompany.get(share.holderCompanyId) ?? 0) + stake,
+      );
+    }
+  }
+
   const companyEquityByPlayer = new Map<string, number>();
   for (const company of companies) {
-    const { equity } = assembleCompanyBalanceSheet(company);
+    const { equity } = assembleCompanyBalanceSheet(company, equityStakesHeldValueByCompany.get(company.id) ?? 0);
     for (const share of company.shares) {
+      if (!share.playerId) continue;
       const sharePercentage = share.sharePercentage.toNumber();
       if (sharePercentage <= 0) continue;
       const stake = equity * (sharePercentage / 100);
@@ -792,19 +817,23 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
     );
   }
 
-  // Le propriétaire principal (part la plus élevée) détermine si
-  // l'entreprise subit la pénalité d'attention divisée — cf.
-  // computeAttentionMultiplier. Tant que les parts ne sont pas cessibles,
-  // c'est toujours le fondateur à 100%.
-  const primaryOwnerIdByCompany = new Map(
-    companies.map((company) => {
-      const primaryShare = company.shares.reduce(
-        (max, share) => (share.sharePercentage.gt(max?.sharePercentage ?? 0) ? share : max),
-        company.shares[0],
-      );
-      return [company.id, primaryShare?.playerId];
-    }),
-  );
+  // Le propriétaire ULTIME (part la plus élevée, en remontant les chaînes de
+  // holding — cf. CompanyShare.holderCompany) détermine si l'entreprise subit
+  // la pénalité d'attention divisée (computeAttentionMultiplier), à qui va sa
+  // réputation, etc. — un joueur qui loge ses filiales dans une holding qu'il
+  // contrôle reste soumis aux mêmes mécaniques que s'il les possédait
+  // directement (pas un moyen de contourner la pénalité d'attention).
+  const sharesByCompanyId = new Map(companies.map((company) => [company.id, company.shares]));
+  function resolveUltimateControllerId(companyId: string, depth = 0): string | undefined {
+    if (depth > 6) return undefined;
+    const shares = sharesByCompanyId.get(companyId);
+    if (!shares || shares.length === 0) return undefined;
+    const top = shares.reduce((max, share) => (share.sharePercentage.gt(max.sharePercentage) ? share : max), shares[0]);
+    if (top.playerId) return top.playerId;
+    if (top.holderCompanyId) return resolveUltimateControllerId(top.holderCompanyId, depth + 1);
+    return undefined;
+  }
+  const primaryOwnerIdByCompany = new Map(companies.map((company) => [company.id, resolveUltimateControllerId(company.id)]));
   const activeCompanyCountByOwner = new Map<string, number>();
   // Managers embauchables en pilote semi-automatique (cf.
   // domain/company.ts UNMANAGED_COMPANY_WELLBEING_DRAIN_PER_CYCLE) — une
@@ -1366,6 +1395,13 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
   // est déjà déduit AVANT le calcul du profit net (cf. computeCompanyResult,
   // totalLoanPayments dans `costs`), donc déjà financé par construction.
   const companyIncomeByPlayer = new Map<string, number>();
+  // Groupe/holding : le dividende d'une part détenue par une AUTRE
+  // entreprise (cf. CompanyShare.holderCompany) alimente la trésorerie de
+  // cette société-mère (cashReserve, plus bas) plutôt que le patrimoine
+  // personnel d'un joueur — il faudra un cycle de plus (via la politique de
+  // distribution de la mère) pour qu'il atteigne un joueur, pas de re-boucle
+  // dans le même cycle.
+  const companyIncomeByHolderCompany = new Map<string, number>();
   // Détail par entreprise (cf. PlayerCycleReportLine) — companyIncomeByPlayer
   // ci-dessus reste le total agrégé consommé partout ailleurs, inchangé.
   const dividendReportLines: {
@@ -1417,16 +1453,23 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
         const shareFraction = share.sharePercentage.toNumber() / 100;
         const grossShare = distributableProfit * shareFraction;
         const { net, tax } = computeDividendDistribution(grossShare);
-        companyIncomeByPlayer.set(share.playerId, (companyIncomeByPlayer.get(share.playerId) ?? 0) + net);
-        if (grossShare !== 0) {
-          dividendReportLines.push({
-            playerId: share.playerId,
-            companyId: result.company.id,
-            companyName: result.company.name,
-            grossShare,
-            tax,
-            net,
-          });
+        if (share.playerId) {
+          companyIncomeByPlayer.set(share.playerId, (companyIncomeByPlayer.get(share.playerId) ?? 0) + net);
+          if (grossShare !== 0) {
+            dividendReportLines.push({
+              playerId: share.playerId,
+              companyId: result.company.id,
+              companyName: result.company.name,
+              grossShare,
+              tax,
+              net,
+            });
+          }
+        } else if (share.holderCompanyId) {
+          companyIncomeByHolderCompany.set(
+            share.holderCompanyId,
+            (companyIncomeByHolderCompany.get(share.holderCompanyId) ?? 0) + net,
+          );
         }
       }
     }
@@ -1628,6 +1671,7 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
       const autoReinvestAxis = result.company.autoReinvestAxis as InvestmentAxis | null;
       const autoReinvestField = autoReinvestAxis ? AUTO_REINVEST_FIELD_BY_AXIS[autoReinvestAxis] : null;
       const operatingReserveRetained = operatingReserveRetainedByCompany.get(result.company.id) ?? 0;
+      const subsidiaryDividendsReceived = companyIncomeByHolderCompany.get(result.company.id) ?? 0;
       await tx.company.update({
         where: { id: result.company.id },
         data: {
@@ -1644,6 +1688,7 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
               insurancePremiumIncome +
               insuranceClaimReceived -
               insuranceClaimPaidOut +
+              subsidiaryDividendsReceived +
               (autoReinvestField === "cashReserve" ? autoReinvestAmount : 0),
           },
           ...(autoReinvestAmount > 0 && autoReinvestField && autoReinvestField !== "cashReserve"

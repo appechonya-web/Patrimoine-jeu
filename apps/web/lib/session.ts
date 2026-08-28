@@ -363,6 +363,12 @@ export interface CompanyLoanReceivable {
   remainingBalance: number;
 }
 
+export interface HoldingLink {
+  id: string;
+  name: string;
+  sharePercentage: number;
+}
+
 export interface CompanyDetail extends Company {
   isPrimaryOwner: boolean;
   shareholders: Shareholder[];
@@ -375,6 +381,10 @@ export interface CompanyDetail extends Company {
   hasDefaultedLoan: boolean;
   loanOffers: CompanyLoanOffer[];
   loansAsLender: CompanyLoanReceivable[];
+  /** Groupe/holding (cf. CompanyShare.holderCompany) — filiales détenues par cette entreprise. */
+  subsidiaries: HoldingLink[];
+  /** Société-mère qui détient des parts de celle-ci, le cas échéant. */
+  parentHolding: HoldingLink | null;
 }
 
 export interface MarketListing {

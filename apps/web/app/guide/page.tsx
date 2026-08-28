@@ -15,7 +15,7 @@ const SECTIONS = [
   { id: "entreprises", label: "🏢 Fonder et faire tourner une entreprise" },
   { id: "marche", label: "🥊 Marché, compétitivité & attractivité" },
   { id: "finance-entreprise", label: "💰 Finance d'entreprise" },
-  { id: "capital-rachat", label: "⚔️ Capital-risque, rachats & prêts entre joueurs" },
+  { id: "capital-rachat", label: "⚔️ Capital-risque, rachats, groupe & prêts entre joueurs" },
   { id: "provinces", label: "🏛️ Provinces & vie communale" },
   { id: "portefeuille", label: "💼 Portefeuille & récap de cycle" },
   { id: "engagement", label: "🎯 Défis, prime quotidienne & quiz fiscal" },
@@ -397,7 +397,7 @@ export default async function GuidePage() {
         </section>
 
         <section id="capital-rachat" className={guideStyles.guideSection}>
-          <h2>⚔️ Capital-risque, rachats & prêts entre joueurs</h2>
+          <h2>⚔️ Capital-risque, rachats, groupe & prêts entre joueurs</h2>
           <ul className={guideStyles.list}>
             <li>
               <strong>Capital-risque :</strong> finance l'entreprise d'un autre joueur en échange de nouvelles
@@ -418,6 +418,16 @@ export default async function GuidePage() {
               <strong>Prêts entre joueurs (communautaires) :</strong> une entreprise propose un prêt financé par
               sa propre trésorerie, taux et durée fixés librement dans des bornes raisonnables — n'importe quel
               joueur peut l'accepter en premier arrivé, premier servi.
+            </li>
+            <li>
+              <strong>Groupe / holding :</strong> sur les 4 mécanismes ci-dessus (capital-risque, OPA, rachat
+              amical, marché des parts), tu peux choisir d'acheter "en tant que" une entreprise que tu contrôles
+              plutôt qu'en ton nom propre — la trésorerie de cette entreprise paie l'achat, et les parts acquises
+              lui appartiennent. Une fois qu'une entreprise en détient une autre, les dividendes de la filiale
+              alimentent directement la trésorerie de la société-mère (pas ton patrimoine personnel) — un vrai
+              levier de composition pour construire un groupe multi-secteurs au lieu d'entreprises isolées.
+              Contrôler une filiale via une holding te permet aussi de la piloter (investir, embaucher...) comme
+              si tu la détenais en direct.
             </li>
           </ul>
         </section>

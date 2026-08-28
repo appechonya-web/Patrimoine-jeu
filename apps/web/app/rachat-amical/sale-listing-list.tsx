@@ -8,8 +8,9 @@ import { currencyFormatter } from "../../lib/format";
 import { StatHint } from "../stat-hint";
 import styles from "../page.module.css";
 
-function ListingCard({ listing }: { listing: SaleListingView }) {
+function ListingCard({ listing, myControlledCompanies }: { listing: SaleListingView; myControlledCompanies: { id: string; name: string }[] }) {
   const [pricePerPercent, setPricePerPercent] = useState(listing.askingPricePerPercent ?? 1);
+  const [buyerCompanyId, setBuyerCompanyId] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
@@ -19,7 +20,7 @@ function ListingCard({ listing }: { listing: SaleListingView }) {
     setError(null);
     setPending(true);
     try {
-      await submitSaleBid(listing.id, pricePerPercent);
+      await submitSaleBid(listing.id, pricePerPercent, buyerCompanyId || undefined);
       setSent(true);
     } catch (err) {
       setError(err instanceof GameError ? err.message : "Une erreur est survenue");
@@ -74,6 +75,16 @@ function ListingCard({ listing }: { listing: SaleListingView }) {
             value={pricePerPercent}
             onChange={(e) => setPricePerPercent(Number(e.target.value))}
           />
+          {myControlledCompanies.length > 0 && (
+            <select className={styles.formInput} value={buyerCompanyId} onChange={(e) => setBuyerCompanyId(e.target.value)}>
+              <option value="">Offre en mon nom propre</option>
+              {myControlledCompanies.map((c) => (
+                <option key={c.id} value={c.id}>
+                  🏢 Offre en tant que {c.name}
+                </option>
+              ))}
+            </select>
+          )}
           <button className={styles.apply} type="submit" disabled={pending}>
             {pending ? "…" : sent ? "🔁 Réviser mon offre" : "🤝 Faire une offre"}
           </button>
@@ -83,7 +94,13 @@ function ListingCard({ listing }: { listing: SaleListingView }) {
   );
 }
 
-export function SaleListingList({ listings }: { listings: SaleListingView[] }) {
+export function SaleListingList({
+  listings,
+  myControlledCompanies,
+}: {
+  listings: SaleListingView[];
+  myControlledCompanies: { id: string; name: string }[];
+}) {
   if (listings.length === 0) {
     return <p className={styles.jobMeta}>Aucune annonce de vente pour l'instant. 🕊️</p>;
   }
@@ -91,7 +108,7 @@ export function SaleListingList({ listings }: { listings: SaleListingView[] }) {
   return (
     <div className={styles.jobList}>
       {listings.map((listing) => (
-        <ListingCard key={listing.id} listing={listing} />
+        <ListingCard key={listing.id} listing={listing} myControlledCompanies={myControlledCompanies} />
       ))}
     </div>
   );

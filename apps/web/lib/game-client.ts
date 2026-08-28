@@ -92,8 +92,12 @@ export function cancelSaleListing(listingId: string): Promise<{ cancelled: boole
   return deleteJson(`/sale-listings/${listingId}`);
 }
 
-export function submitSaleBid(listingId: string, pricePerPercent: number): Promise<{ submitted: boolean }> {
-  return postJson(`/sale-listings/${listingId}/bids`, { pricePerPercent });
+export function submitSaleBid(
+  listingId: string,
+  pricePerPercent: number,
+  buyerCompanyId?: string,
+): Promise<{ submitted: boolean }> {
+  return postJson(`/sale-listings/${listingId}/bids`, { pricePerPercent, buyerCompanyId });
 }
 
 export function cancelSaleBid(bidId: string): Promise<{ cancelled: boolean }> {
@@ -116,8 +120,12 @@ export function cancelCapitalRaise(raiseId: string): Promise<{ cancelled: boolea
   return deleteJson(`/capital-raises/${raiseId}`);
 }
 
-export function fundCapitalRaise(raiseId: string, amount: number): Promise<{ contributed: number; fullyFunded: boolean }> {
-  return postJson(`/capital-raises/${raiseId}/fund`, { amount });
+export function fundCapitalRaise(
+  raiseId: string,
+  amount: number,
+  investorCompanyId?: string,
+): Promise<{ contributed: number; fullyFunded: boolean }> {
+  return postJson(`/capital-raises/${raiseId}/fund`, { amount, investorCompanyId });
 }
 
 export function getCapitalRaiseContributions(raiseId: string): Promise<CapitalRaiseContributionView[]> {
@@ -247,8 +255,8 @@ export function cancelListing(listingId: string): Promise<unknown> {
   return deleteJson(`/market/${listingId}`);
 }
 
-export function buyShareListing(listingId: string): Promise<{ bought: boolean }> {
-  return postJson(`/market/${listingId}/buy`);
+export function buyShareListing(listingId: string, acquirerCompanyId?: string): Promise<{ bought: boolean }> {
+  return postJson(`/market/${listingId}/buy`, { acquirerCompanyId });
 }
 
 export function buyCommodity(sectorId: string, cashAmount: number): Promise<{ unitsReceived: number; cashSpent: number }> {
@@ -368,8 +376,12 @@ export function donateToCause(causeId: string, amount: number): Promise<DonateTo
   return postJson("/donations/to-cause", { causeId, amount });
 }
 
-export function launchTenderOffer(companyId: string, pricePerPercent: number): Promise<TenderOfferView> {
-  return postJson(`/companies/${companyId}/tender-offers`, { pricePerPercent });
+export function launchTenderOffer(
+  companyId: string,
+  pricePerPercent: number,
+  acquirerCompanyId?: string,
+): Promise<TenderOfferView> {
+  return postJson(`/companies/${companyId}/tender-offers`, { pricePerPercent, acquirerCompanyId });
 }
 
 export function cancelTenderOffer(offerId: string): Promise<{ cancelled: boolean }> {

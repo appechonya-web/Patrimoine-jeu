@@ -35,5 +35,7 @@ export const MIN_CAPITAL_RAISE_CONTRIBUTION = 20;
 
 export const contributeToCapitalRaiseInputSchema = z.object({
   amount: z.number().min(MIN_CAPITAL_RAISE_CONTRIBUTION),
+  /** Si la contribution vient de la trésorerie d'une entreprise contrôlée par le joueur (holding) plutôt que de son patrimoine personnel. */
+  investorCompanyId: z.string().optional(),
 });
 export type ContributeToCapitalRaiseInput = z.infer<typeof contributeToCapitalRaiseInputSchema>;

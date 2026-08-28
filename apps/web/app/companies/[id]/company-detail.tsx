@@ -73,6 +73,7 @@ import { InsuranceSection } from "./insurance-section";
 import { SaleSection } from "./sale-section";
 import { CapitalRaiseSection } from "./capital-raise-section";
 import { GovernanceSection } from "./governance-section";
+import { GroupSection } from "./group-section";
 import styles from "../../page.module.css";
 
 const INVESTMENT_AXIS_ICONS: Record<InvestmentAxis, string> = {
@@ -771,6 +772,7 @@ function LoanRequestForm({ companyId, maxPrincipal, onDone }: { companyId: strin
 
 export function CompanyDetail({
   company,
+  myControlledCompanies,
   expansionRequirement,
   supplyContracts,
   tenderOffers,
@@ -785,6 +787,7 @@ export function CompanyDetail({
   bankReliability,
 }: {
   company: CompanyDetailData;
+  myControlledCompanies: { id: string; name: string }[];
   expansionRequirement: ExpansionRequirement | null;
   supplyContracts: SupplyContractView[];
   tenderOffers: TenderOfferView[];
@@ -1244,7 +1247,15 @@ export function CompanyDetail({
 
           <SaleSection company={company} listing={saleListing} bids={saleBids} onDone={handleDone} />
 
-          <TenderOfferSection company={company} offers={tenderOffers} myPseudo={myPseudo} onDone={handleDone} />
+          <TenderOfferSection
+            company={company}
+            offers={tenderOffers}
+            myPseudo={myPseudo}
+            myControlledCompanies={myControlledCompanies}
+            onDone={handleDone}
+          />
+
+          <GroupSection company={company} />
         </>
       )}
     </main>

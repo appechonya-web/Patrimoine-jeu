@@ -49,9 +49,10 @@ function ContributorsList({ raiseId }: { raiseId: string }) {
   );
 }
 
-function RaiseCard({ raise }: { raise: CapitalRaiseView }) {
+function RaiseCard({ raise, myControlledCompanies }: { raise: CapitalRaiseView; myControlledCompanies: { id: string; name: string }[] }) {
   const router = useRouter();
   const [amount, setAmount] = useState(Math.min(raise.remainingAmount, MIN_CAPITAL_RAISE_CONTRIBUTION * 5));
+  const [investorCompanyId, setInvestorCompanyId] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -64,7 +65,7 @@ function RaiseCard({ raise }: { raise: CapitalRaiseView }) {
     setNotice(null);
     setPending(true);
     try {
-      const result = await fundCapitalRaise(raise.id, amount);
+      const result = await fundCapitalRaise(raise.id, amount, investorCompanyId || undefined);
       setNotice(
         result.fullyFunded
           ? `Levée entièrement financée avec ta contribution de ${currencyFormatter.format(result.contributed)} !`
@@ -149,6 +150,20 @@ function RaiseCard({ raise }: { raise: CapitalRaiseView }) {
             value={amount}
             onChange={(e) => setAmount(Number(e.target.value))}
           />
+          {myControlledCompanies.length > 0 && (
+            <select
+              className={styles.formInput}
+              value={investorCompanyId}
+              onChange={(e) => setInvestorCompanyId(e.target.value)}
+            >
+              <option value="">Financer en mon nom propre</option>
+              {myControlledCompanies.map((c) => (
+                <option key={c.id} value={c.id}>
+                  🏢 Financer en tant que {c.name}
+                </option>
+              ))}
+            </select>
+          )}
           <button className={styles.apply} type="submit" disabled={pending}>
             {pending ? "…" : "💰 Financer"}
           </button>
@@ -158,7 +173,13 @@ function RaiseCard({ raise }: { raise: CapitalRaiseView }) {
   );
 }
 
-export function CapitalRaiseList({ raises }: { raises: CapitalRaiseView[] }) {
+export function CapitalRaiseList({
+  raises,
+  myControlledCompanies,
+}: {
+  raises: CapitalRaiseView[];
+  myControlledCompanies: { id: string; name: string }[];
+}) {
   if (raises.length === 0) {
     return <p className={styles.jobMeta}>Aucune levée de fonds en cours pour l'instant. 🕊️</p>;
   }
@@ -166,7 +187,7 @@ export function CapitalRaiseList({ raises }: { raises: CapitalRaiseView[] }) {
   return (
     <div className={styles.jobList}>
       {raises.map((raise) => (
-        <RaiseCard key={raise.id} raise={raise} />
+        <RaiseCard key={raise.id} raise={raise} myControlledCompanies={myControlledCompanies} />
       ))}
     </div>
   );

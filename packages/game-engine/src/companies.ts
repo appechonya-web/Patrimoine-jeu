@@ -199,7 +199,10 @@ export interface CompanyBalanceSheetSource {
  * (calcul du patrimoine total des joueurs, cf. cycles.ts) pour ne pas
  * dupliquer la logique d'assemblage (cf. finance.ts, computeCompanyBalanceSheet).
  */
-export function assembleCompanyBalanceSheet(company: CompanyBalanceSheetSource): CompanyBalanceSheet {
+export function assembleCompanyBalanceSheet(
+  company: CompanyBalanceSheetSource,
+  equityStakesHeldValue = 0,
+): CompanyBalanceSheet {
   const equipmentBookValue = computeEquipmentBookValue(
     company.equipmentInvestment.toNumber(),
     company.equipmentAccumulatedDepreciation.toNumber(),
@@ -242,6 +245,7 @@ export function assembleCompanyBalanceSheet(company: CompanyBalanceSheetSource):
     totalDebt: totalDebt + depositsOwed,
     loansReceivable,
     liquidationReserve: company.liquidationReserve.toNumber(),
+    equityStakesHeldValue,
   });
 }
 

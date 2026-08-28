@@ -9,8 +9,9 @@ import { currencyFormatter } from "../../lib/format";
 import { StatHint } from "../stat-hint";
 import styles from "../page.module.css";
 
-function ListingCard({ listing }: { listing: MarketListing }) {
+function ListingCard({ listing, myControlledCompanies }: { listing: MarketListing; myControlledCompanies: { id: string; name: string }[] }) {
   const router = useRouter();
+  const [acquirerCompanyId, setAcquirerCompanyId] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -18,7 +19,7 @@ function ListingCard({ listing }: { listing: MarketListing }) {
     setError(null);
     setPending(true);
     try {
-      await buyShareListing(listing.id);
+      await buyShareListing(listing.id, acquirerCompanyId || undefined);
       router.refresh();
     } catch (err) {
       setError(err instanceof GameError ? err.message : "Une erreur est survenue");
@@ -59,6 +60,20 @@ function ListingCard({ listing }: { listing: MarketListing }) {
       </div>
       <div className={styles.jobActions}>
         <div className={styles.jobSalary}>{currencyFormatter.format(listing.price)}</div>
+        {myControlledCompanies.length > 0 && (
+          <select
+            className={styles.formInput}
+            value={acquirerCompanyId}
+            onChange={(e) => setAcquirerCompanyId(e.target.value)}
+          >
+            <option value="">Acheter en mon nom propre</option>
+            {myControlledCompanies.map((c) => (
+              <option key={c.id} value={c.id}>
+                🏢 Acheter en tant que {c.name}
+              </option>
+            ))}
+          </select>
+        )}
         <button className={styles.apply} type="button" disabled={pending} onClick={handleBuy}>
           {pending ? "…" : "🛒 Acheter"}
         </button>
@@ -67,7 +82,13 @@ function ListingCard({ listing }: { listing: MarketListing }) {
   );
 }
 
-export function MarketList({ listings }: { listings: MarketListing[] }) {
+export function MarketList({
+  listings,
+  myControlledCompanies,
+}: {
+  listings: MarketListing[];
+  myControlledCompanies: { id: string; name: string }[];
+}) {
   if (listings.length === 0) {
     return <p className={styles.jobMeta}>Aucune offre de parts en vente pour l'instant. 🕊️</p>;
   }
@@ -75,7 +96,7 @@ export function MarketList({ listings }: { listings: MarketListing[] }) {
   return (
     <div className={styles.jobList}>
       {listings.map((listing) => (
-        <ListingCard key={listing.id} listing={listing} />
+        <ListingCard key={listing.id} listing={listing} myControlledCompanies={myControlledCompanies} />
       ))}
     </div>
   );

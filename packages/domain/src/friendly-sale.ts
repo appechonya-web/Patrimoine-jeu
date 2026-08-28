@@ -27,5 +27,7 @@ export type CreateSaleListingInput = z.infer<typeof createSaleListingInputSchema
 
 export const submitSaleBidInputSchema = z.object({
   pricePerPercent: z.number().positive(),
+  /** Si l'offre est soumise pour le compte d'une entreprise contrôlée par le joueur (holding) — payée par SA trésorerie plutôt que le patrimoine personnel du joueur. */
+  buyerCompanyId: z.string().optional(),
 });
 export type SubmitSaleBidInput = z.infer<typeof submitSaleBidInputSchema>;

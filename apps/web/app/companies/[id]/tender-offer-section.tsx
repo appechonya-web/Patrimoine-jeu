@@ -87,8 +87,19 @@ function OfferRow({
   );
 }
 
-function LaunchOfferForm({ companyId, minPrice, onDone }: { companyId: string; minPrice: number; onDone: () => void }) {
+function LaunchOfferForm({
+  companyId,
+  minPrice,
+  myControlledCompanies,
+  onDone,
+}: {
+  companyId: string;
+  minPrice: number;
+  myControlledCompanies: { id: string; name: string }[];
+  onDone: () => void;
+}) {
   const [pricePerPercent, setPricePerPercent] = useState(Math.ceil(minPrice));
+  const [acquirerCompanyId, setAcquirerCompanyId] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -97,7 +108,7 @@ function LaunchOfferForm({ companyId, minPrice, onDone }: { companyId: string; m
     setError(null);
     setPending(true);
     try {
-      await launchTenderOffer(companyId, pricePerPercent);
+      await launchTenderOffer(companyId, pricePerPercent, acquirerCompanyId || undefined);
       onDone();
     } catch (err) {
       setError(err instanceof GameError ? err.message : "Une erreur est survenue");
@@ -116,6 +127,20 @@ function LaunchOfferForm({ companyId, minPrice, onDone }: { companyId: string; m
         value={pricePerPercent}
         onChange={(e) => setPricePerPercent(Number(e.target.value))}
       />
+      {myControlledCompanies.length > 0 && (
+        <select
+          className={styles.formInput}
+          value={acquirerCompanyId}
+          onChange={(e) => setAcquirerCompanyId(e.target.value)}
+        >
+          <option value="">Acheter en mon nom propre</option>
+          {myControlledCompanies.map((c) => (
+            <option key={c.id} value={c.id}>
+              🏢 Acheter en tant que {c.name}
+            </option>
+          ))}
+        </select>
+      )}
       <button className={styles.apply} type="submit" disabled={pending}>
         {pending ? "…" : "⚔️ Lancer une OPA"}
       </button>
@@ -128,11 +153,13 @@ export function TenderOfferSection({
   company,
   offers,
   myPseudo,
+  myControlledCompanies,
   onDone,
 }: {
   company: CompanyDetailData;
   offers: TenderOfferView[];
   myPseudo: string;
+  myControlledCompanies: { id: string; name: string }[];
   onDone: () => void;
 }) {
   const minPrice = Math.max(0, (company.balanceSheet.equity / 100) * MIN_TENDER_PREMIUM_RATIO);
@@ -172,7 +199,12 @@ export function TenderOfferSection({
             Aucune offre en cours — prix minimum {currencyFormatter.format(minPrice)} par 1% (prime de{" "}
             {((MIN_TENDER_PREMIUM_RATIO - 1) * 100).toFixed(0)}% sur la valeur comptable).
           </p>
-          <LaunchOfferForm companyId={company.id} minPrice={minPrice} onDone={onDone} />
+          <LaunchOfferForm
+            companyId={company.id}
+            minPrice={minPrice}
+            myControlledCompanies={myControlledCompanies}
+            onDone={onDone}
+          />
         </>
       )}
     </section>

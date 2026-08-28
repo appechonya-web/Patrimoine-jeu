@@ -1,6 +1,7 @@
 import { BadRequestException, Body, Controller, Delete, Get, Param, Post, UseGuards } from "@nestjs/common";
 import {
   castVoteInputSchema,
+  buyShareListingInputSchema,
   contributeToCapitalRaiseInputSchema,
   createCapitalRaiseInputSchema,
   createCompanyInputSchema,
@@ -235,8 +236,12 @@ export class CompaniesController {
   }
 
   @Post("market/:listingId/buy")
-  buyShareListing(@CurrentPlayer() playerId: string, @Param("listingId") listingId: string) {
-    return this.companiesService.buyShareListing(playerId, listingId);
+  buyShareListing(@CurrentPlayer() playerId: string, @Param("listingId") listingId: string, @Body() body: unknown) {
+    const parsed = buyShareListingInputSchema.safeParse(body ?? {});
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.companiesService.buyShareListing(playerId, listingId, parsed.data);
   }
 
   @Post("companies/:id/loan-offers")

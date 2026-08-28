@@ -20,6 +20,8 @@ export const MIN_TENDER_PERCENTAGE = 0.01;
 
 export const launchTenderOfferInputSchema = z.object({
   pricePerPercent: z.number().positive(),
+  /** Si l'OPA est lancée pour le compte d'une entreprise contrôlée par le joueur (holding) — payée par SA trésorerie plutôt que le patrimoine personnel du joueur. */
+  acquirerCompanyId: z.string().optional(),
 });
 export type LaunchTenderOfferInput = z.infer<typeof launchTenderOfferInputSchema>;
 
