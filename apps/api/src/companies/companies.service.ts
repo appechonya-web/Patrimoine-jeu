@@ -3038,7 +3038,12 @@ export class CompaniesService {
         const brandingLevel = computeEffectiveInvestmentLevel(company.brandingInvestment.toNumber());
         const acceptedReferencePrice =
           REFERENCE_UNIT_PRICE * catalogEntry.referencePriceMultiplier * computeQualityPriceTolerance(qualityLevel);
-        const priceElasticity = PRICE_ELASTICITY_BASE * (1 - (brandingLevel / 100) * BRANDING_MAX_ELASTICITY_REDUCTION);
+        // Plafonné à 100 même si le palier mondial fait dépasser ce seuil —
+        // cohérent avec game-engine/companies.ts computeCompetitiveness : une
+        // élasticité ne doit jamais devenir négative (ce qui inverserait la
+        // relation prix/demande dans cet aperçu live).
+        const priceElasticity =
+          PRICE_ELASTICITY_BASE * (1 - (Math.min(100, brandingLevel) / 100) * BRANDING_MAX_ELASTICITY_REDUCTION);
         const currentPriceMultiplier = Math.min(
           DEMAND_PRICE_MULTIPLIER_CAP,
           Math.pow(acceptedReferencePrice / Math.max(0.01, product.unitPrice.toNumber()), priceElasticity),
