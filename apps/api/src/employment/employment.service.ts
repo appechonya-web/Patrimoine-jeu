@@ -10,7 +10,7 @@ import {
 } from "@patrimoine-jeu/domain";
 import {
   clampStat,
-  computePersonalInvestmentLevel,
+  computeEffectivePersonalInvestmentLevel,
   computePressureDrain,
   computeReconversionPenalty,
 } from "@patrimoine-jeu/game-engine";
@@ -43,16 +43,19 @@ export class EmploymentService {
     const currentSector = currentEmployment?.jobId
       ? NPC_JOBS[currentEmployment.jobId as JobId]?.sector
       : undefined;
-    const nutritionLevel = computePersonalInvestmentLevel(stats?.nutritionInvestment.toNumber() ?? 0);
+    const nutritionLevel = computeEffectivePersonalInvestmentLevel(stats?.nutritionInvestment.toNumber() ?? 0);
+    const reputation = stats?.reputation.toNumber() ?? 50;
 
     return Promise.all(
       NPC_JOB_LIST.map(async (job) => {
         const sectorCycles = cyclesBySector.get(job.sector) ?? 0;
         const isSectorChange = currentSector !== undefined && currentSector !== job.sector;
         const careerTier = getCareerTier(sectorCycles);
+        const locked = job.minReputation !== undefined && reputation < job.minReputation;
 
         return {
           ...job,
+          locked,
           estimatedNetPerCycle: await this.cyclesService.estimateNetPerCycle(
             job.annualGrossSalary * careerTier.salaryMultiplier,
           ),
@@ -84,6 +87,15 @@ export class EmploymentService {
     const job = NPC_JOBS[jobId];
     if (!job) {
       throw new NotFoundException(`Emploi ${jobId} inconnu`);
+    }
+
+    if (job.minReputation !== undefined) {
+      const stats = await this.prisma.client.playerStats.findUnique({ where: { playerId } });
+      if ((stats?.reputation.toNumber() ?? 50) < job.minReputation) {
+        throw new BadRequestException(
+          `Réputation insuffisante pour ce poste (minimum ${job.minReputation}/100)`,
+        );
+      }
     }
 
     const openCycle = await this.cyclesService.getOrCreateOpenCycle();
@@ -406,7 +418,7 @@ export class EmploymentService {
       this.prisma.client.playerStats.findUnique({ where: { playerId } }),
     ]);
     const sectorCycles = sectorExperience?.cycles ?? 0;
-    const nutritionLevel = computePersonalInvestmentLevel(stats?.nutritionInvestment.toNumber() ?? 0);
+    const nutritionLevel = computeEffectivePersonalInvestmentLevel(stats?.nutritionInvestment.toNumber() ?? 0);
     const careerTier = getCareerTier(sectorCycles);
 
     return {

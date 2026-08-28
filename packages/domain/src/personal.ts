@@ -45,6 +45,20 @@ export const PERSONAL_ACTION_COOLDOWN_CYCLES = 7;
  */
 export const PERSONAL_INVESTMENT_LEVEL_SCALE = 2;
 
+/**
+ * Palier mondial personnel (cf. company.ts/valorization.ts GLOBAL_TIER_SCALE
+ * côté entreprise) : au-delà du niveau 100 (plafond dur de chaque axe,
+ * atteint à PERSONAL_INVESTMENT_LEVEL_SCALE × 100² investis), l'investissement
+ * cumulé continue de rapporter un bonus en rendements décroissants — pour
+ * qu'un joueur assis sur des millions puisse continuer à faire progresser
+ * ses axes personnels au lieu de plafonner sans recours dès le niveau 100.
+ * Échelle réduite proportionnellement à PERSONAL_INVESTMENT_LEVEL_SCALE
+ * (2 contre 5 côté entreprise) pour rester cohérente avec des montants
+ * individuels plutôt qu'un chiffre d'affaires d'entreprise.
+ */
+export const PERSONAL_GLOBAL_TIER_SCALE = 20;
+export const MAX_PERSONAL_GLOBAL_TIER_BONUS = 100;
+
 /** Sport : régénération de bien-être passive doublée au niveau 100. */
 export const MAX_SPORT_REGEN_BONUS = 1;
 /** Nutrition & sommeil : jusqu'à 30% de drain de pression en moins, cumulable avec la tolérance sectorielle. */

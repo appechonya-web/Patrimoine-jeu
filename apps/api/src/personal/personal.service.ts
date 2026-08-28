@@ -10,7 +10,7 @@ import {
   type PersonalActionId,
   type PersonalAxis,
 } from "@patrimoine-jeu/domain";
-import { clampStat, computePersonalInvestmentLevel } from "@patrimoine-jeu/game-engine";
+import { clampStat, computeEffectivePersonalInvestmentLevel } from "@patrimoine-jeu/game-engine";
 import { CyclesService } from "../cycles/cycles.service.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 
@@ -54,7 +54,7 @@ export class PersonalService {
         label: PERSONAL_AXIS_LABELS[axis],
         description: PERSONAL_AXIS_DESCRIPTIONS[axis],
         investment,
-        level: computePersonalInvestmentLevel(investment),
+        level: computeEffectivePersonalInvestmentLevel(investment),
         cyclesRemaining,
         available: cyclesRemaining === 0,
       };

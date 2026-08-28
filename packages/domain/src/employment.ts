@@ -11,6 +11,9 @@ export const JOB_IDS = [
   "ingenieur",
   "cadre-commercial",
   "ouvrier-agricole",
+  "consultant-senior",
+  "directeur-technique",
+  "cadre-dirigeant",
 ] as const;
 
 export type JobId = (typeof JOB_IDS)[number];
@@ -29,6 +32,13 @@ export interface JobOffer {
    * gain réel par semaine.
    */
   reputationPerCycle: number;
+  /**
+   * Réputation minimale (PlayerStats.reputation, 0-100) requise pour
+   * postuler — absent/undefined pour les postes de base, toujours ouverts.
+   * Les postes de direction se méritent : on ne les débloque pas avec de
+   * l'argent, seulement en s'étant bâti une réputation dans le jeu.
+   */
+  minReputation?: number;
 }
 
 /**
@@ -106,6 +116,33 @@ export const NPC_JOBS: Record<JobId, JobOffer> = {
     annualGrossSalary: 26_000,
     pressure: 50,
     reputationPerCycle: 0.14,
+  },
+  "consultant-senior": {
+    id: "consultant-senior",
+    title: "Consultant senior",
+    sector: "Services",
+    annualGrossSalary: 82_000,
+    pressure: 75,
+    reputationPerCycle: 0,
+    minReputation: 60,
+  },
+  "directeur-technique": {
+    id: "directeur-technique",
+    title: "Directeur technique",
+    sector: "Technologie",
+    annualGrossSalary: 95_000,
+    pressure: 65,
+    reputationPerCycle: 0,
+    minReputation: 65,
+  },
+  "cadre-dirigeant": {
+    id: "cadre-dirigeant",
+    title: "Cadre dirigeant",
+    sector: "Industrie",
+    annualGrossSalary: 110_000,
+    pressure: 90,
+    reputationPerCycle: 0,
+    minReputation: 75,
   },
 };
 

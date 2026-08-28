@@ -159,10 +159,16 @@ export default async function GuidePage() {
               réduite par ton ancienneté dans le NOUVEAU secteur — mieux vaut ne pas papillonner.
             </li>
             <li>
-              <strong>Progression de carrière :</strong> 5 paliers selon ton ancienneté dans un même secteur
-              (Débutant → Confirmé à 60 cycles → Expérimenté à 180 → Senior à 350 → Expert à 700), chacun
-              augmentant ton salaire net (jusqu'à +32% au palier Expert). Changer de secteur repart de zéro sur ce
-              compteur.
+              <strong>Progression de carrière :</strong> 8 paliers selon ton ancienneté dans un même secteur
+              (Débutant → Confirmé à 60 cycles → Expérimenté à 180 → Senior à 350 → Expert à 700 → Vétéran à
+              1500 → Référence du secteur à 3000 → Légende vivante à 6000), chacun augmentant ton salaire net
+              (jusqu'à +75% au palier Légende vivante). Changer de secteur repart de zéro sur ce compteur — rester
+              dans le même secteur reste rentable indéfiniment, bien au-delà de l'ancien plafond Expert.
+            </li>
+            <li>
+              <strong>Postes de direction :</strong> Consultant senior (82 000 €/an), Directeur technique
+              (95 000 €/an) et Cadre dirigeant (110 000 €/an) sont les mieux payés du catalogue, mais exigent
+              respectivement 60, 65 et 75 points de réputation pour postuler — inaccessibles à l'argent seul.
             </li>
             <li>
               <strong>Activité d'indépendant complémentaire :</strong> possible en plus d'un emploi principal
@@ -189,7 +195,10 @@ export default async function GuidePage() {
               <strong>4 axes permanents</strong> (sport, nutrition, social, confort) : un investissement par
               semaine maximum, rendements décroissants comme les leviers d'entreprise. Sport accélère la
               régénération passive de bien-être, nutrition réduit la fatigue au travail, social élargit la zone de
-              bonus de revenu, confort amortit le malus de burnout.
+              bonus de revenu, confort amortit le malus de burnout. Chaque axe plafonne à 100 pour 20 000 €
+              cumulés, mais pas un mur : au-delà, comme pour les leviers d'entreprise, continuer d'investir rapporte
+              un <strong>bonus de palier mondial</strong> en rendements décroissants — de quoi faire progresser ses
+              axes personnels même en étant assis sur des millions.
             </li>
             <li>
               <strong>Actions ponctuelles :</strong> un boost immédiat contre de l'argent, effet temporaire — ne

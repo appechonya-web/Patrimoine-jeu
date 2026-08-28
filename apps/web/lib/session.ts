@@ -167,6 +167,8 @@ export interface JobOffer {
   annualGrossSalary: number;
   pressure: number;
   reputationPerCycle: number;
+  minReputation?: number;
+  locked: boolean;
   estimatedNetPerCycle: number;
   estimatedWellbeingDrainPerCycle: number;
   sectorExperienceCycles: number;

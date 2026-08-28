@@ -13,9 +13,9 @@ function EmploymentInfoTip() {
     <InfoTip
       label="💼"
       title="Emploi"
-      mechanic="Un seul emploi actif à la fois — le salaire est versé automatiquement à chaque clôture de cycle, sans action de ta part. La pression du poste draine ton bien-être chaque cycle (atténuée par ton expérience dans ce secteur, qui augmente ta tolérance avec le temps), et ton revenu net varie avec ton multiplicateur bien-être (bonus si épanoui, malus en burnout). Ton ancienneté dans un même secteur te fait aussi progresser à travers 5 paliers de carrière (Débutant → Expert), chacun augmentant ton salaire — un changement de secteur repart de zéro sur ce compteur."
-      realWorld="C'est le revenu salarié classique : régulier et prévisible, mais qui use une ressource personnelle (le stress, l'usure) proportionnellement à l'intensité du poste — un vrai arbitrage entre salaire élevé et soutenabilité à long terme, comme dans la vraie vie professionnelle. Les paliers de carrière reflètent une réalité simple : l'ancienneté dans un même métier finit par se traduire en augmentations."
-      tip="Changer de secteur d'activité coûte une pénalité de bien-être ponctuelle (jusqu'à 8 points) ET remet ton palier de carrière à zéro dans le nouveau secteur — mieux vaut ne pas papillonner si tu vises le palier Expert (+32% de salaire à 700 cycles d'ancienneté)."
+      mechanic="Un seul emploi actif à la fois — le salaire est versé automatiquement à chaque clôture de cycle, sans action de ta part. La pression du poste draine ton bien-être chaque cycle (atténuée par ton expérience dans ce secteur, qui augmente ta tolérance avec le temps), et ton revenu net varie avec ton multiplicateur bien-être (bonus si épanoui, malus en burnout). Ton ancienneté dans un même secteur te fait aussi progresser à travers 8 paliers de carrière (Débutant → Légende vivante, jusqu'à +75% de salaire à 6000 cycles), chacun augmentant ton salaire — un changement de secteur repart de zéro sur ce compteur. Les postes de direction (Consultant senior, Directeur technique, Cadre dirigeant) demandent en plus un niveau de réputation minimum."
+      realWorld="C'est le revenu salarié classique : régulier et prévisible, mais qui use une ressource personnelle (le stress, l'usure) proportionnellement à l'intensité du poste — un vrai arbitrage entre salaire élevé et soutenabilité à long terme, comme dans la vraie vie professionnelle. Les paliers de carrière reflètent une réalité simple : l'ancienneté dans un même métier finit par se traduire en augmentations, même bien au-delà de quelques années."
+      tip="Changer de secteur d'activité coûte une pénalité de bien-être ponctuelle (jusqu'à 8 points) ET remet ton palier de carrière à zéro dans le nouveau secteur — mieux vaut ne pas papillonner si tu vises les paliers élevés (jusqu'à +75% de salaire à 6000 cycles d'ancienneté dans le même secteur)."
     />
   );
 }
@@ -163,6 +163,11 @@ export function EmploymentSection({
                   ⚠ Changement de secteur : -{job.reconversionPenalty.toFixed(1)} bien-être une fois
                 </div>
               )}
+              {job.locked && job.minReputation !== undefined && (
+                <div className={styles.jobWarning}>
+                  🔒 Réputation {job.minReputation}/100 requise pour postuler
+                </div>
+              )}
             </div>
             <div className={styles.jobActions}>
               <div className={styles.jobSalary}>
@@ -172,10 +177,10 @@ export function EmploymentSection({
               <button
                 className={styles.apply}
                 type="button"
-                disabled={pendingJobId !== null}
+                disabled={pendingJobId !== null || job.locked}
                 onClick={() => handleApply(job)}
               >
-                {pendingJobId === job.id ? "…" : "Postuler"}
+                {job.locked ? "🔒 Verrouillé" : pendingJobId === job.id ? "…" : "Postuler"}
               </button>
             </div>
           </div>

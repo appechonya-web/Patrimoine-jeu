@@ -90,7 +90,7 @@ import {
   computeLoanCyclePayment,
 } from "./finance.js";
 import { computeCollectedRent, computePropertyConditionDecay, computeRegistrationDuty } from "./property.js";
-import { computePersonalInvestmentLevel } from "./personal.js";
+import { computeEffectivePersonalInvestmentLevel } from "./personal.js";
 import { computeSavingsInterest } from "./savings.js";
 import { computePersonalGoodValue } from "./personal-goods.js";
 import { rollPersonalLifeEvent } from "./personal-events.js";
@@ -1976,10 +1976,10 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
         ? (player.sectorExperience.find((entry) => entry.sector === effectiveSector)?.cycles ?? 0)
         : 0;
 
-      const sportLevel = computePersonalInvestmentLevel(stats.sportInvestment.toNumber());
-      const nutritionLevel = computePersonalInvestmentLevel(stats.nutritionInvestment.toNumber());
-      const socialLevel = computePersonalInvestmentLevel(stats.socialInvestment.toNumber());
-      const comfortLevel = computePersonalInvestmentLevel(stats.comfortInvestment.toNumber());
+      const sportLevel = computeEffectivePersonalInvestmentLevel(stats.sportInvestment.toNumber());
+      const nutritionLevel = computeEffectivePersonalInvestmentLevel(stats.nutritionInvestment.toNumber());
+      const socialLevel = computeEffectivePersonalInvestmentLevel(stats.socialInvestment.toNumber());
+      const comfortLevel = computeEffectivePersonalInvestmentLevel(stats.comfortInvestment.toNumber());
 
       // Biens de consommation personnels : bonus de bien-être passif tant
       // que le bien est détenu, cumulable entre plusieurs biens (cf.

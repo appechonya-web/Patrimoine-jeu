@@ -128,7 +128,7 @@ export function PersonalOverviewList({ overview }: { overview: PersonalOverview 
           <InfoTip
             label="📈"
             title="Axes permanents"
-            mechanic="Quatre leviers indépendants (sport, nutrition, social, confort) qui modulent durablement une formule de bien-être différente chacun — sport accélère la régénération passive, nutrition réduit la fatigue au travail, social élargit la zone de bonus de revenu, confort amortit le malus de burnout. Plafonné à une action par semaine, comme les leviers d'entreprise."
+            mechanic="Quatre leviers indépendants (sport, nutrition, social, confort) qui modulent durablement une formule de bien-être différente chacun — sport accélère la régénération passive, nutrition réduit la fatigue au travail, social élargit la zone de bonus de revenu, confort amortit le malus de burnout. Plafonné à une action par semaine, comme les leviers d'entreprise. Au-delà de 100/100, continuer d'investir rapporte un bonus de « palier mondial » en rendements décroissants (pas de mur) — utile si tu es assis sur des millions et que les leviers classiques ne suffisent plus à les faire progresser."
             realWorld="C'est le même principe que les leviers d'entreprise, à l'échelle personnelle : rendements décroissants (les premiers euros investis comptent plus), un vrai engagement dans la durée plutôt qu'un raccourci — comme changer durablement son hygiène de vie."
           />
           <span>Axes permanents</span>

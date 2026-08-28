@@ -118,13 +118,20 @@ export function computeReconversionPenalty(sectorCyclesInNewSector: number): num
  * atténue le malus de burnout (jusqu'à -50% au niveau 100).
  */
 export function computeWellbeingIncomeMultiplier(wellbeing: number, socialLevel = 0, comfortLevel = 0): number {
-  const boomThreshold = WELLBEING_BOOM_THRESHOLD - (socialLevel / 100) * MAX_SOCIAL_BOOM_THRESHOLD_REDUCTION;
+  // socialLevel/comfortLevel peuvent désormais dépasser 100 (palier mondial
+  // personnel, cf. game-engine/personal.ts computeEffectivePersonalInvestmentLevel)
+  // — les deux bornes sont donc clampées défensivement pour ne jamais
+  // produire un seuil ou un malus incohérent au-delà du niveau 200 max.
+  const boomThreshold = Math.max(0, WELLBEING_BOOM_THRESHOLD - (socialLevel / 100) * MAX_SOCIAL_BOOM_THRESHOLD_REDUCTION);
   if (wellbeing >= boomThreshold) {
     const progress = (wellbeing - boomThreshold) / (100 - boomThreshold);
     return 1 + progress * MAX_BOOM_BONUS;
   }
   if (wellbeing < WELLBEING_BURNOUT_THRESHOLD) {
-    const effectiveMaxBurnoutMalus = MAX_BURNOUT_MALUS * (1 - (comfortLevel / 100) * MAX_COMFORT_BURNOUT_REDUCTION);
+    const effectiveMaxBurnoutMalus = Math.max(
+      0,
+      MAX_BURNOUT_MALUS * (1 - (comfortLevel / 100) * MAX_COMFORT_BURNOUT_REDUCTION),
+    );
     const progress = (WELLBEING_BURNOUT_THRESHOLD - wellbeing) / WELLBEING_BURNOUT_THRESHOLD;
     return 1 - progress * effectiveMaxBurnoutMalus;
   }

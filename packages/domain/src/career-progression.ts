@@ -20,6 +20,9 @@ export const CAREER_TIERS: CareerTierDefinition[] = [
   { id: "experimente", label: "Expérimenté", minCycles: 180, salaryMultiplier: 1.14 },
   { id: "senior", label: "Senior", minCycles: 350, salaryMultiplier: 1.22 },
   { id: "expert", label: "Expert", minCycles: 700, salaryMultiplier: 1.32 },
+  { id: "veteran", label: "Vétéran", minCycles: 1500, salaryMultiplier: 1.45 },
+  { id: "reference", label: "Référence du secteur", minCycles: 3000, salaryMultiplier: 1.6 },
+  { id: "legende", label: "Légende vivante", minCycles: 6000, salaryMultiplier: 1.75 },
 ];
 
 export interface CareerTierResult {
