@@ -94,10 +94,17 @@ model Municipality {
   /// commune à rendement décroissant (cf. game-engine/municipality.ts).
   infrastructureFund Decimal @default(0) @db.Decimal(14, 2)
 
+  /// Précompte immobilier (cf. domain/residence.ts) — taxe récurrente par
+  /// cycle sur la valeur de chaque bien possédé dans cette commune, versée
+  /// automatiquement à infrastructureFund (cf. game-engine/cycles.ts).
+  annualPropertyTaxRate Decimal @default(0.006) @db.Decimal(5, 4)
+
   properties    Property[]
   companies     Company[]
   contributions MunicipalityContribution[]
   proposals     MunicipalityProposal[]
+  residents     Player[]                @relation("PlayerResidence")
+  sectoralEvents SectoralEvent[]
 
   @@unique([regionId, name])
 }
@@ -188,6 +195,13 @@ model Player {
   /// envoi réel : simulée par une boîte d'envoi consultable, cf.
   /// notifications.service.ts getEmailOutbox.
   emailAlertsEnabled Boolean @default(false)
+
+  /// Domicile fiscal (cf. domain/residence.ts) — nullable : un joueur qui
+  /// n'a jamais choisi de résidence retombe sur le taux forfaitaire par
+  /// défaut (cf. game-engine/cycles.ts DEFAULT_COMMUNAL_SURCHARGE_RATE),
+  /// comportement inchangé pour les comptes existants.
+  residenceMunicipality   Municipality? @relation("PlayerResidence", fields: [residenceMunicipalityId], references: [id])
+  residenceMunicipalityId String?
 
   stats                 PlayerStats?
   statHistory           PlayerStatHistory[]
@@ -1242,6 +1256,7 @@ enum SectoralEventTier {
 }
 
 enum SectoralEventScope {
+  PROVINCE
   REGIONAL
   NATIONAL
 }
@@ -1250,15 +1265,17 @@ enum SectoralEventScope {
 /// — un secteur primaire (+ parfois un second, corrélé) subit un
 /// multiplicateur de demande temporaire, appliqué au pool de marché entier
 /// (portée NATIONALE) ou à l'attractivité effective des seules entreprises
-/// de la région touchée (portée RÉGIONALE). warningPublishedCycle trace le
-/// signal faible publié en presse pour les MAJEURS, avant que l'effet ne
-/// démarre réellement à startCycle.
+/// de la région (portée RÉGIONALE) ou de la province (portée PROVINCE)
+/// touchée. warningPublishedCycle trace le signal faible publié en presse
+/// pour les MAJEURS, avant que l'effet ne démarre réellement à startCycle.
 model SectoralEvent {
   id                   String             @id @default(uuid())
   tier                 SectoralEventTier
   scope                SectoralEventScope
   region               Region?            @relation(fields: [regionId], references: [id])
   regionId             String?
+  municipality         Municipality?      @relation(fields: [municipalityId], references: [id])
+  municipalityId       String?
   primarySector        Sector             @relation("SectoralEventPrimarySector", fields: [primarySectorId], references: [id])
   primarySectorId      String
   primaryMagnitude     Decimal            @db.Decimal(6, 4)

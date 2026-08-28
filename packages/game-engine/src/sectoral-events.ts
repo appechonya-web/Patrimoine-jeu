@@ -16,6 +16,7 @@ export interface SectoralEventRoll {
   tier: SectoralEventTier;
   scope: SectoralEventScope;
   regionId: string | null;
+  municipalityId: string | null;
   primarySectorId: string;
   primaryMagnitude: number;
   correlatedSectorId: string | null;
@@ -34,6 +35,7 @@ export interface SectoralEventRoll {
 export function rollSectoralEvent(
   sectors: { id: string }[],
   regions: { id: string }[],
+  municipalities: { id: string }[],
   currentCycle: number,
 ): SectoralEventRoll | null {
   if (sectors.length === 0) return null;
@@ -41,7 +43,7 @@ export function rollSectoralEvent(
   for (let i = SECTORAL_EVENT_TIERS.length - 1; i >= 0; i--) {
     const tier = SECTORAL_EVENT_TIERS[i];
     if (Math.random() < SECTORAL_EVENT_TIER_PROBABILITY[tier]) {
-      return buildSectoralEventRoll(tier, sectors, regions, currentCycle);
+      return buildSectoralEventRoll(tier, sectors, regions, municipalities, currentCycle);
     }
   }
   return null;
@@ -51,11 +53,16 @@ function buildSectoralEventRoll(
   tier: SectoralEventTier,
   sectors: { id: string }[],
   regions: { id: string }[],
+  municipalities: { id: string }[],
   currentCycle: number,
 ): SectoralEventRoll {
   const scope = SECTORAL_EVENT_SCOPE_BY_TIER[tier];
   const regionId =
     scope === "REGIONAL" && regions.length > 0 ? regions[Math.floor(Math.random() * regions.length)].id : null;
+  const municipalityId =
+    scope === "PROVINCE" && municipalities.length > 0
+      ? municipalities[Math.floor(Math.random() * municipalities.length)].id
+      : null;
 
   const primarySector = sectors[Math.floor(Math.random() * sectors.length)];
   const magnitudeRange = SECTORAL_EVENT_TIER_MAGNITUDE[tier];
@@ -82,6 +89,7 @@ function buildSectoralEventRoll(
     tier,
     scope,
     regionId,
+    municipalityId,
     primarySectorId: primarySector.id,
     primaryMagnitude,
     correlatedSectorId,
@@ -95,6 +103,7 @@ function buildSectoralEventRoll(
 export interface ActiveSectoralEffect {
   scope: SectoralEventScope;
   regionId: string | null;
+  municipalityId: string | null;
   primarySectorId: string;
   primaryMagnitude: number;
   correlatedSectorId: string | null;
@@ -103,20 +112,22 @@ export interface ActiveSectoralEffect {
 
 /**
  * Multiplicateur composé de tous les effets sectoriels actifs touchant ce
- * secteur à cette portée (et, pour la portée RÉGIONALE, cette région) —
- * réutilisé à la fois pour le pool de marché national (cf. cycles.ts,
- * marketPools) et pour l'attractivité effective régionale d'une entreprise.
+ * secteur à cette portée (et, pour la portée RÉGIONALE/PROVINCE, cette
+ * région/province — scopeId) — réutilisé à la fois pour le pool de marché
+ * national (cf. cycles.ts, marketPools) et pour l'attractivité effective
+ * régionale ou provinciale d'une entreprise.
  */
 export function computeSectoralDemandMultiplier(
   activeEffects: ActiveSectoralEffect[],
   sectorId: string,
   scope: SectoralEventScope,
-  regionId: string | null,
+  scopeId: string | null,
 ): number {
   let multiplier = 1;
   for (const effect of activeEffects) {
     if (effect.scope !== scope) continue;
-    if (scope === "REGIONAL" && effect.regionId !== regionId) continue;
+    if (scope === "REGIONAL" && effect.regionId !== scopeId) continue;
+    if (scope === "PROVINCE" && effect.municipalityId !== scopeId) continue;
     if (effect.primarySectorId === sectorId) {
       multiplier *= 1 + effect.primaryMagnitude;
     } else if (effect.correlatedSectorId === sectorId && effect.correlatedMagnitude !== null) {

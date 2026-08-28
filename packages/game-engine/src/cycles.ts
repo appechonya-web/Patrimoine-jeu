@@ -89,7 +89,12 @@ import {
   computeEquipmentDepreciation,
   computeLoanCyclePayment,
 } from "./finance.js";
-import { computeCollectedRent, computePropertyConditionDecay, computeRegistrationDuty } from "./property.js";
+import {
+  computeCollectedRent,
+  computePropertyConditionDecay,
+  computePropertyTaxPerCycle,
+  computeRegistrationDuty,
+} from "./property.js";
 import { computeEffectivePersonalInvestmentLevel } from "./personal.js";
 import { computeSavingsInterest } from "./savings.js";
 import { computePersonalGoodValue } from "./personal-goods.js";
@@ -112,9 +117,11 @@ import {
 } from "./wellbeing.js";
 
 /**
- * Additionnel communal moyen appliqué aux emplois NPC, en attendant qu'un
- * joueur puisse choisir sa commune de résidence (cf. seed.ts pour les taux
- * réels par commune, section 7 du document de conception).
+ * Additionnel communal forfaitaire — utilisé uniquement en fallback pour un
+ * joueur qui n'a pas encore choisi de domicile fiscal (cf.
+ * domain/residence.ts, Player.residenceMunicipalityId) ; une fois une
+ * résidence choisie, le vrai taux de la commune (Municipality.additionalTaxRate,
+ * cf. seed.ts) s'applique à la place.
  */
 const DEFAULT_COMMUNAL_SURCHARGE_RATE = 0.075;
 
@@ -372,9 +379,13 @@ async function growPropertyInventory(prisma: PrismaClient, demandGrowthMultiplie
   }
 }
 
-export async function estimateNetPerCycle(prisma: PrismaClient, annualGrossSalary: number): Promise<number> {
+export async function estimateNetPerCycle(
+  prisma: PrismaClient,
+  annualGrossSalary: number,
+  communalSurchargeRate: number = DEFAULT_COMMUNAL_SURCHARGE_RATE,
+): Promise<number> {
   const { ipp } = await getLatestTaxRuleSet(prisma);
-  const { netAnnualIncome } = calculateNetAnnualIncome(annualGrossSalary, ipp, DEFAULT_COMMUNAL_SURCHARGE_RATE);
+  const { netAnnualIncome } = calculateNetAnnualIncome(annualGrossSalary, ipp, communalSurchargeRate);
   return netAnnualIncome / CYCLES_PER_YEAR;
 }
 
@@ -390,6 +401,7 @@ export async function estimateIndependentActivityNetPerCycle(
   prisma: PrismaClient,
   mainAnnualGrossSalary: number,
   sideGrossRevenuePerCycle: number,
+  communalSurchargeRate: number = DEFAULT_COMMUNAL_SURCHARGE_RATE,
 ): Promise<{
   netPerCycle: number;
   socialContributionsPerCycle: number;
@@ -406,9 +418,9 @@ export async function estimateIndependentActivityNetPerCycle(
   const { totalTax: totalTaxWithSide } = calculateIpp(
     salaryNetTaxable + sideNetTaxable,
     ipp,
-    DEFAULT_COMMUNAL_SURCHARGE_RATE,
+    communalSurchargeRate,
   );
-  const { totalTax: totalTaxWithoutSide } = calculateIpp(salaryNetTaxable, ipp, DEFAULT_COMMUNAL_SURCHARGE_RATE);
+  const { totalTax: totalTaxWithoutSide } = calculateIpp(salaryNetTaxable, ipp, communalSurchargeRate);
   const marginalTaxOnSide = totalTaxWithSide - totalTaxWithoutSide;
   const sideNetAnnual = sideNetTaxable - marginalTaxOnSide;
 
@@ -476,6 +488,7 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
     bankDeposits,
     guilds,
     regions,
+    municipalities,
     sectoralEvents,
     insurancePolicies,
     playerAchievements,
@@ -486,6 +499,7 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
         stats: true,
         employments: { where: { endedCycle: null }, take: 1 },
         sectorExperience: true,
+        residenceMunicipality: { select: { additionalTaxRate: true } },
       },
     }),
     prisma.company.findMany({
@@ -508,7 +522,10 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
     prisma.playerAssetHolding.findMany({ where: { quantity: { gt: 0 } } }),
     prisma.property.findMany({
       where: { ownerId: { not: null } },
-      include: { leases: { where: { status: "ACTIVE" }, take: 1 }, municipality: { select: { name: true } } },
+      include: {
+        leases: { where: { status: "ACTIVE" }, take: 1 },
+        municipality: { select: { name: true, annualPropertyTaxRate: true } },
+      },
     }),
     prisma.loan.findMany({
       where: { status: "ACTIVE" },
@@ -521,6 +538,7 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
     prisma.bankDeposit.findMany({ where: { withdrawnCycle: null } }),
     prisma.guild.findMany({ where: { status: "ACTIVE" }, include: { members: true } }),
     prisma.region.findMany(),
+    prisma.municipality.findMany({ select: { id: true, name: true } }),
     prisma.sectoralEvent.findMany({ where: { endCycle: { gte: openCycle.number } } }),
     prisma.insurancePolicy.findMany({ where: { status: "ACTIVE" } }),
     prisma.playerAchievement.findMany({ select: { playerId: true, achievementId: true } }),
@@ -563,6 +581,7 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
   const sectorById = new Map(sectors.map((sector) => [sector.id, sector]));
   const sectorIdByName = new Map(sectors.map((sector) => [sector.name, sector.id]));
   const regionById = new Map(regions.map((region) => [region.id, region]));
+  const municipalityById = new Map(municipalities.map((municipality) => [municipality.id, municipality]));
 
   // Aléas sectoriels/régionaux (cf. domain/sectoral-events.ts) — un tirage
   // au plus par cycle, effets composés appliqués plus bas (pool de marché
@@ -570,12 +589,13 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
   // tiré ne prend effet que warningCycles plus tard (signal en presse
   // publié tout de suite, impact réel différé) ; les autres paliers
   // démarrent immédiatement.
-  const newSectoralEvent = rollSectoralEvent(sectors, regions, openCycle.number);
+  const newSectoralEvent = rollSectoralEvent(sectors, regions, municipalities, openCycle.number);
   const activeSectoralEffects: ActiveSectoralEffect[] = sectoralEvents
     .filter((e) => e.startCycle <= openCycle.number && e.endCycle >= openCycle.number)
     .map((e) => ({
       scope: e.scope,
       regionId: e.regionId,
+      municipalityId: e.municipalityId,
       primarySectorId: e.primarySectorId,
       primaryMagnitude: e.primaryMagnitude.toNumber(),
       correlatedSectorId: e.correlatedSectorId,
@@ -585,6 +605,7 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
     activeSectoralEffects.push({
       scope: newSectoralEvent.scope,
       regionId: newSectoralEvent.regionId,
+      municipalityId: newSectoralEvent.municipalityId,
       primarySectorId: newSectoralEvent.primarySectorId,
       primaryMagnitude: newSectoralEvent.primaryMagnitude,
       correlatedSectorId: newSectoralEvent.correlatedSectorId,
@@ -625,17 +646,31 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
     const condition = property.condition.toNumber();
     const rentCollected = isRented ? computeCollectedRent(property.baseRent.toNumber(), condition) : 0;
     const newCondition = Math.max(0, condition - computePropertyConditionDecay(isRented));
-    return { property, ownerId: property.ownerId!, rentCollected, newCondition };
+    const propertyTax = computePropertyTaxPerCycle(
+      property.marketValue.toNumber(),
+      property.municipality.annualPropertyTaxRate.toNumber(),
+    );
+    return { property, ownerId: property.ownerId!, rentCollected, newCondition, propertyTax };
   });
   const propertyWealthDeltaByPlayer = new Map<string, number>();
   // Suivi séparé du loyer seul (cf. PlayerCycleReport, récap par joueur) —
   // propertyWealthDeltaByPlayer ci-dessus reste le total loyer+échéance déjà
   // utilisé partout ailleurs (projectedWealth, wealthDelta), inchangé.
   const rentIncomeByPlayer = new Map<string, number>();
+  // Précompte immobilier (cf. domain/residence.ts) — versé automatiquement
+  // au fonds d'infrastructure de la commune du bien, pas au joueur.
+  const propertyTaxByMunicipality = new Map<string, number>();
   for (const update of propertyUpdates) {
     if (update.rentCollected > 0) {
       propertyWealthDeltaByPlayer.set(update.ownerId, (propertyWealthDeltaByPlayer.get(update.ownerId) ?? 0) + update.rentCollected);
       rentIncomeByPlayer.set(update.ownerId, (rentIncomeByPlayer.get(update.ownerId) ?? 0) + update.rentCollected);
+    }
+    if (update.propertyTax > 0) {
+      propertyWealthDeltaByPlayer.set(update.ownerId, (propertyWealthDeltaByPlayer.get(update.ownerId) ?? 0) - update.propertyTax);
+      propertyTaxByMunicipality.set(
+        update.property.municipalityId,
+        (propertyTaxByMunicipality.get(update.property.municipalityId) ?? 0) + update.propertyTax,
+      );
     }
   }
 
@@ -1002,6 +1037,15 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
       "REGIONAL",
       company.municipality.regionId,
     );
+    // Aléa sectoriel PROVINCE (cf. sectoral-events.ts) — même principe que
+    // le régional ci-dessus, à l'échelle des 11 provinces (palier MINEUR
+    // uniquement, cf. domain/sectoral-events.ts SECTORAL_EVENT_SCOPE_BY_TIER).
+    const provincialSectoralMultiplier = computeSectoralDemandMultiplier(
+      activeSectoralEffects,
+      company.sectorId,
+      "PROVINCE",
+      company.municipalityId,
+    );
     // Infrastructures communales (cf. domain/municipality-governance.ts) —
     // bénéfice PARTAGÉ par toutes les entreprises de la commune, financé
     // collectivement (cf. companies bonus additif, pas multiplicatif comme
@@ -1021,7 +1065,8 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
       (computeEffectiveAttractiveness(company.attractivenessScore.toNumber(), company.hasManager) +
         infrastructureBonus +
         provinceAffinityBonus) *
-      regionalSectoralMultiplier;
+      regionalSectoralMultiplier *
+      provincialSectoralMultiplier;
     const attentionMultiplier = computeAttentionMultiplier(ownerCompanyCount, company.hasManager);
 
     // Capacité totale partagée par toutes les gammes actives — "core"
@@ -1650,6 +1695,7 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
           tier: newSectoralEvent.tier,
           scope: newSectoralEvent.scope,
           regionId: newSectoralEvent.regionId,
+          municipalityId: newSectoralEvent.municipalityId,
           primarySectorId: newSectoralEvent.primarySectorId,
           primaryMagnitude: newSectoralEvent.primaryMagnitude,
           correlatedSectorId: newSectoralEvent.correlatedSectorId,
@@ -1662,9 +1708,27 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
 
       const primaryName = sectorById.get(newSectoralEvent.primarySectorId)?.name ?? "un secteur";
       const regionName = newSectoralEvent.regionId ? regionById.get(newSectoralEvent.regionId)?.name : null;
-      const geo = regionName ? ` (${regionName})` : " (à l'échelle nationale)";
+      const municipalityName = newSectoralEvent.municipalityId
+        ? municipalityById.get(newSectoralEvent.municipalityId)?.name
+        : null;
+      const geo = regionName
+        ? ` (${regionName})`
+        : municipalityName
+          ? ` (province de ${municipalityName})`
+          : " (à l'échelle nationale)";
 
-      if (newSectoralEvent.tier === "MAJOR") {
+      if (newSectoralEvent.tier === "MINOR" && municipalityName) {
+        // Palier le plus fréquent, effet le plus modeste (cf.
+        // domain/sectoral-events.ts SECTORAL_EVENT_TIER_MAGNITUDE) — pas de
+        // signal d'alerte préalable comme MAJEUR, juste un titre court une
+        // fois l'effet démarré, pour rendre les 11 provinces vraiment
+        // différenciées cycle après cycle plutôt qu'un aléa invisible.
+        const sign = newSectoralEvent.primaryMagnitude > 0 ? "reprise" : "ralentissement";
+        const headline = `${municipalityName} : léger ${sign} dans le secteur ${primaryName}.`;
+        await tx.pressArticle.create({
+          data: { category: "SECTORAL_SHOCK", headline, cycle: openCycle.number },
+        });
+      } else if (newSectoralEvent.tier === "MAJOR") {
         // Signal faible, sans certitude de sens ni d'ampleur (cf. section
         // 12ter) — récompense l'attention sans donner de certitude
         // exploitable : le secteur est nommé, pas la direction ni la magnitude.
@@ -1980,6 +2044,10 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
       const nutritionLevel = computeEffectivePersonalInvestmentLevel(stats.nutritionInvestment.toNumber());
       const socialLevel = computeEffectivePersonalInvestmentLevel(stats.socialInvestment.toNumber());
       const comfortLevel = computeEffectivePersonalInvestmentLevel(stats.comfortInvestment.toNumber());
+      // Domicile fiscal (cf. domain/residence.ts) — le vrai taux communal si
+      // le joueur a choisi une résidence, sinon le forfait par défaut.
+      const communalSurchargeRate =
+        player.residenceMunicipality?.additionalTaxRate.toNumber() ?? DEFAULT_COMMUNAL_SURCHARGE_RATE;
 
       // Biens de consommation personnels : bonus de bien-être passif tant
       // que le bien est détenu, cumulable entre plusieurs biens (cf.
@@ -2063,7 +2131,7 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
           );
           const sideNetTaxable = sideAnnualGrossRevenue - sideSocialContributions;
           const totalTaxable = salaryNetTaxable + sideNetTaxable;
-          const { totalTax } = calculateIpp(totalTaxable, ipp, DEFAULT_COMMUNAL_SURCHARGE_RATE);
+          const { totalTax } = calculateIpp(totalTaxable, ipp, communalSurchargeRate);
           const totalNet = totalTaxable - totalTax;
           const salaryShare = totalTaxable > 0 ? salaryNetTaxable / totalTaxable : 0;
           salaryIncome = ((totalNet * salaryShare) / CYCLES_PER_YEAR) * incomeMultiplier;
@@ -2071,7 +2139,7 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
           wealthDelta += salaryIncome + independentActivityIncome;
           wellbeingDelta -= computeIndependentActivityWellbeingDrain(independentActivity.grossRevenuePerCycle.toNumber());
         } else {
-          const { netAnnualIncome } = calculateNetAnnualIncome(annualGross, ipp, DEFAULT_COMMUNAL_SURCHARGE_RATE);
+          const { netAnnualIncome } = calculateNetAnnualIncome(annualGross, ipp, communalSurchargeRate);
           salaryIncome = (netAnnualIncome / CYCLES_PER_YEAR) * incomeMultiplier;
           wealthDelta += salaryIncome;
         }
@@ -2434,6 +2502,37 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
           update: { netAmount: update.rentCollected },
         });
       }
+
+      if (update.propertyTax > 0) {
+        await tx.playerCycleReportLine.upsert({
+          where: {
+            playerId_cycleId_category_sourceId: {
+              playerId: update.ownerId,
+              cycleId: openCycle.id,
+              category: "property-tax",
+              sourceId: update.property.id,
+            },
+          },
+          create: {
+            playerId: update.ownerId,
+            cycleId: openCycle.id,
+            category: "property-tax",
+            sourceId: update.property.id,
+            label: update.property.customName ?? update.property.municipality.name,
+            netAmount: -update.propertyTax,
+          },
+          update: { netAmount: -update.propertyTax },
+        });
+      }
+    }
+
+    // Précompte immobilier collecté ce cycle (cf. domain/residence.ts) —
+    // versé automatiquement au fonds d'infrastructure de chaque commune.
+    for (const [municipalityId, amount] of propertyTaxByMunicipality) {
+      await tx.municipality.update({
+        where: { id: municipalityId },
+        data: { infrastructureFund: { increment: amount } },
+      });
     }
 
     for (const line of dividendReportLines) {

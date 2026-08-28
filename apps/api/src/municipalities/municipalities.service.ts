@@ -3,13 +3,18 @@ import {
   COUNCIL_PROPOSAL_DURATION_CYCLES,
   MAX_REGISTRATION_DUTY_RATE_DELTA,
   MIN_COUNCIL_QUORUM_WEIGHT,
+  MOVE_RESIDENCE_COOLDOWN_CYCLES,
+  MOVE_RESIDENCE_COST,
   type CastCouncilVoteInput,
   type ContributeToInfrastructureInput,
   type CreateCouncilProposalInput,
+  type MoveResidenceInput,
 } from "@patrimoine-jeu/domain";
 import { computeInfrastructureAttractivenessBonus, computeLocalInfrastructureDemandBonus } from "@patrimoine-jeu/game-engine";
 import { CyclesService } from "../cycles/cycles.service.js";
 import { PrismaService } from "../prisma/prisma.service.js";
+
+const MOVE_RESIDENCE_ACTION_TYPE = "move-residence";
 
 @Injectable()
 export class MunicipalitiesService {
@@ -61,6 +66,8 @@ export class MunicipalitiesService {
       attractivenessBonus: computeInfrastructureAttractivenessBonus(fund),
       localDemandBonus: computeLocalInfrastructureDemandBonus(fund),
       registrationDutyRate: municipality.registrationDutyRate.toNumber(),
+      additionalTaxRate: municipality.additionalTaxRate.toNumber(),
+      annualPropertyTaxRate: municipality.annualPropertyTaxRate.toNumber(),
     };
   }
 
@@ -223,5 +230,126 @@ export class MunicipalitiesService {
         },
       });
     }
+  }
+
+  /** Domicile fiscal (cf. domain/residence.ts) — undefined tant qu'aucune résidence n'a été choisie. */
+  async getResidence(playerId: string) {
+    const [player, currentCycle] = await Promise.all([
+      this.prisma.client.player.findUnique({
+        where: { id: playerId },
+        select: { residenceMunicipalityId: true, residenceMunicipality: { select: { name: true } } },
+      }),
+      this.cyclesService.getOrCreateOpenCycle(),
+    ]);
+    const cooldown = await this.prisma.client.playerActionCooldown.findUnique({
+      where: { playerId_actionType: { playerId, actionType: MOVE_RESIDENCE_ACTION_TYPE } },
+    });
+    const cyclesRemaining =
+      cooldown === null ? 0 : Math.max(0, MOVE_RESIDENCE_COOLDOWN_CYCLES - (currentCycle.number - cooldown.lastCycle));
+
+    return {
+      municipalityId: player?.residenceMunicipalityId ?? null,
+      municipalityName: player?.residenceMunicipality?.name ?? null,
+      cyclesRemaining,
+      available: cyclesRemaining === 0,
+      cost: MOVE_RESIDENCE_COST,
+    };
+  }
+
+  /**
+   * Déménagement — coûte MOVE_RESIDENCE_COST et impose un cooldown (cf.
+   * domain/residence.ts) : sans ça, un joueur pourrait arbitrer le taux
+   * communal le plus bas à chaque cycle, ce qui viderait le choix de
+   * résidence de tout son sens stratégique.
+   */
+  async moveResidence(playerId: string, input: MoveResidenceInput) {
+    const municipality = await this.prisma.client.municipality.findUnique({ where: { id: input.municipalityId } });
+    if (!municipality) {
+      throw new NotFoundException("Commune introuvable");
+    }
+
+    const stats = await this.prisma.client.playerStats.findUnique({ where: { playerId } });
+    if (!stats || stats.wealthLiquid.toNumber() < MOVE_RESIDENCE_COST) {
+      throw new BadRequestException("Fonds insuffisants pour déménager");
+    }
+
+    const currentCycle = await this.cyclesService.getOrCreateOpenCycle();
+    await this.prisma.client.$transaction(async (tx) => {
+      const cooldown = await tx.playerActionCooldown.findUnique({
+        where: { playerId_actionType: { playerId, actionType: MOVE_RESIDENCE_ACTION_TYPE } },
+      });
+      if (cooldown && currentCycle.number - cooldown.lastCycle < MOVE_RESIDENCE_COOLDOWN_CYCLES) {
+        throw new BadRequestException("Tu as déjà déménagé récemment — reviens plus tard");
+      }
+
+      await tx.playerActionCooldown.upsert({
+        where: { playerId_actionType: { playerId, actionType: MOVE_RESIDENCE_ACTION_TYPE } },
+        create: { playerId, actionType: MOVE_RESIDENCE_ACTION_TYPE, lastCycle: currentCycle.number },
+        update: { lastCycle: currentCycle.number },
+      });
+
+      await tx.playerStats.update({
+        where: { playerId },
+        data: { wealthLiquid: { decrement: MOVE_RESIDENCE_COST } },
+      });
+
+      await tx.player.update({
+        where: { id: playerId },
+        data: { residenceMunicipalityId: input.municipalityId },
+      });
+    });
+
+    return this.getResidence(playerId);
+  }
+
+  /**
+   * Classement provincial — fonds d'infrastructure, entreprises actives et
+   * résidents par province (cf. domicile fiscal ci-dessus), trié par fonds
+   * d'infrastructure décroissant (le seul agrégat déjà central à la page
+   * province, cf. province-detail.tsx).
+   */
+  async getRanking() {
+    const [municipalities, companyCounts, residentCounts, residentWealth] = await Promise.all([
+      this.prisma.client.municipality.findMany({
+        include: { region: { select: { name: true } } },
+      }),
+      this.prisma.client.company.groupBy({
+        by: ["municipalityId"],
+        where: { status: "ACTIVE" },
+        _count: { _all: true },
+      }),
+      this.prisma.client.player.groupBy({
+        by: ["residenceMunicipalityId"],
+        where: { residenceMunicipalityId: { not: null } },
+        _count: { _all: true },
+      }),
+      this.prisma.client.player.findMany({
+        where: { residenceMunicipalityId: { not: null } },
+        select: { residenceMunicipalityId: true, stats: { select: { wealthDisplayed: true } } },
+      }),
+    ]);
+
+    const companyCountById = new Map(companyCounts.map((row) => [row.municipalityId, row._count._all]));
+    const residentCountById = new Map(residentCounts.map((row) => [row.residenceMunicipalityId, row._count._all]));
+    const wealthById = new Map<string, number>();
+    for (const player of residentWealth) {
+      if (!player.residenceMunicipalityId) continue;
+      wealthById.set(
+        player.residenceMunicipalityId,
+        (wealthById.get(player.residenceMunicipalityId) ?? 0) + (player.stats?.wealthDisplayed.toNumber() ?? 0),
+      );
+    }
+
+    return municipalities
+      .map((municipality) => ({
+        id: municipality.id,
+        name: municipality.name,
+        regionName: municipality.region.name,
+        infrastructureFund: municipality.infrastructureFund.toNumber(),
+        activeCompanyCount: companyCountById.get(municipality.id) ?? 0,
+        residentCount: residentCountById.get(municipality.id) ?? 0,
+        residentWealth: wealthById.get(municipality.id) ?? 0,
+      }))
+      .sort((a, b) => b.infrastructureFund - a.infrastructureFund);
   }
 }

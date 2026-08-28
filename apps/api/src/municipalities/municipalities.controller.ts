@@ -3,6 +3,7 @@ import {
   castCouncilVoteInputSchema,
   contributeToInfrastructureInputSchema,
   createCouncilProposalInputSchema,
+  moveResidenceInputSchema,
 } from "@patrimoine-jeu/domain";
 import { CurrentPlayer } from "../auth/current-player.decorator.js";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard.js";
@@ -12,6 +13,25 @@ import { MunicipalitiesService } from "./municipalities.service.js";
 @UseGuards(JwtAuthGuard)
 export class MunicipalitiesController {
   constructor(private readonly municipalitiesService: MunicipalitiesService) {}
+
+  @Get("ranking")
+  getRanking() {
+    return this.municipalitiesService.getRanking();
+  }
+
+  @Get("residence")
+  getResidence(@CurrentPlayer() playerId: string) {
+    return this.municipalitiesService.getResidence(playerId);
+  }
+
+  @Post("residence")
+  moveResidence(@CurrentPlayer() playerId: string, @Body() body: unknown) {
+    const parsed = moveResidenceInputSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.municipalitiesService.moveResidence(playerId, parsed.data);
+  }
 
   @Get(":id/summary")
   getSummary(@Param("id") municipalityId: string) {

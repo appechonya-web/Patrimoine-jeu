@@ -1,4 +1,5 @@
 import {
+  CYCLES_PER_YEAR,
   PROPERTY_CONDITION_DECAY_PER_CYCLE,
   PROPERTY_CONDITION_DECAY_RENTED_MULTIPLIER,
   RENOVATION_COST_RATIO,
@@ -22,6 +23,11 @@ export function computeCollectedRent(baseRent: number, condition: number): numbe
 /** Coût pour restaurer un bien à l'état neuf (100) — proportionnel à sa valeur, pas un montant fixe. */
 export function computeRenovationCost(condition: number, marketValue: number): number {
   return (Math.max(0, 100 - condition) / 100) * marketValue * RENOVATION_COST_RATIO;
+}
+
+/** Précompte immobilier dû ce cycle (cf. domain/residence.ts) — le taux annuel de la commune, réparti sur CYCLES_PER_YEAR. */
+export function computePropertyTaxPerCycle(marketValue: number, annualPropertyTaxRate: number): number {
+  return (marketValue * annualPropertyTaxRate) / CYCLES_PER_YEAR;
 }
 
 export function isResidentialPropertyType(type: string): boolean {

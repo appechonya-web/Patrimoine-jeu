@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { PROVINCE_PROPERTY_PROFILES, PROVINCE_SECTOR_AFFINITIES } from "@patrimoine-jeu/domain";
-import { getCurrentPlayer, getMunicipalities } from "../../lib/session";
+import { getCurrentPlayer, getMunicipalities, getProvinceRanking } from "../../lib/session";
+import { currencyFormatter } from "../../lib/format";
 import { InfoTip } from "../info-tip";
 import styles from "../page.module.css";
 
@@ -11,7 +12,7 @@ export default async function ProvincesPage() {
     redirect("/login");
   }
 
-  const municipalities = await getMunicipalities();
+  const [municipalities, ranking] = await Promise.all([getMunicipalities(), getProvinceRanking()]);
   const byRegion = new Map<string, typeof municipalities>();
   for (const m of municipalities) {
     const list = byRegion.get(m.region.name) ?? [];
@@ -41,6 +42,37 @@ export default async function ProvincesPage() {
           ← Tableau de bord
         </Link>
       </header>
+
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>
+          <InfoTip
+            label="🏆"
+            title="Classement provincial"
+            mechanic="Les 11 provinces classées par fonds d'infrastructure cumulé — avec, pour chacune, ses entreprises actives, ses résidents (domicile fiscal choisi, cf. section ci-dessous) et leur patrimoine net cumulé."
+            realWorld="Comme un classement de dynamisme économique régional : le fonds mesure l'investissement collectif, les résidents et leur richesse mesurent l'attractivité réelle de la province pour s'y installer."
+          />
+          <span>Classement provincial</span>
+        </h2>
+        <div className={styles.jobList}>
+          {ranking.map((entry, index) => (
+            <div key={entry.id} className={styles.jobCard}>
+              <div>
+                <span className={styles.rankBadge}>#{index + 1}</span>
+                <span className={styles.jobTitle}>{entry.name}</span>
+                <span className={styles.jobMeta}> — {entry.regionName}</span>
+                <div className={styles.jobStats}>
+                  <span>🏗️ {currencyFormatter.format(entry.infrastructureFund)}</span>
+                  <span>🏢 {entry.activeCompanyCount} entreprise{entry.activeCompanyCount > 1 ? "s" : ""}</span>
+                  <span>
+                    🏠 {entry.residentCount} résident{entry.residentCount > 1 ? "s" : ""}
+                    {entry.residentCount > 0 && ` (${currencyFormatter.format(entry.residentWealth)} cumulés)`}
+                  </span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
 
       {[...byRegion.entries()].map(([regionName, list]) => (
         <section className={styles.section} key={regionName}>

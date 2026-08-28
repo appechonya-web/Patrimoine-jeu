@@ -638,6 +638,8 @@ export interface MunicipalitySummaryView {
   attractivenessBonus: number;
   localDemandBonus: number;
   registrationDutyRate: number;
+  additionalTaxRate: number;
+  annualPropertyTaxRate: number;
 }
 
 export async function getMunicipalitySummary(municipalityId: string): Promise<MunicipalitySummaryView | null> {
@@ -670,6 +672,38 @@ export interface CouncilProposalView {
 
 export async function getCouncilProposals(municipalityId: string): Promise<CouncilProposalView[]> {
   const res = await fetchWithSessionCookie(`/municipalities/${municipalityId}/proposals`);
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export interface ResidenceView {
+  municipalityId: string | null;
+  municipalityName: string | null;
+  cyclesRemaining: number;
+  available: boolean;
+  cost: number;
+}
+
+const EMPTY_RESIDENCE: ResidenceView = { municipalityId: null, municipalityName: null, cyclesRemaining: 0, available: true, cost: 0 };
+
+export async function getResidence(): Promise<ResidenceView> {
+  const res = await fetchWithSessionCookie("/municipalities/residence");
+  if (!res.ok) return EMPTY_RESIDENCE;
+  return res.json();
+}
+
+export interface ProvinceRankingEntry {
+  id: string;
+  name: string;
+  regionName: string;
+  infrastructureFund: number;
+  activeCompanyCount: number;
+  residentCount: number;
+  residentWealth: number;
+}
+
+export async function getProvinceRanking(): Promise<ProvinceRankingEntry[]> {
+  const res = await fetchWithSessionCookie("/municipalities/ranking");
   if (!res.ok) return [];
   return res.json();
 }

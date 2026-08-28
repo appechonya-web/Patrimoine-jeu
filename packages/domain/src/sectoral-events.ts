@@ -12,21 +12,21 @@
  * Portée géographique : faute d'un marché partagé par secteur+commune (les
  * "pools" de marché du moteur de jeu sont partagés par secteur au niveau
  * national, cf. game-engine/cycles.ts marketPools), la portée réellement
- * mécanique se limite à RÉGIONALE (ajustement de l'attractivité effective
- * des seules entreprises de la région touchée) et NATIONALE (multiplicateur
- * appliqué au pool de marché entier du secteur) — pas de granularité
- * communale séparée pour l'instant.
+ * mécanique se limite à un ajustement de l'attractivité effective des
+ * seules entreprises touchées — à l'échelle PROVINCE (11 provinces), de la
+ * RÉGION (3 régions) ou, portée NATIONALE, un multiplicateur appliqué au
+ * pool de marché entier du secteur.
  */
 
 export const SECTORAL_EVENT_TIERS = ["MINOR", "MODERATE", "MAJOR", "EXCEPTIONAL"] as const;
 export type SectoralEventTier = (typeof SECTORAL_EVENT_TIERS)[number];
 
-export const SECTORAL_EVENT_SCOPES = ["REGIONAL", "NATIONAL"] as const;
+export const SECTORAL_EVENT_SCOPES = ["PROVINCE", "REGIONAL", "NATIONAL"] as const;
 export type SectoralEventScope = (typeof SECTORAL_EVENT_SCOPES)[number];
 
-/** MINEUR/MOYEN restent régionaux (chocs locaux) ; MAJEUR/EXCEPTIONNEL sont toujours nationaux (chocs sévères, cf. section 12ter). */
+/** MINEUR devient provincial (choc vraiment local, une des 11 provinces) ; MOYEN reste régional ; MAJEUR/EXCEPTIONNEL sont toujours nationaux (chocs sévères, cf. section 12ter). */
 export const SECTORAL_EVENT_SCOPE_BY_TIER: Record<SectoralEventTier, SectoralEventScope> = {
-  MINOR: "REGIONAL",
+  MINOR: "PROVINCE",
   MODERATE: "REGIONAL",
   MAJOR: "NATIONAL",
   EXCEPTIONAL: "NATIONAL",

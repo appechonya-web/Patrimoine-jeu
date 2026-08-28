@@ -7,6 +7,7 @@ import {
   getMunicipalities,
   getMunicipalityContributors,
   getMunicipalitySummary,
+  getResidence,
 } from "../../../lib/session";
 import { ProvinceDetail } from "./province-detail";
 import styles from "../../page.module.css";
@@ -18,11 +19,12 @@ export default async function ProvincePage({ params }: { params: Promise<{ id: s
     redirect("/login");
   }
 
-  const [municipalities, summary, contributors, proposals] = await Promise.all([
+  const [municipalities, summary, contributors, proposals, residence] = await Promise.all([
     getMunicipalities(),
     getMunicipalitySummary(id),
     getMunicipalityContributors(id),
     getCouncilProposals(id),
+    getResidence(),
   ]);
   const municipality = municipalities.find((m) => m.id === id);
 
@@ -47,9 +49,11 @@ export default async function ProvincePage({ params }: { params: Promise<{ id: s
 
       <ProvinceDetail
         municipalityId={id}
+        municipalityName={municipality.name}
         summary={summary}
         contributors={contributors}
         proposals={proposals}
+        residence={residence}
         myPseudo={player.pseudo}
       />
     </main>

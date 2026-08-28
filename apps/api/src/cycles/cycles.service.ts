@@ -58,11 +58,20 @@ export class CyclesService {
     return { closed: true as const, ...result };
   }
 
-  estimateNetPerCycle(annualGrossSalary: number): Promise<number> {
-    return estimateNetPerCycle(this.prisma.client, annualGrossSalary);
+  estimateNetPerCycle(annualGrossSalary: number, communalSurchargeRate?: number): Promise<number> {
+    return estimateNetPerCycle(this.prisma.client, annualGrossSalary, communalSurchargeRate);
   }
 
-  estimateIndependentActivityNetPerCycle(mainAnnualGrossSalary: number, sideGrossRevenuePerCycle: number) {
-    return estimateIndependentActivityNetPerCycle(this.prisma.client, mainAnnualGrossSalary, sideGrossRevenuePerCycle);
+  estimateIndependentActivityNetPerCycle(
+    mainAnnualGrossSalary: number,
+    sideGrossRevenuePerCycle: number,
+    communalSurchargeRate?: number,
+  ) {
+    return estimateIndependentActivityNetPerCycle(
+      this.prisma.client,
+      mainAnnualGrossSalary,
+      sideGrossRevenuePerCycle,
+      communalSurchargeRate,
+    );
   }
 }

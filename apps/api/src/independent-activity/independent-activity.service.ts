@@ -16,9 +16,19 @@ export class IndependentActivityService {
   }
 
   async estimate(playerId: string, grossRevenuePerCycle: number) {
-    const employment = await this.getActiveEmployment(playerId);
+    const [employment, player] = await Promise.all([
+      this.getActiveEmployment(playerId),
+      this.prisma.client.player.findUnique({
+        where: { id: playerId },
+        select: { residenceMunicipality: { select: { additionalTaxRate: true } } },
+      }),
+    ]);
     const mainAnnualGrossSalary = employment.salary.toNumber() * CYCLES_PER_YEAR;
-    return this.cyclesService.estimateIndependentActivityNetPerCycle(mainAnnualGrossSalary, grossRevenuePerCycle);
+    return this.cyclesService.estimateIndependentActivityNetPerCycle(
+      mainAnnualGrossSalary,
+      grossRevenuePerCycle,
+      player?.residenceMunicipality?.additionalTaxRate.toNumber(),
+    );
   }
 
   async start(playerId: string, input: StartIndependentActivityInput) {

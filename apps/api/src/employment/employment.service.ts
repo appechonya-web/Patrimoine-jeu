@@ -45,6 +45,7 @@ export class EmploymentService {
       : undefined;
     const nutritionLevel = computeEffectivePersonalInvestmentLevel(stats?.nutritionInvestment.toNumber() ?? 0);
     const reputation = stats?.reputation.toNumber() ?? 50;
+    const communalSurchargeRate = await this.getResidenceSurchargeRate(playerId);
 
     return Promise.all(
       NPC_JOB_LIST.map(async (job) => {
@@ -58,6 +59,7 @@ export class EmploymentService {
           locked,
           estimatedNetPerCycle: await this.cyclesService.estimateNetPerCycle(
             job.annualGrossSalary * careerTier.salaryMultiplier,
+            communalSurchargeRate,
           ),
           estimatedWellbeingDrainPerCycle: computePressureDrain(job.pressure, sectorCycles, nutritionLevel),
           sectorExperienceCycles: sectorCycles,
@@ -420,6 +422,7 @@ export class EmploymentService {
     const sectorCycles = sectorExperience?.cycles ?? 0;
     const nutritionLevel = computeEffectivePersonalInvestmentLevel(stats?.nutritionInvestment.toNumber() ?? 0);
     const careerTier = getCareerTier(sectorCycles);
+    const communalSurchargeRate = await this.getResidenceSurchargeRate(playerId);
 
     return {
       role: employment.role,
@@ -431,6 +434,7 @@ export class EmploymentService {
       salaryPerCycle,
       estimatedNetPerCycle: await this.cyclesService.estimateNetPerCycle(
         salaryPerCycle * CYCLES_PER_YEAR * careerTier.salaryMultiplier,
+        communalSurchargeRate,
       ),
       estimatedWellbeingDrainPerCycle:
         pressure !== undefined ? computePressureDrain(pressure, sectorCycles, nutritionLevel) : 0,
@@ -479,6 +483,15 @@ export class EmploymentService {
         cycle: currentCycle,
       },
     });
+  }
+
+  /** Domicile fiscal (cf. domain/residence.ts) — undefined si le joueur n'en a pas choisi, cyclesService retombe alors sur le forfait par défaut. */
+  private async getResidenceSurchargeRate(playerId: string): Promise<number | undefined> {
+    const player = await this.prisma.client.player.findUnique({
+      where: { id: playerId },
+      select: { residenceMunicipality: { select: { additionalTaxRate: true } } },
+    });
+    return player?.residenceMunicipality?.additionalTaxRate.toNumber();
   }
 
   private getPrimaryOwnerId(shares: ShareLike[]): string | undefined {

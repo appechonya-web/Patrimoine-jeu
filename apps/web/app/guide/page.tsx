@@ -529,6 +529,28 @@ export default async function GuidePage() {
             et n'est adoptée que si elle réunit une majorité ET au moins 500 de poids de vote cumulé — un petit
             contributeur isolé ne peut rien imposer seul.
           </p>
+          <p>
+            <strong>Domicile fiscal :</strong> choisis une province de résidence sur sa page — le taux communal
+            réel de cette province s'applique alors à ton impôt sur le revenu (IPP), à la place du taux forfaitaire
+            par défaut. Déménager coûte 300 € et impose un cooldown de 30 cycles, pour que ce ne soit pas un simple
+            arbitrage fiscal à répéter chaque cycle.
+          </p>
+          <p>
+            <strong>Précompte immobilier :</strong> chaque bien que tu possèdes te coûte désormais un petit
+            prélèvement récurrent par cycle (le taux annuel de sa province, réparti sur l'année), versé
+            automatiquement au fonds d'infrastructure de cette province — une vraie boucle fiscale, en plus des
+            dons volontaires.
+          </p>
+          <p>
+            <strong>Événements locaux :</strong> les chocs sectoriels les plus fréquents et les plus modestes
+            (palier Mineur) touchent désormais une seule province plutôt qu'une région entière — les 11 provinces
+            vivent chacune leur propre actualité économique, visible dans la presse.
+          </p>
+          <p>
+            <strong>Classement provincial</strong> (en haut de la page Provinces) : les 11 provinces triées par
+            fonds d'infrastructure, avec pour chacune ses entreprises actives, ses résidents et leur patrimoine net
+            cumulé.
+          </p>
         </section>
 
         <section id="portefeuille" className={guideStyles.guideSection}>

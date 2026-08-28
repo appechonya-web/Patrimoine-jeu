@@ -23,6 +23,7 @@ import type {
   PersonalGoodView,
   PersonalOverview,
   PropertyView,
+  ResidenceView,
   SavingsAccountView,
   TenderOfferView,
 } from "./session";
@@ -500,4 +501,8 @@ export function createCouncilProposal(
 
 export function castCouncilVote(proposalId: string, inFavor: boolean): Promise<{ voted: boolean }> {
   return postJson(`/municipalities/proposals/${proposalId}/vote`, { inFavor });
+}
+
+export function moveResidence(municipalityId: string): Promise<ResidenceView> {
+  return postJson("/municipalities/residence", { municipalityId });
 }

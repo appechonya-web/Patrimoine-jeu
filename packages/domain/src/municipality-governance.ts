@@ -18,12 +18,10 @@ import { z } from "zod";
  * Conseil communal : le paramètre modifiable est le taux des droits
  * d'enregistrement immobiliers (Municipality.registrationDutyRate — un vrai
  * levier déjà branché sur chaque achat/prêt immobilier de la commune, cf.
- * properties.service.ts computeRegistrationDuty ; additionalTaxRate a été
- * délibérément écarté : il n'est en réalité rattaché à aucun calcul de
- * l'IPP dans ce moteur — cf. game-engine/cycles.ts, qui utilise toujours un
- * taux forfaitaire DEFAULT_COMMUNAL_SURCHARGE_RATE faute de commune de
- * résidence pour le joueur — voter dessus n'aurait donc aucun effet réel).
- * Plafonné à une variation bornée pour éviter un vote qui casserait
+ * properties.service.ts computeRegistrationDuty). additionalTaxRate reste
+ * hors du champ du vote (le domicile fiscal choisi une fois pour toutes par
+ * le joueur, cf. domain/residence.ts, ne doit pas pouvoir être détourné en
+ * levier d'optimisation fiscale collective). Plafonné à une variation bornée pour éviter un vote qui casserait
  * l'équilibre fiscal. Poids de vote = contribution cumulée au fonds
  * d'infrastructure de CETTE commune (pas les parts d'une entreprise comme
  * pour l'AG d'entreprise, cf. domain/governance.ts, mais le même schéma de

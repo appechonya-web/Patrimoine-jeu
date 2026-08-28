@@ -3,11 +3,57 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { MAX_REGISTRATION_DUTY_RATE_DELTA, MIN_INFRASTRUCTURE_CONTRIBUTION } from "@patrimoine-jeu/domain";
-import type { CouncilProposalView, MunicipalityContributorView, MunicipalitySummaryView } from "../../../lib/session";
-import { GameError, castCouncilVote, contributeToInfrastructure, createCouncilProposal } from "../../../lib/game-client";
+import type { CouncilProposalView, MunicipalityContributorView, MunicipalitySummaryView, ResidenceView } from "../../../lib/session";
+import { GameError, castCouncilVote, contributeToInfrastructure, createCouncilProposal, moveResidence } from "../../../lib/game-client";
 import { currencyFormatter } from "../../../lib/format";
 import { InfoTip } from "../../info-tip";
 import styles from "../../page.module.css";
+
+function ResidencePanel({
+  municipalityId,
+  municipalityName,
+  residence,
+  onDone,
+}: {
+  municipalityId: string;
+  municipalityName: string;
+  residence: ResidenceView;
+  onDone: () => void;
+}) {
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const isCurrent = residence.municipalityId === municipalityId;
+
+  async function handleMove() {
+    setError(null);
+    setPending(true);
+    try {
+      await moveResidence(municipalityId);
+      onDone();
+    } catch (err) {
+      setError(err instanceof GameError ? err.message : "Une erreur est survenue");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  if (isCurrent) {
+    return <p className={styles.jobMeta}>🏠 Tu habites déjà à {municipalityName}.</p>;
+  }
+
+  return (
+    <div>
+      <button className={styles.apply} type="button" disabled={pending || !residence.available} onClick={handleMove}>
+        {pending
+          ? "…"
+          : residence.available
+            ? `🏠 Habiter ici (${currencyFormatter.format(residence.cost)})`
+            : `Disponible dans ${residence.cyclesRemaining} cycles`}
+      </button>
+      {error && <p className={styles.error}>{error}</p>}
+    </div>
+  );
+}
 
 function ContributeForm({ municipalityId, onDone }: { municipalityId: string; onDone: () => void }) {
   const [amount, setAmount] = useState(MIN_INFRASTRUCTURE_CONTRIBUTION);
@@ -142,15 +188,19 @@ function CreateProposalForm({
 
 export function ProvinceDetail({
   municipalityId,
+  municipalityName,
   summary,
   contributors,
   proposals,
+  residence,
   myPseudo,
 }: {
   municipalityId: string;
+  municipalityName: string;
   summary: MunicipalitySummaryView;
   contributors: MunicipalityContributorView[];
   proposals: CouncilProposalView[];
+  residence: ResidenceView;
   myPseudo: string;
 }) {
   const router = useRouter();
@@ -164,6 +214,28 @@ export function ProvinceDetail({
 
   return (
     <>
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>
+          <InfoTip
+            label="🏠"
+            title="Domicile fiscal"
+            mechanic="Choisir sa province de résidence détermine le taux communal appliqué à ton impôt sur le revenu (IPP) — jusqu'ici un taux forfaitaire identique pour tout le monde, maintenant le vrai taux de ta province. Un déménagement coûte une somme fixe et impose un cooldown, pour que ce ne soit pas un simple arbitrage fiscal à répéter chaque cycle."
+            realWorld="En Belgique, l'additionnel communal à l'impôt varie réellement d'une commune à l'autre (souvent 6 à 9%) — où tu es domicilié au 1er janvier change ton impôt final, comme ici."
+          />
+          <span>Domicile fiscal</span>
+        </h2>
+        <div className={styles.jobStats}>
+          <span>🧾 Additionnel communal {(summary.additionalTaxRate * 100).toFixed(1)}%</span>
+          <span>🏛️ Précompte immobilier {(summary.annualPropertyTaxRate * 100).toFixed(2)}%/an sur tes biens ici</span>
+        </div>
+        <ResidencePanel
+          municipalityId={municipalityId}
+          municipalityName={municipalityName}
+          residence={residence}
+          onDone={handleDone}
+        />
+      </section>
+
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>
           <InfoTip

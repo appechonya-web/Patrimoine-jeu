@@ -38,6 +38,7 @@ export * from "./default-rules.js";
 export * from "./notification-preferences.js";
 export * from "./municipality-governance.js";
 export * from "./province-profiles.js";
+export * from "./residence.js";
 export * from "./starting-profile.js";
 export * from "./career-progression.js";
 export * from "./valorization.js";
