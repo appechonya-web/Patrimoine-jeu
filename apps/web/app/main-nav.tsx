@@ -18,6 +18,7 @@ const NAV_LINKS = [
   { href: "/capital-risque", label: "💰 Capital-risque", primary: false },
   { href: "/prestige", label: "🏰 Immobilier de prestige", primary: false },
   { href: "/provinces", label: "🏛️ Provinces", primary: false },
+  { href: "/groupe", label: "🏙️ Groupe", primary: false },
   { href: "/presse", label: "📰 Presse économique", primary: false },
   { href: "/guide", label: "📖 Guide du jeu", primary: false },
 ] as const;

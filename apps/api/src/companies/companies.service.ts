@@ -199,6 +199,61 @@ export class CompaniesService {
     };
   }
 
+  /**
+   * Vue consolidée du groupe — toutes les entreprises ACTIVES que ce joueur
+   * contrôle en dernier ressort, directement ou via une chaîne de holding
+   * (cf. resolveUltimateControllerId), avec des KPIs agrégés. Piloter un
+   * empire plutôt qu'une seule fiche isolée : trésorerie et profit cumulés
+   * sur tout le groupe, et repérer d'un coup d'œil la filiale la moins
+   * performante.
+   */
+  async getGroupOverview(playerId: string) {
+    const currentCycle = await this.cyclesService.getOrCreateOpenCycle();
+    const companies = await this.prisma.client.company.findMany({
+      where: { status: "ACTIVE" },
+      include: { shares: true, cycleReports: CYCLE_REPORT_INCLUDE, sector: true, municipality: true },
+    });
+
+    const controlled: (typeof companies)[number][] = [];
+    for (const company of companies) {
+      if ((await this.resolveUltimateControllerId(company.shares)) === playerId) {
+        controlled.push(company);
+      }
+    }
+
+    const rows = controlled.map((company) => {
+      const latestReport = company.cycleReports[0];
+      const latestRevenue = latestReport?.revenue.toNumber() ?? 0;
+      const latestNetProfit = latestReport ? latestReport.profit.toNumber() - latestReport.taxPaid.toNumber() : 0;
+      const cyclesActive = Math.max(1, currentCycle.number - company.foundedCycle);
+      const isSubsidiary = company.shares.some((s) => s.holderCompanyId !== null);
+      return {
+        id: company.id,
+        name: company.name,
+        sector: company.sector.name,
+        municipality: company.municipality.name,
+        isSubsidiary,
+        cashReserve: company.cashReserve.toNumber(),
+        cumulativeNetProfit: company.cumulativeNetProfit.toNumber(),
+        latestRevenue,
+        latestNetProfit,
+        valorizationMultiplier: computeValorizationMultiplier(company.cumulativeNetProfit.toNumber(), cyclesActive),
+      };
+    });
+
+    const worstPerformer =
+      rows.length > 0 ? rows.reduce((min, r) => (r.latestNetProfit < min.latestNetProfit ? r : min)) : null;
+
+    return {
+      companies: rows,
+      totalCashReserve: rows.reduce((sum, r) => sum + r.cashReserve, 0),
+      totalCumulativeNetProfit: rows.reduce((sum, r) => sum + r.cumulativeNetProfit, 0),
+      totalLatestRevenue: rows.reduce((sum, r) => sum + r.latestRevenue, 0),
+      totalLatestNetProfit: rows.reduce((sum, r) => sum + r.latestNetProfit, 0),
+      worstPerformerId: worstPerformer && worstPerformer.latestNetProfit < 0 ? worstPerformer.id : null,
+    };
+  }
+
   async found(playerId: string, input: CreateCompanyInput) {
     const [sector, municipality, stats, currentCycle, primaryOwned] = await Promise.all([
       this.prisma.client.sector.findUnique({ where: { id: input.sectorId } }),

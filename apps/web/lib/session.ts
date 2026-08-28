@@ -689,6 +689,43 @@ export async function getCompany(id: string): Promise<CompanyDetail | null> {
   return res.json();
 }
 
+export interface GroupCompanySummary {
+  id: string;
+  name: string;
+  sector: string;
+  municipality: string;
+  isSubsidiary: boolean;
+  cashReserve: number;
+  cumulativeNetProfit: number;
+  latestRevenue: number;
+  latestNetProfit: number;
+  valorizationMultiplier: number;
+}
+
+export interface GroupOverview {
+  companies: GroupCompanySummary[];
+  totalCashReserve: number;
+  totalCumulativeNetProfit: number;
+  totalLatestRevenue: number;
+  totalLatestNetProfit: number;
+  worstPerformerId: string | null;
+}
+
+const EMPTY_GROUP_OVERVIEW: GroupOverview = {
+  companies: [],
+  totalCashReserve: 0,
+  totalCumulativeNetProfit: 0,
+  totalLatestRevenue: 0,
+  totalLatestNetProfit: 0,
+  worstPerformerId: null,
+};
+
+export async function getGroupOverview(): Promise<GroupOverview> {
+  const res = await fetchWithSessionCookie("/companies/group-overview");
+  if (!res.ok) return EMPTY_GROUP_OVERVIEW;
+  return res.json();
+}
+
 export interface SupplyContractView {
   id: string;
   role: "buyer" | "seller";

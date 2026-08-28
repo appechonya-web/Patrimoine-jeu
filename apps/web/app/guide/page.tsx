@@ -476,7 +476,9 @@ export default async function GuidePage() {
               alimentent directement la trésorerie de la société-mère (pas ton patrimoine personnel) — un vrai
               levier de composition pour construire un groupe multi-secteurs au lieu d'entreprises isolées.
               Contrôler une filiale via une holding te permet aussi de la piloter (investir, embaucher...) comme
-              si tu la détenais en direct.
+              si tu la détenais en direct. La page <strong>Groupe</strong> donne une vue consolidée de toutes tes
+              entreprises (directes et filiales) : trésorerie et profit cumulés sur l'ensemble, et repère d'un
+              coup d'œil laquelle est en perte.
             </li>
           </ul>
         </section>

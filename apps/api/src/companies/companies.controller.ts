@@ -54,6 +54,11 @@ export class CompaniesController {
     return this.companiesService.listMyCompanies(playerId);
   }
 
+  @Get("companies/group-overview")
+  getGroupOverview(@CurrentPlayer() playerId: string) {
+    return this.companiesService.getGroupOverview(playerId);
+  }
+
   @Get("companies/:id")
   getCompany(@CurrentPlayer() playerId: string, @Param("id") companyId: string) {
     return this.companiesService.getCompany(playerId, companyId);
