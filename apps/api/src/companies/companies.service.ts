@@ -67,15 +67,16 @@ import {
   computeDepartmentContribution,
   computeDilutedSharePercentage,
   computeEffectiveAttractiveness,
+  computeEffectiveInvestmentLevel,
   computeFoundingAttractiveness,
   computeFoundingCost,
   computeInfrastructureAttractivenessBonus,
-  computeInvestmentLevel,
   computeQualityPriceTolerance,
   computeLiquidationReserveWithdrawal,
   computeLoanRate,
   computeProductUnitCost,
   computeRdStaffInnovationBonus,
+  computeValorizationMultiplier,
   isLiquidationReserveMature,
 } from "@patrimoine-jeu/game-engine";
 import { CyclesService } from "../cycles/cycles.service.js";
@@ -2660,8 +2661,11 @@ export class CompaniesService {
     }
     const rdMorale = departments.find((d) => d.department === "rd")?.morale.toNumber() ?? 50;
     const rdContribution = computeDepartmentContribution(rdCounts, rdMorale);
-    const baseLevel = computeInvestmentLevel(innovationInvestment);
-    return Math.min(100, baseLevel + computeRdStaffInnovationBonus(rdContribution));
+    const baseLevel = computeEffectiveInvestmentLevel(innovationInvestment);
+    // Pas de plafond à 100 : baseLevel intègre déjà le palier mondial
+    // au-delà de 100 (cf. computeEffectiveInvestmentLevel), cohérent avec
+    // game-engine/cycles.ts.
+    return baseLevel + computeRdStaffInnovationBonus(rdContribution);
   }
 
   private toCompanyView(
@@ -2774,22 +2778,30 @@ export class CompaniesService {
       foundedCycle: company.foundedCycle,
       cyclesActive: currentCycleNumber - company.foundedCycle,
       cumulativeNetProfit: company.cumulativeNetProfit.toNumber(),
+      // Valorisation par rentabilité soutenue (cf. domain/valorization.ts) —
+      // ce qui compte pour TON patrimoine net et le classement, jamais pour
+      // le bilan comptable ci-dessous (capacité d'emprunt, prix plancher
+      // d'OPA restent en valeur comptable pure).
+      valorizationMultiplier: computeValorizationMultiplier(
+        company.cumulativeNetProfit.toNumber(),
+        Math.max(1, currentCycleNumber - company.foundedCycle),
+      ),
       sharePercentage,
       levels: {
-        marketing: computeInvestmentLevel(company.marketingInvestment.toNumber()),
-        quality: computeInvestmentLevel(company.rdInvestment.toNumber()),
-        equipment: computeInvestmentLevel(company.equipmentInvestment.toNumber()),
-        workConditions: computeInvestmentLevel(company.workConditionsInvestment.toNumber()),
-        automation: computeInvestmentLevel(company.automationInvestment.toNumber()),
-        branding: computeInvestmentLevel(company.brandingInvestment.toNumber()),
+        marketing: computeEffectiveInvestmentLevel(company.marketingInvestment.toNumber()),
+        quality: computeEffectiveInvestmentLevel(company.rdInvestment.toNumber()),
+        equipment: computeEffectiveInvestmentLevel(company.equipmentInvestment.toNumber()),
+        workConditions: computeEffectiveInvestmentLevel(company.workConditionsInvestment.toNumber()),
+        automation: computeEffectiveInvestmentLevel(company.automationInvestment.toNumber()),
+        branding: computeEffectiveInvestmentLevel(company.brandingInvestment.toNumber()),
         innovation: this.computeEffectiveInnovationLevel(
           company.innovationInvestment.toNumber(),
           company.departments,
           company.employeeCounts,
         ),
-        training: computeInvestmentLevel(company.trainingInvestment.toNumber()),
-        safety: computeInvestmentLevel(company.safetyInvestment.toNumber()),
-        insurance: computeInvestmentLevel(company.insuranceInvestment.toNumber()),
+        training: computeEffectiveInvestmentLevel(company.trainingInvestment.toNumber()),
+        safety: computeEffectiveInvestmentLevel(company.safetyInvestment.toNumber()),
+        insurance: computeEffectiveInvestmentLevel(company.insuranceInvestment.toNumber()),
       },
       cashReserve: company.cashReserve.toNumber(),
       distributionPolicy: company.distributionPolicy,
@@ -2832,8 +2844,8 @@ export class CompaniesService {
         // gamme, chaque euro de plus rogne le multiplicateur de demande
         // (élasticité), jusqu'à un plancher jamais nul mais négligeable ; en
         // dessous, la demande peut au mieux tripler (DEMAND_PRICE_MULTIPLIER_CAP).
-        const qualityLevel = computeInvestmentLevel(company.rdInvestment.toNumber());
-        const brandingLevel = computeInvestmentLevel(company.brandingInvestment.toNumber());
+        const qualityLevel = computeEffectiveInvestmentLevel(company.rdInvestment.toNumber());
+        const brandingLevel = computeEffectiveInvestmentLevel(company.brandingInvestment.toNumber());
         const acceptedReferencePrice =
           REFERENCE_UNIT_PRICE * catalogEntry.referencePriceMultiplier * computeQualityPriceTolerance(qualityLevel);
         const priceElasticity = PRICE_ELASTICITY_BASE * (1 - (brandingLevel / 100) * BRANDING_MAX_ELASTICITY_REDUCTION);

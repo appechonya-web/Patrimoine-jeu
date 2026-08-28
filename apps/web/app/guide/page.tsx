@@ -301,6 +301,12 @@ export default async function GuidePage() {
             alloué aux autres gammes revient automatiquement à la gamme de fondation.
           </p>
           <p><strong>11 leviers d'investissement</strong>, tous à rendements décroissants (racine carrée du montant cumulé investi — les premiers euros comptent beaucoup plus que les suivants), maximum 500 €/action et un cooldown de 7 cycles par levier :</p>
+          <p>
+            Chaque levier plafonne à 100 pour ~50 000 € cumulés (~700 cycles minimum), mais ce n'est pas un mur :
+            au-delà, continuer d'investir rapporte un <strong>bonus de palier mondial</strong>, toujours en
+            rendements décroissants — un niveau affiché à plus de 100/100 en profite déjà. C'est un engagement de
+            plusieurs mois à plusieurs années par levier, réservé aux entreprises les plus abouties.
+          </p>
           <ul className={guideStyles.list}>
             <li><strong>Marketing</strong> — plus de demande captée, et fait grossir le marché lui-même collectivement (voir plus bas).</li>
             <li><strong>Qualité (R&D)</strong> — coûte plus cher à produire, mais le marché tolère un prix de référence plus élevé sans perdre de demande.</li>
@@ -392,6 +398,15 @@ export default async function GuidePage() {
               actionnaires minoritaires. Le profit peut aussi être mis en réserve (pour une future liquidation) ou
               réinvesti automatiquement dans un levier choisi, avant toute distribution. Tu peux vendre librement
               une partie de tes parts sur le marché public, au prix que tu fixes toi-même.
+            </li>
+            <li>
+              <strong>Valorisation :</strong> pour ton patrimoine net et le classement (jamais pour le bilan
+              comptable, qui reste en valeur comptable pure), la valeur d'une entreprise est multipliée selon sa
+              rentabilité MOYENNE depuis sa fondation (profit cumulé ÷ cycles actifs) — une moyenne plutôt qu'un
+              compteur de cycles sans perte, pour qu'un aléa négatif ponctuel ne remette pas tout à zéro. Une
+              entreprise juste à l'équilibre garde un multiplicateur ×1 ; une entreprise durablement très rentable
+              peut valoir plusieurs dizaines de fois sa valeur comptable — le vrai levier pour viser des millions,
+              voire plus, sur le très long terme.
             </li>
           </ul>
         </section>

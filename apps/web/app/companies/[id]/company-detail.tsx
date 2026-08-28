@@ -883,6 +883,18 @@ export function CompanyDetail({
           </span>
           <span className={styles.value}>{currencyFormatter.format(company.cumulativeNetProfit)}</span>
         </div>
+        <div className={`${styles.card} ${styles.cardGold}`}>
+          <span className={styles.label}>
+            <InfoTip
+              label="💎"
+              title="Valorisation"
+              mechanic="Ta rentabilité MOYENNE depuis la fondation (profit cumulé ÷ cycles actifs) détermine un multiplicateur appliqué à la valeur comptable de l'entreprise — mais UNIQUEMENT pour ton patrimoine net et le classement, jamais pour le bilan comptable (capacité d'emprunt, prix plancher d'OPA restent en valeur comptable pure). Une moyenne plutôt qu'un compteur de cycles sans perte : un coup dur ponctuel ne remet pas le multiplicateur à zéro."
+              realWorld="Comme un multiple de résultat (P/E ratio) en bourse : une entreprise qui prouve une rentabilité solide et durable vaut structurellement plus que sa seule valeur comptable, parce que le marché anticipe qu'elle continuera à bien performer."
+            />{" "}
+            Valorisation
+          </span>
+          <span className={styles.value}>×{company.valorizationMultiplier.toFixed(2)}</span>
+        </div>
       </section>
 
       <div className={styles.tabBar}>
@@ -1017,7 +1029,7 @@ export function CompanyDetail({
               <InfoTip
                 label="📊"
                 title="Niveaux d'investissement"
-                mechanic={`10 leviers indépendants (marketing, qualité, automatisation...), chacun plafonné à ${currencyFormatter.format(MAX_INVESTMENT_PER_CYCLE)} investis par action et à une action tous les ${ACTION_COOLDOWN_CYCLES} cycles — impossible d'accélérer en y mettant plus d'argent d'un coup. Atteindre le niveau 100 d'un seul levier demande environ 100 actions, donc ~700 cycles minimum, quel que soit le capital disponible.`}
+                mechanic={`10 leviers indépendants (marketing, qualité, automatisation...), chacun plafonné à ${currencyFormatter.format(MAX_INVESTMENT_PER_CYCLE)} investis par action et à une action tous les ${ACTION_COOLDOWN_CYCLES} cycles — impossible d'accélérer en y mettant plus d'argent d'un coup. Atteindre le niveau 100 d'un seul levier demande environ 100 actions, donc ~700 cycles minimum, quel que soit le capital disponible. Au-delà de 100, continuer d'investir rapporte un bonus de "palier mondial" en rendements décroissants (pas de mur) — un niveau affiché à plus de 100/100 en profite déjà.`}
                 realWorld="Le plafonnement reproduit les rendements décroissants du capital : au-delà d'un certain seuil, injecter plus d'argent d'un coup dans une entreprise n'accélère pas sa croissance — l'organisation, la formation des équipes et l'adoption par le marché prennent du temps, pas seulement du capital."
                 tip="Chaque levier résout un problème différent : marketing/qualité/branding augmentent ta part de marché, équipement/formation augmentent ta capacité de production, sécurité/assurance amortissent les coups durs. Investir un peu partout n'est pas un mauvais réflexe — identifie plutôt lequel de ces trois blocs te limite vraiment avant d'y mettre plus d'argent."
               />

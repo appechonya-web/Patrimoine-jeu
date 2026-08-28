@@ -301,6 +301,7 @@ export interface Company {
   totalEmployeeCount: number;
   foundedCycle: number;
   cyclesActive: number;
+  valorizationMultiplier: number;
   cumulativeNetProfit: number;
   sharePercentage: number;
   levels: CompanyLevels;

@@ -11,15 +11,18 @@ import {
   DEMAND_PRICE_MULTIPLIER_CAP,
   EMPLOYEE_TIER_CATALOG,
   EMPLOYEE_TIERS,
+  GLOBAL_TIER_SCALE,
   HR_STAFF_MORALE_SCALE,
   INFRASTRUCTURE_ECONOMIC_ACTIVITY_CONVERSION,
   INVESTMENT_LEVEL_SCALE,
   MARKET_DEVELOPMENT_SCALE,
+  MAX_GLOBAL_TIER_BONUS,
   MAX_HR_STAFF_MORALE_BONUS,
   MAX_MARKET_DEVELOPMENT_BONUS,
   MAX_RD_STAFF_INNOVATION_BONUS,
   MAX_SALES_COMPETITIVENESS_BONUS,
   MAX_STOCK_CYCLES,
+  MAX_VALORIZATION_MULTIPLIER,
   MORALE_BASELINE_MAX,
   MORALE_BASELINE_MIN,
   MORALE_DRIFT_RATE,
@@ -35,6 +38,7 @@ import {
   REFERENCE_UNIT_PRICE,
   STARTUP_COST_LEVEL_0,
   STOCK_HOLDING_COST_PER_UNIT,
+  VALORIZATION_PROFIT_SCALE,
   type ProductType,
 } from "@patrimoine-jeu/domain";
 
@@ -109,6 +113,49 @@ export function computeInvestmentLevel(cumulativeInvestment: number): number {
   return Math.min(100, Math.sqrt(Math.max(0, cumulativeInvestment) / INVESTMENT_LEVEL_SCALE));
 }
 
+/**
+ * Palier mondial (cf. domain/valorization.ts) : au-delà du seuil du niveau
+ * 100 (INVESTMENT_LEVEL_SCALE × 100²), chaque euro supplémentaire continue
+ * de rapporter un bonus, en rendements décroissants — appliqué EN PLUS du
+ * niveau de base par computeEffectiveInvestmentLevel, jamais à sa place.
+ */
+export function computeGlobalTierBonus(cumulativeInvestment: number): number {
+  const baseThreshold = INVESTMENT_LEVEL_SCALE * 100 * 100;
+  const excess = Math.max(0, cumulativeInvestment - baseThreshold);
+  return Math.min(MAX_GLOBAL_TIER_BONUS, Math.sqrt(excess / GLOBAL_TIER_SCALE));
+}
+
+/**
+ * Niveau EFFECTIF d'un levier — base (0-100, computeInvestmentLevel) + palier
+ * mondial (au-delà de 100, computeGlobalTierBonus) — à utiliser PARTOUT où un
+ * niveau de levier alimente une formule de jeu (cycles.ts ET l'affichage live
+ * dans companies.service.ts), pour que le palier mondial reste cohérent entre
+ * la simulation et ce que le joueur voit.
+ */
+export function computeEffectiveInvestmentLevel(cumulativeInvestment: number): number {
+  return computeInvestmentLevel(cumulativeInvestment) + computeGlobalTierBonus(cumulativeInvestment);
+}
+
+/**
+ * Valorisation par rentabilité soutenue (cf. domain/valorization.ts) — la
+ * valeur retenue pour le patrimoine net et le classement d'une entreprise
+ * n'est pas sa seule valeur comptable : une rentabilité MOYENNE soutenue sur
+ * toute sa vie (cumulativeNetProfit / cyclesActive) la valorise structurel-
+ * lement plus haut, comme un vrai multiple de résultat en bourse. Moyenne
+ * plutôt que compteur de cycles consécutifs : insensible à un coup dur
+ * ponctuel (aléa négatif), sensible à la vraie qualité de gestion dans la
+ * durée. N'affecte JAMAIS la valeur comptable elle-même (cf.
+ * computeCompanyBalanceSheet) — uniquement ce multiplicateur, appliqué à part
+ * dans cycles.ts pour le patrimoine net.
+ */
+export function computeValorizationMultiplier(cumulativeNetProfit: number, cyclesActive: number): number {
+  const avgProfitPerCycle = cumulativeNetProfit / Math.max(1, cyclesActive);
+  return (
+    1 +
+    Math.min(MAX_VALORIZATION_MULTIPLIER - 1, Math.sqrt(Math.max(0, avgProfitPerCycle) / VALORIZATION_PROFIT_SCALE))
+  );
+}
+
 export interface CompanyInvestmentLevels {
   marketing: number;
   quality: number;
@@ -155,9 +202,16 @@ export function computeWorkConditionsReputationTrickle(level: number): number {
   return (level / 100) * WORK_CONDITIONS_MAX_REPUTATION_TRICKLE;
 }
 
-/** Automatisation : des machines remplacent le travail manuel répétitif → coût de production par unité réduit. */
+/**
+ * Automatisation : des machines remplacent le travail manuel répétitif →
+ * coût de production par unité réduit. Le niveau utilisé est plafonné à 100
+ * même si le palier mondial (cf. computeGlobalTierBonus) le fait dépasser
+ * ce seuil — une réduction de coût ne peut jamais aller au-delà de son
+ * plafond de conception (AUTOMATION_MAX_UNIT_COST_REDUCTION), donc jamais
+ * rendre le coût négatif.
+ */
 export function computeAutomationUnitCostMultiplier(level: number): number {
-  return 1 - (level / 100) * AUTOMATION_MAX_UNIT_COST_REDUCTION;
+  return 1 - (Math.min(100, level) / 100) * AUTOMATION_MAX_UNIT_COST_REDUCTION;
 }
 
 /** Coût de production d'une unité, avant vente : matières/process de base, modulé par automatisation et qualité. */
@@ -218,8 +272,8 @@ export function assembleCompanyBalanceSheet(
     company.safetyInvestment.toNumber() +
     company.insuranceInvestment.toNumber();
 
-  const automationLevel = computeInvestmentLevel(company.automationInvestment.toNumber());
-  const qualityLevel = computeInvestmentLevel(company.rdInvestment.toNumber());
+  const automationLevel = computeEffectiveInvestmentLevel(company.automationInvestment.toNumber());
+  const qualityLevel = computeEffectiveInvestmentLevel(company.rdInvestment.toNumber());
   const inventoryValue = company.products.reduce((sum, product) => {
     const unitCost = computeProductUnitCost(automationLevel, qualityLevel, product.type as ProductType);
     return sum + product.stockUnits.toNumber() * unitCost;
@@ -251,11 +305,16 @@ export function assembleCompanyBalanceSheet(
 
 const INSURANCE_MAX_LOSS_RATIO_BASE = 0.3;
 const INSURANCE_MAX_LOSS_RATIO_FLOOR = 0.1;
-/** Assurance : plafonne la perte maximale qu'un seul événement négatif peut infliger, en plus de la réserve. */
+/**
+ * Assurance : plafonne la perte maximale qu'un seul événement négatif peut
+ * infliger, en plus de la réserve. Niveau plafonné à 100 (même si le palier
+ * mondial le fait dépasser ce seuil) — la protection ne peut jamais aller
+ * au-delà du plancher de conception (INSURANCE_MAX_LOSS_RATIO_FLOOR).
+ */
 export function computeInsuranceMaxLossRatio(level: number): number {
   return (
     INSURANCE_MAX_LOSS_RATIO_BASE -
-    (level / 100) * (INSURANCE_MAX_LOSS_RATIO_BASE - INSURANCE_MAX_LOSS_RATIO_FLOOR)
+    (Math.min(100, level) / 100) * (INSURANCE_MAX_LOSS_RATIO_BASE - INSURANCE_MAX_LOSS_RATIO_FLOOR)
   );
 }
 
@@ -432,7 +491,10 @@ export function computeCompetitiveness(inputs: CompetitivenessInputs): number {
   const innovationMultiplier = 1 + (innovationLevel / 100) * catalog.innovationDemandSensitivity;
   const acceptedReferencePrice =
     REFERENCE_UNIT_PRICE * catalog.referencePriceMultiplier * computeQualityPriceTolerance(qualityLevel);
-  const elasticity = PRICE_ELASTICITY_BASE * (1 - (brandingLevel / 100) * BRANDING_MAX_ELASTICITY_REDUCTION);
+  // Plafonné à 100 même si le palier mondial fait dépasser ce seuil — une
+  // élasticité ne doit jamais devenir négative (ce qui inverserait la
+  // relation prix/demande : baisser le prix ferait alors fuir la clientèle).
+  const elasticity = PRICE_ELASTICITY_BASE * (1 - (Math.min(100, brandingLevel) / 100) * BRANDING_MAX_ELASTICITY_REDUCTION);
   const priceMultiplier = Math.min(
     DEMAND_PRICE_MULTIPLIER_CAP,
     Math.pow(acceptedReferencePrice / Math.max(0.01, unitPrice), elasticity),
@@ -627,7 +689,9 @@ export function rollCompanyEvent(
   const label = isPositive ? definition.positiveLabel : definition.negativeLabel;
 
   if (definition.axis === "workConditions") {
-    const level = levels.workConditions;
+    // Plafonné à 100 même si le palier mondial fait dépasser ce seuil — un
+    // événement négatif ne doit jamais s'inverser en gain de réputation.
+    const level = Math.min(100, levels.workConditions);
     const reputationDelta = isPositive ? 3 + (level / 100) * 5 : -(5 - (level / 100) * 4);
     return { label, isPositive, revenueDelta: 0, reputationDelta, reserveConsumed: 0 };
   }
@@ -648,8 +712,12 @@ export function rollCompanyEvent(
     return { label, isPositive, revenueDelta: baseRevenue * magnitude, reputationDelta: 0, reserveConsumed: 0 };
   }
 
-  const brandingDampening = 1 - (levels.branding / 100) * MAX_BRANDING_DAMPENING;
-  const magnitude = baseMagnitude * (1 - (relevantLevel / 100) * NEGATIVE_EVENT_MAX_DAMPENING) * brandingDampening;
+  // Plafonnés à 100 même si le palier mondial les fait dépasser ce seuil —
+  // un amortissement ne doit jamais s'inverser en magnitude négative (ce qui
+  // transformerait un événement négatif en gain net).
+  const brandingDampening = 1 - (Math.min(100, levels.branding) / 100) * MAX_BRANDING_DAMPENING;
+  const magnitude =
+    baseMagnitude * (1 - (Math.min(100, relevantLevel) / 100) * NEGATIVE_EVENT_MAX_DAMPENING) * brandingDampening;
   const rawLoss = baseRevenue * magnitude;
   const insuranceCap = baseRevenue * computeInsuranceMaxLossRatio(levels.insurance);
   const cappedLoss = Math.min(rawLoss, insuranceCap);

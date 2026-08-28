@@ -64,7 +64,8 @@ import {
   computeEffectiveAttractiveness,
   computeEmployeeSalaryCosts,
   computeHrStaffMoraleBonus,
-  computeInvestmentLevel,
+  computeEffectiveInvestmentLevel,
+  computeValorizationMultiplier,
   computeMarketDevelopmentBonus,
   computeMarketPoolSize,
   computeMarketSharePercent,
@@ -761,38 +762,52 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
     propertyEquityByPlayer.set(property.ownerId!, (propertyEquityByPlayer.get(property.ownerId!) ?? 0) + equity);
   }
 
-  // Bilan consolidé (groupe/holding, cf. CompanyShare.holderCompany) : une
-  // société qui détient des parts d'une autre voit la valeur de cette
-  // participation comptée comme un actif propre (assembleCompanyBalanceSheet,
-  // equityStakesHeldValue) — à UN niveau seulement (l'équité "autonome" de la
-  // filiale, pas sa propre consolidation) pour éviter toute récursion sur des
-  // chaînes de holdings, cf. plan.
+  // Équité AUTONOME de chaque société (bilan comptable, hors participations
+  // détenues) — base commune aux deux consolidations groupe/holding
+  // ci-dessous : valeur comptable (companies.service.ts, pour l'affichage
+  // live du bilan/capacité d'emprunt) et valeur de marché (ici, pour le
+  // patrimoine net — cf. computeValorizationMultiplier plus bas).
   const standaloneEquityByCompany = new Map<string, number>();
   for (const company of companies) {
     standaloneEquityByCompany.set(company.id, assembleCompanyBalanceSheet(company).equity);
   }
-  const equityStakesHeldValueByCompany = new Map<string, number>();
+
+  // Valorisation par rentabilité soutenue (cf. domain/valorization.ts,
+  // computeValorizationMultiplier) — UNIQUEMENT pour le patrimoine net et le
+  // classement, jamais pour le bilan comptable ci-dessus (capacité
+  // d'emprunt, prix plancher d'OPA restent en valeur comptable pure). Le
+  // multiplicateur PROPRE de chaque société s'applique à SES actifs propres
+  // seulement — une participation détenue porte déjà le multiplicateur de sa
+  // cible, pas de double comptage en le réappliquant à la holding.
+  const ownMarketValueByCompany = new Map<string, number>();
+  for (const company of companies) {
+    const cyclesActive = Math.max(1, openCycle.number - company.foundedCycle);
+    const multiplier = computeValorizationMultiplier(company.cumulativeNetProfit.toNumber(), cyclesActive);
+    ownMarketValueByCompany.set(company.id, (standaloneEquityByCompany.get(company.id) ?? 0) * multiplier);
+  }
+  const marketValueStakesHeldByCompany = new Map<string, number>();
   for (const company of companies) {
     for (const share of company.shares) {
       if (!share.holderCompanyId) continue;
       const sharePercentage = share.sharePercentage.toNumber();
       if (sharePercentage <= 0) continue;
-      const stake = (standaloneEquityByCompany.get(company.id) ?? 0) * (sharePercentage / 100);
-      equityStakesHeldValueByCompany.set(
+      const stake = (ownMarketValueByCompany.get(company.id) ?? 0) * (sharePercentage / 100);
+      marketValueStakesHeldByCompany.set(
         share.holderCompanyId,
-        (equityStakesHeldValueByCompany.get(share.holderCompanyId) ?? 0) + stake,
+        (marketValueStakesHeldByCompany.get(share.holderCompanyId) ?? 0) + stake,
       );
     }
   }
 
   const companyEquityByPlayer = new Map<string, number>();
   for (const company of companies) {
-    const { equity } = assembleCompanyBalanceSheet(company, equityStakesHeldValueByCompany.get(company.id) ?? 0);
+    const totalMarketValue =
+      (ownMarketValueByCompany.get(company.id) ?? 0) + (marketValueStakesHeldByCompany.get(company.id) ?? 0);
     for (const share of company.shares) {
       if (!share.playerId) continue;
       const sharePercentage = share.sharePercentage.toNumber();
       if (sharePercentage <= 0) continue;
-      const stake = equity * (sharePercentage / 100);
+      const stake = totalMarketValue * (sharePercentage / 100);
       companyEquityByPlayer.set(share.playerId, (companyEquityByPlayer.get(share.playerId) ?? 0) + stake);
     }
   }
@@ -883,16 +898,16 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
     const ownerCompanyCount = ownerId ? (activeCompanyCountByOwner.get(ownerId) ?? 1) : 1;
 
     const levels = {
-      marketing: computeInvestmentLevel(company.marketingInvestment.toNumber()),
-      quality: computeInvestmentLevel(company.rdInvestment.toNumber()),
-      equipment: computeInvestmentLevel(company.equipmentInvestment.toNumber()),
-      workConditions: computeInvestmentLevel(company.workConditionsInvestment.toNumber()),
-      automation: computeInvestmentLevel(company.automationInvestment.toNumber()),
-      branding: computeInvestmentLevel(company.brandingInvestment.toNumber()),
-      innovation: computeInvestmentLevel(company.innovationInvestment.toNumber()),
-      training: computeInvestmentLevel(company.trainingInvestment.toNumber()),
-      safety: computeInvestmentLevel(company.safetyInvestment.toNumber()),
-      insurance: computeInvestmentLevel(company.insuranceInvestment.toNumber()),
+      marketing: computeEffectiveInvestmentLevel(company.marketingInvestment.toNumber()),
+      quality: computeEffectiveInvestmentLevel(company.rdInvestment.toNumber()),
+      equipment: computeEffectiveInvestmentLevel(company.equipmentInvestment.toNumber()),
+      workConditions: computeEffectiveInvestmentLevel(company.workConditionsInvestment.toNumber()),
+      automation: computeEffectiveInvestmentLevel(company.automationInvestment.toNumber()),
+      branding: computeEffectiveInvestmentLevel(company.brandingInvestment.toNumber()),
+      innovation: computeEffectiveInvestmentLevel(company.innovationInvestment.toNumber()),
+      training: computeEffectiveInvestmentLevel(company.trainingInvestment.toNumber()),
+      safety: computeEffectiveInvestmentLevel(company.safetyInvestment.toNumber()),
+      insurance: computeEffectiveInvestmentLevel(company.insuranceInvestment.toNumber()),
     };
 
     // Organisation & RH : les effectifs sont assignés par département (cf.
@@ -943,7 +958,11 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
     const rdUpdate = departmentUpdates.find((d) => d.department === "rd")!;
     const rdContribution = computeDepartmentContribution(rdUpdate.counts, rdUpdate.currentMorale);
     const rdStaffInnovationBonus = computeRdStaffInnovationBonus(rdContribution);
-    const effectiveInnovationLevel = Math.min(100, levels.innovation + rdStaffInnovationBonus);
+    // Pas de plafond à 100 ici : levels.innovation intègre déjà le palier
+    // mondial au-delà de 100 (cf. computeEffectiveInvestmentLevel) — un
+    // niveau élevé continue de compter pour le déblocage des gammes et la
+    // compétitivité, sans mur artificiel.
+    const effectiveInnovationLevel = levels.innovation + rdStaffInnovationBonus;
 
     const departmentManagerSalaryCosts = departmentUpdates
       .filter((d) => d.hasManager)
