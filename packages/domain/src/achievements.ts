@@ -31,12 +31,21 @@ export const ACHIEVEMENT_IDS = [
   "networth-5k",
   "networth-20k",
   "networth-75k",
+  "networth-250k",
+  "networth-1m",
+  "networth-10m",
   "company-profit-1k",
   "company-profit-5k",
   "company-profit-10k",
+  "company-profit-50k",
+  "company-profit-250k",
+  "company-profit-1m",
   "investment-level-25",
   "investment-level-50",
   "investment-level-75",
+  "investment-level-100",
+  "investment-level-150",
+  "investment-level-200",
 ] as const;
 export type AchievementId = (typeof ACHIEVEMENT_IDS)[number];
 
@@ -114,6 +123,24 @@ export const ACHIEVEMENT_CATALOG: Record<AchievementId, AchievementDefinition> =
     description: "Atteindre 75 000 € de patrimoine net cumulé.",
     reward: 400,
   },
+  "networth-250k": {
+    id: "networth-250k",
+    label: "250 000 € de patrimoine net",
+    description: "Atteindre 250 000 € de patrimoine net cumulé.",
+    reward: 800,
+  },
+  "networth-1m": {
+    id: "networth-1m",
+    label: "1 million € de patrimoine net",
+    description: "Atteindre 1 000 000 € de patrimoine net cumulé — le club des millionnaires.",
+    reward: 2_000,
+  },
+  "networth-10m": {
+    id: "networth-10m",
+    label: "10 millions € de patrimoine net",
+    description: "Atteindre 10 000 000 € de patrimoine net cumulé — parmi les tout meilleurs joueurs.",
+    reward: 5_000,
+  },
   "company-profit-1k": {
     id: "company-profit-1k",
     label: "1 000 € de profit cumulé",
@@ -131,6 +158,24 @@ export const ACHIEVEMENT_CATALOG: Record<AchievementId, AchievementDefinition> =
     label: "10 000 € de profit cumulé",
     description: "Une de tes entreprises franchit 10 000 € de profit net cumulé — à mi-chemin du seuil d'expansion.",
     reward: 300,
+  },
+  "company-profit-50k": {
+    id: "company-profit-50k",
+    label: "50 000 € de profit cumulé",
+    description: "Une de tes entreprises franchit 50 000 € de profit net cumulé.",
+    reward: 600,
+  },
+  "company-profit-250k": {
+    id: "company-profit-250k",
+    label: "250 000 € de profit cumulé",
+    description: "Une de tes entreprises franchit 250 000 € de profit net cumulé.",
+    reward: 1_500,
+  },
+  "company-profit-1m": {
+    id: "company-profit-1m",
+    label: "1 million € de profit cumulé",
+    description: "Une de tes entreprises franchit 1 000 000 € de profit net cumulé.",
+    reward: 4_000,
   },
   "investment-level-25": {
     id: "investment-level-25",
@@ -150,6 +195,24 @@ export const ACHIEVEMENT_CATALOG: Record<AchievementId, AchievementDefinition> =
     description: "Un levier d'investissement (entreprise ou personnel) atteint le niveau 75.",
     reward: 200,
   },
+  "investment-level-100": {
+    id: "investment-level-100",
+    label: "Levier au niveau 100",
+    description: "Un levier d'investissement (entreprise ou personnel) atteint le plafond de base (niveau 100).",
+    reward: 350,
+  },
+  "investment-level-150": {
+    id: "investment-level-150",
+    label: "Levier au niveau 150 (palier mondial)",
+    description: "Un levier d'investissement d'entreprise dépasse le plafond de base grâce au palier mondial (niveau 150).",
+    reward: 600,
+  },
+  "investment-level-200": {
+    id: "investment-level-200",
+    label: "Levier au niveau 200 (palier mondial maximal)",
+    description: "Un levier d'investissement d'entreprise atteint le plafond absolu du palier mondial (niveau 200).",
+    reward: 1_000,
+  },
 };
 export const ACHIEVEMENT_LIST: AchievementDefinition[] = Object.values(ACHIEVEMENT_CATALOG);
 
@@ -158,11 +221,20 @@ export interface AchievementMilestone {
   threshold: number;
 }
 
-/** Patrimoine net cumulé (PlayerStats.netWorth) — vérifié à chaque clôture de cycle. */
+/**
+ * Patrimoine net cumulé (PlayerStats.netWorth) — vérifié à chaque clôture de
+ * cycle. Les trois derniers paliers (250k/1M/10M) n'existent que depuis que
+ * le holding, la valorisation par rentabilité et le palier mondial (cf.
+ * domain/valorization.ts) ont ouvert une vraie échelle de richesse
+ * multiplicative, au-delà de ce que la valeur comptable seule permettait.
+ */
 export const NET_WORTH_MILESTONES: AchievementMilestone[] = [
   { id: "networth-5k", threshold: 5_000 },
   { id: "networth-20k", threshold: 20_000 },
   { id: "networth-75k", threshold: 75_000 },
+  { id: "networth-250k", threshold: 250_000 },
+  { id: "networth-1m", threshold: 1_000_000 },
+  { id: "networth-10m", threshold: 10_000_000 },
 ];
 
 /** Profit net cumulé d'une entreprise (Company.cumulativeNetProfit) — le maximum sur toutes les entreprises possédées. */
@@ -170,11 +242,22 @@ export const COMPANY_PROFIT_MILESTONES: AchievementMilestone[] = [
   { id: "company-profit-1k", threshold: 1_000 },
   { id: "company-profit-5k", threshold: 5_000 },
   { id: "company-profit-10k", threshold: 10_000 },
+  { id: "company-profit-50k", threshold: 50_000 },
+  { id: "company-profit-250k", threshold: 250_000 },
+  { id: "company-profit-1m", threshold: 1_000_000 },
 ];
 
-/** Niveau d'un levier d'investissement d'entreprise (0-100, cf. computeInvestmentLevel) — le maximum sur les 10 leviers de toutes les entreprises possédées. */
+/**
+ * Niveau d'un levier d'investissement (0-100 pour un levier personnel,
+ * jusqu'à 200 pour un levier d'entreprise grâce au palier mondial — cf.
+ * computeEffectiveInvestmentLevel) — le maximum sur tous les leviers de
+ * toutes les entreprises possédées, et les leviers personnels.
+ */
 export const INVESTMENT_LEVEL_MILESTONES: AchievementMilestone[] = [
   { id: "investment-level-25", threshold: 25 },
   { id: "investment-level-50", threshold: 50 },
   { id: "investment-level-75", threshold: 75 },
+  { id: "investment-level-100", threshold: 100 },
+  { id: "investment-level-150", threshold: 150 },
+  { id: "investment-level-200", threshold: 200 },
 ];

@@ -521,9 +521,10 @@ export default async function GuidePage() {
           <h2>🎯 Défis, prime quotidienne & quiz fiscal</h2>
           <ul className={guideStyles.list}>
             <li>
-              <strong>Défis :</strong> 17 jalons ponctuels ou cumulatifs — huit "premières fois" (10 à 150 €
-              chacune), et neuf paliers de patrimoine net / profit d'entreprise / niveau de levier (30 à 400 €
-              chacun selon le seuil).
+              <strong>Défis :</strong> 26 jalons ponctuels ou cumulatifs — huit "premières fois" (10 à 150 €
+              chacune), et dix-huit paliers de patrimoine net (jusqu'à 10 millions €) / profit d'entreprise
+              (jusqu'à 1 million €) / niveau de levier (jusqu'à 200, palier mondial inclus) — 30 à 5 000 € chacun
+              selon le seuil.
             </li>
             <li>
               <strong>Prime de connexion quotidienne :</strong> grandit avec ta série de jours consécutifs — 10 €
