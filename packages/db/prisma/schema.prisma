@@ -858,6 +858,11 @@ model Company {
   massMarketingBoostMagnitude    Decimal @default(0) @db.Decimal(6, 4)
   massMarketingBoostExpiresCycle Int?
 
+  /// Marchés internationaux (cf. domain/export.ts) — débloqué une fois pour
+  /// toutes (paiement unique, trésorerie de l'entreprise) : cycle de
+  /// déblocage, null tant que non débloqué.
+  exportUnlockedCycle Int?
+
   /// Organisation & RH (cf. domain/organization.ts) : les employés sont
   /// désormais assignés à un département plutôt que comptés globalement, et
   /// chaque département a son propre responsable et son propre moral

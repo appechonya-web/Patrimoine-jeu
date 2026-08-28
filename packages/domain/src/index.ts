@@ -41,3 +41,4 @@ export * from "./province-profiles.js";
 export * from "./starting-profile.js";
 export * from "./career-progression.js";
 export * from "./valorization.js";
+export * from "./export.js";

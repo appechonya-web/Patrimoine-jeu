@@ -119,6 +119,11 @@ export class CompaniesController {
     return this.companiesService.launchMassMarketingCampaign(playerId, companyId, parsed.data);
   }
 
+  @Post("companies/:id/export/unlock")
+  unlockExport(@CurrentPlayer() playerId: string, @Param("id") companyId: string) {
+    return this.companiesService.unlockExport(playerId, companyId);
+  }
+
   @Post("companies/:id/auto-reinvest-rule")
   setAutoReinvestRule(@CurrentPlayer() playerId: string, @Param("id") companyId: string, @Body() body: unknown) {
     const parsed = setAutoReinvestRuleInputSchema.safeParse(body);

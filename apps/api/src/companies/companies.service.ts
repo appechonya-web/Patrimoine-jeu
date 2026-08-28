@@ -40,6 +40,7 @@ import {
   EMPLOYEE_TIER_CATALOG,
   EXPANSION_MIN_CUMULATIVE_NET_PROFIT,
   EXPANSION_MIN_CYCLES_ACTIVE,
+  EXPORT_UNLOCK_COST,
   INVESTMENT_AXIS_LABELS,
   LIQUIDATION_RESERVE_HOLDING_CYCLES,
   MASS_MARKETING_CAMPAIGN_DURATION_CYCLES,
@@ -467,6 +468,40 @@ export class CompaniesService {
         massMarketingBoostMagnitude: magnitude,
         massMarketingBoostExpiresCycle: currentCycle.number + MASS_MARKETING_CAMPAIGN_DURATION_CYCLES,
       },
+      include: COMPANY_VIEW_INCLUDE,
+    });
+
+    const share = await this.prisma.client.companyShare.findUnique({
+      where: { companyId_playerId: { companyId, playerId } },
+    });
+    return this.toCompanyView(updated, share?.sharePercentage.toNumber() ?? 0, currentCycle.number);
+  }
+
+  /**
+   * Marchés internationaux (cf. domain/export.ts) — déblocage unique et
+   * permanent, payé par la trésorerie de l'entreprise. Ouvre l'accès à un
+   * pool de demande export séparé du national dès le prochain cycle.
+   */
+  async unlockExport(playerId: string, companyId: string) {
+    await this.assertPrimaryOwner(playerId, companyId);
+
+    const company = await this.prisma.client.company.findUnique({ where: { id: companyId } });
+    if (!company) {
+      throw new NotFoundException("Entreprise introuvable");
+    }
+    if (company.exportUnlockedCycle !== null) {
+      throw new BadRequestException("Les marchés internationaux sont déjà débloqués pour cette entreprise");
+    }
+    if (company.cashReserve.toNumber() < EXPORT_UNLOCK_COST) {
+      throw new BadRequestException(
+        `Trésorerie insuffisante — il faut ${EXPORT_UNLOCK_COST.toFixed(0)} € pour débloquer les marchés internationaux`,
+      );
+    }
+
+    const currentCycle = await this.cyclesService.getOrCreateOpenCycle();
+    const updated = await this.prisma.client.company.update({
+      where: { id: companyId },
+      data: { cashReserve: { decrement: EXPORT_UNLOCK_COST }, exportUnlockedCycle: currentCycle.number },
       include: COMPANY_VIEW_INCLUDE,
     });
 
@@ -2834,6 +2869,7 @@ export class CompaniesService {
       capacityExpansionInvestment: { toNumber(): number };
       massMarketingBoostMagnitude: { toNumber(): number };
       massMarketingBoostExpiresCycle: number | null;
+      exportUnlockedCycle: number | null;
       sector: { name: string };
       municipality: { name: string; infrastructureFund: { toNumber(): number } };
       cycleReports: {
@@ -2954,6 +2990,9 @@ export class CompaniesService {
               cyclesRemaining: company.massMarketingBoostExpiresCycle - currentCycleNumber,
             }
           : null,
+      // Marchés internationaux (cf. domain/export.ts) — déblocage unique et permanent.
+      exportUnlocked: company.exportUnlockedCycle !== null,
+      exportUnlockedCycle: company.exportUnlockedCycle,
       cashReserve: company.cashReserve.toNumber(),
       distributionPolicy: company.distributionPolicy,
       autoReinvestAxis: company.autoReinvestAxis,

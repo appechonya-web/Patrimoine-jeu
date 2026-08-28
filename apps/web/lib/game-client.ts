@@ -205,6 +205,10 @@ export function launchMassMarketingCampaign(companyId: string, amount: number): 
   return postJson(`/companies/${companyId}/marketing-campaign`, { amount });
 }
 
+export function unlockExport(companyId: string): Promise<Company> {
+  return postJson(`/companies/${companyId}/export/unlock`);
+}
+
 export function setAutoReinvestRule(
   companyId: string,
   axis: InvestmentAxis | null,

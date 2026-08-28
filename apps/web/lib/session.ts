@@ -310,6 +310,8 @@ export interface Company {
   capacityExpansionInvestment: number;
   capacityExpansionMultiplier: number;
   massMarketingCampaign: { magnitude: number; cyclesRemaining: number } | null;
+  exportUnlocked: boolean;
+  exportUnlockedCycle: number | null;
   cashReserve: number;
   distributionPolicy: string;
   autoReinvestAxis: string | null;

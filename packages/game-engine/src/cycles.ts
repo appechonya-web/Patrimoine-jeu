@@ -64,6 +64,7 @@ import {
   computeDepartmentMoraleDrift,
   computeEffectiveAttractiveness,
   computeEmployeeSalaryCosts,
+  computeExportPoolSize,
   computeHrStaffMoraleBonus,
   computeEffectiveInvestmentLevel,
   computeValorizationMultiplier,
@@ -1147,6 +1148,29 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
     }
   }
 
+  // Marchés internationaux (cf. domain/export.ts) : un pool SÉPARÉ du
+  // national, réservé aux entreprises ayant débloqué l'export
+  // (exportUnlockedCycle non nul) — ni les concurrents locaux (NPC compris)
+  // ni le reste des joueurs n'y participent. Référence de compétitivité
+  // ajoutée pour TOUTE gamme (y compris "core", pas de NPC exportateurs ici)
+  // pour qu'une seule exportatrice ne rafle pas 100% d'un pool sans plancher.
+  const exportMarketPools = new Map<string, { totalCompetitiveness: number; poolSize: number; marketingLevelSum: number }>();
+  for (const ctx of companyContexts) {
+    if (ctx.company.exportUnlockedCycle === null) continue;
+    for (const pc of ctx.productContexts) {
+      const key = `${pc.sectorId}:${pc.productType}`;
+      const pool = exportMarketPools.get(key) ?? { totalCompetitiveness: 0, poolSize: 0, marketingLevelSum: 0 };
+      pool.totalCompetitiveness += pc.competitiveness;
+      pool.marketingLevelSum += ctx.levels.marketing;
+      exportMarketPools.set(key, pool);
+    }
+  }
+  for (const [key, pool] of exportMarketPools) {
+    const [, productType] = key.split(":") as [string, ProductType];
+    pool.poolSize = computeExportPoolSize(productType, pool.marketingLevelSum);
+    pool.totalCompetitiveness += NON_CORE_REFERENCE_COMPETITIVENESS;
+  }
+
   // Pass 3 : chaque gamme capte sa part du marché correspondant, produit et
   // vend en conséquence (cf. runProductLine), puis agrégation au niveau
   // entreprise (revenu, coûts, ISOC, événement) comme avant. Les
@@ -1167,8 +1191,18 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
       // panier d'aucun concurrent (contrairement au bonus d'attractivité,
       // qui ne redistribue qu'une part du même marché national partagé).
       const localDemandBonus = computeLocalInfrastructureDemandBonus(ctx.company.municipality.infrastructureFund.toNumber());
-      const demand =
+      const nationalDemand =
         computeCapturedDemand(pool.poolSize, pc.competitiveness, pool.totalCompetitiveness) * (1 + localDemandBonus);
+      // Marchés internationaux (cf. domain/export.ts) : demande SUPPLÉMENTAIRE
+      // pour les entreprises ayant débloqué l'export, captée sur la MÊME
+      // capacité déjà allouée — ne rapporte donc que s'il reste de la marge
+      // au-delà de la demande nationale déjà captée.
+      const exportPool =
+        ctx.company.exportUnlockedCycle !== null ? exportMarketPools.get(`${pc.sectorId}:${pc.productType}`) : undefined;
+      const exportDemand = exportPool
+        ? computeCapturedDemand(exportPool.poolSize, pc.competitiveness, exportPool.totalCompetitiveness)
+        : 0;
+      const demand = nationalDemand + exportDemand;
       const marketSharePercent = computeMarketSharePercent(pc.competitiveness, pool.totalCompetitiveness);
       const override = overrides?.get(pc.product.id);
       const capacity = override?.capacity ?? pc.capacity;

@@ -370,6 +370,14 @@ export default async function GuidePage() {
             trop au-delà de ~100% de part de marché captée ne sert plus à rien — dépenser des millions y a un vrai
             effet, jusqu'à ce que tu domines déjà totalement ton marché.
           </p>
+          <p>
+            <strong>Marchés internationaux :</strong> un déblocage unique et permanent (10 000 €, trésorerie de
+            l'entreprise) ouvre l'accès à un pool de demande EXPORT séparé du national — seules les entreprises
+            l'ayant débloqué s'y disputent la demande, ni les concurrents locaux ni les autres joueurs non
+            exportateurs. Cette demande s'AJOUTE à la demande nationale sur la MÊME capacité déjà allouée : elle
+            ne rapporte donc que si la capacité a de la marge au-delà de ce que le national consomme déjà — le
+            complément naturel de l'expansion de capacité ci-dessus.
+          </p>
         </section>
 
         <section id="marche" className={guideStyles.guideSection}>

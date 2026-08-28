@@ -8,6 +8,7 @@ import {
   DEPARTMENT_MANAGER_SALARY_PER_CYCLE,
   EMPLOYEE_TIER_CATALOG,
   EMPLOYEE_TIERS,
+  EXPORT_UNLOCK_COST,
   INVESTMENT_AXIS_LABELS,
   LOAN_TERM_OPTIONS_CYCLES,
   MAX_INVESTMENT_PER_CYCLE,
@@ -58,6 +59,7 @@ import {
   investInCompany,
   launchMassMarketingCampaign,
   launchProduct,
+  unlockExport,
   listShareForSale,
   requestLoan,
   setProductAllocation,
@@ -404,6 +406,33 @@ function MassMarketingCampaignPanel({ companyId, onDone }: { companyId: string; 
       </button>
       {error && <p className={styles.error}>{error}</p>}
     </form>
+  );
+}
+
+function ExportUnlockPanel({ companyId, onDone }: { companyId: string; onDone: () => void }) {
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleUnlock() {
+    setError(null);
+    setPending(true);
+    try {
+      await unlockExport(companyId);
+      onDone();
+    } catch (err) {
+      setError(err instanceof GameError ? err.message : "Une erreur est survenue");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <div>
+      <button className={styles.apply} type="button" disabled={pending} onClick={handleUnlock}>
+        {pending ? "…" : `🌍 Débloquer (${currencyFormatter.format(EXPORT_UNLOCK_COST)})`}
+      </button>
+      {error && <p className={styles.error}>{error}</p>}
+    </div>
   );
 }
 
@@ -1182,6 +1211,34 @@ export function CompanyDetail({
               </div>
             ) : (
               <p className={styles.jobMeta}>Seul l'actionnaire principal peut investir dans l'entreprise.</p>
+            )}
+          </section>
+
+          <section className={styles.section}>
+            <h2 className={styles.sectionTitle}>
+              <InfoTip
+                label="🌍"
+                title="Marchés internationaux"
+                mechanic={`Déblocage unique et permanent (${currencyFormatter.format(EXPORT_UNLOCK_COST)}, payé par la trésorerie de l'entreprise) qui ouvre l'accès à un pool de demande EXPORT séparé du marché national — seules les entreprises ayant débloqué l'export s'y disputent la demande, pas les concurrents locaux (NPC compris). Cette demande vient s'AJOUTER à la demande nationale, sur la MÊME capacité déjà allouée : elle ne rapporte donc que si ta capacité a de la marge au-delà de ce que le national consomme déjà — combine-la avec l'expansion de capacité.`}
+                realWorld="Comme une entreprise qui ouvre un bureau à l'export : un vrai investissement initial pour accéder à de nouveaux marchés, mais qui ne sert à rien si l'outil de production est déjà saturé par la demande locale — il faut d'abord avoir (ou construire) la capacité de suivre."
+              />
+              <span>Marchés internationaux</span>
+            </h2>
+            {company.exportUnlocked ? (
+              <p className={styles.jobMeta}>
+                ✅ Débloqués depuis le cycle n°{company.exportUnlockedCycle} — toutes tes gammes actives captent
+                désormais aussi de la demande export.
+              </p>
+            ) : company.isPrimaryOwner ? (
+              <>
+                <p className={styles.jobMeta}>
+                  Pas encore débloqués — {currencyFormatter.format(EXPORT_UNLOCK_COST)} depuis la trésorerie de
+                  l'entreprise, une fois pour toutes.
+                </p>
+                <ExportUnlockPanel companyId={company.id} onDone={handleDone} />
+              </>
+            ) : (
+              <p className={styles.jobMeta}>Pas encore débloqués. Seul l'actionnaire principal peut les activer.</p>
             )}
           </section>
 

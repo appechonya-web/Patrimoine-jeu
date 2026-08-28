@@ -13,6 +13,7 @@ import {
   DEPARTMENT_EXPERIENCE_SCALE,
   EMPLOYEE_TIER_CATALOG,
   EMPLOYEE_TIERS,
+  EXPORT_POOL_BASE_SIZE,
   GLOBAL_TIER_SCALE,
   HR_STAFF_MORALE_SCALE,
   INFRASTRUCTURE_ECONOMIC_ACTIVITY_CONVERSION,
@@ -591,6 +592,19 @@ export function computeMarketPoolSize(productType: ProductType, npcCompetitivene
  */
 export function computeMarketDevelopmentBonus(marketingLevelSum: number): number {
   return Math.min(MAX_MARKET_DEVELOPMENT_BONUS, Math.sqrt(Math.max(0, marketingLevelSum) / MARKET_DEVELOPMENT_SCALE));
+}
+
+/**
+ * Taille du pool export (cf. domain/export.ts) — un marché séparé du
+ * national, réservé aux entreprises ayant débloqué l'export, qui grandit
+ * lui aussi avec l'investissement marketing collectif des exportatrices
+ * (même mécanique que computeMarketDevelopmentBonus, réutilisée telle
+ * quelle) plutôt qu'avec le nombre de joueurs ou les concurrents NPC
+ * locaux — un marché de niche, pas un doublon.
+ */
+export function computeExportPoolSize(productType: ProductType, marketingLevelSum: number): number {
+  const marketDevelopmentMultiplier = 1 + computeMarketDevelopmentBonus(marketingLevelSum);
+  return EXPORT_POOL_BASE_SIZE * PRODUCT_CATALOG[productType].demandMultiplier * marketDevelopmentMultiplier;
 }
 
 /** Part du marché captée par une entreprise, proportionnelle à sa compétitivité relative dans ce (secteur, gamme). */
