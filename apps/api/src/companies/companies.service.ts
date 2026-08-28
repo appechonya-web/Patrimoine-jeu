@@ -556,7 +556,12 @@ export class CompaniesService {
           originatedCycle: currentCycle.number,
         },
       });
-      await tx.playerStats.update({ where: { playerId }, data: { wealthLiquid: { increment: input.principal } } });
+      // La dette est portée par l'entreprise (CompanyLoan.companyId) et
+      // remboursée par sa propre trésorerie à chaque cycle (cf.
+      // game-engine/cycles.ts, computeLoanCyclePayment) — l'argent emprunté
+      // doit donc atterrir dans SA trésorerie, pas dans le patrimoine
+      // personnel du joueur.
+      await tx.company.update({ where: { id: companyId }, data: { cashReserve: { increment: input.principal } } });
     });
 
     return this.refreshCompanyView(playerId, companyId);
