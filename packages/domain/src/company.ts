@@ -60,10 +60,21 @@ export interface EmployeeTierDefinition {
   baseContribution: number;
 }
 
+/**
+ * baseContribution doublé (0.08/0.16/0.32 à l'origine) — au salaire
+ * d'origine, même un spécialiste à moral et ancienneté CORRECTS (70/100,
+ * quelques semaines) ne rapportait qu'environ 26 € de capacité
+ * supplémentaire sur la gamme de base (marge ~7 €/unité) pour 57 € de
+ * salaire : structurellement non rentable même en bonne gestion, pas
+ * seulement en début de carrière. Le doublement s'applique uniformément aux
+ * 4 effets par département (production, ventes, R&D, RH — cf.
+ * game-engine/companies.ts computeDepartmentContribution), donc l'ordre
+ * relatif entre paliers ne change pas.
+ */
 export const EMPLOYEE_TIER_CATALOG: Record<EmployeeTier, EmployeeTierDefinition> = {
-  unskilled: { id: "unskilled", label: "Non qualifié", salaryPerCycle: 17.14, baseContribution: 0.08 },
-  qualified: { id: "qualified", label: "Qualifié", salaryPerCycle: 31.43, baseContribution: 0.16 },
-  specialist: { id: "specialist", label: "Spécialisé", salaryPerCycle: 57.14, baseContribution: 0.32 },
+  unskilled: { id: "unskilled", label: "Non qualifié", salaryPerCycle: 17.14, baseContribution: 0.16 },
+  qualified: { id: "qualified", label: "Qualifié", salaryPerCycle: 31.43, baseContribution: 0.32 },
+  specialist: { id: "specialist", label: "Spécialisé", salaryPerCycle: 57.14, baseContribution: 0.64 },
 };
 
 /**
