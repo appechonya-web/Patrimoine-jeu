@@ -55,6 +55,7 @@ import {
 import {
   assembleCompanyBalanceSheet,
   computeAttentionMultiplier,
+  computeCapacityExpansionMultiplier,
   computeCapturedDemand,
   computeCompetitiveness,
   computeDemandGrowthMultiplier,
@@ -1011,12 +1012,28 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
     // Capacité totale partagée par toutes les gammes actives — "core"
     // absorbe automatiquement ce qui reste (100 - somme des autres gammes),
     // elle n'a jamais d'allocation réglée directement (cf.
-    // domain/company.ts, setProductAllocationInputSchema).
+    // domain/company.ts, setProductAllocationInputSchema). L'expansion de
+    // capacité (cf. computeCapacityExpansionMultiplier) est le seul
+    // multiplicateur SANS plafond par action ni palier 100 — l'argent
+    // disponible y compte vraiment, contrairement aux leviers classiques.
+    const capacityExpansionMultiplier = computeCapacityExpansionMultiplier(
+      company.capacityExpansionInvestment.toNumber(),
+    );
     const totalCapacity =
-      computeProductionCapacity(productionDepartment, levels.equipment, levels.training) * attentionMultiplier;
+      computeProductionCapacity(productionDepartment, levels.equipment, levels.training) *
+      attentionMultiplier *
+      capacityExpansionMultiplier;
     const nonCoreAllocationSum = company.products
       .filter((p) => p.type !== "core")
       .reduce((sum, p) => sum + p.capacityAllocation.toNumber(), 0);
+
+    // Campagne marketing de masse (cf. domain/company.ts) — bonus de
+    // compétitivité TEMPORAIRE, distinct du levier marketing permanent
+    // ci-dessus, éteint après massMarketingBoostExpiresCycle.
+    const massMarketingMultiplier =
+      company.massMarketingBoostExpiresCycle !== null && company.massMarketingBoostExpiresCycle >= openCycle.number
+        ? 1 + company.massMarketingBoostMagnitude.toNumber()
+        : 1;
 
     const productContexts = company.products.map((product) => {
       const productType = product.type as ProductType;
@@ -1034,7 +1051,9 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
           innovationLevel: effectiveInnovationLevel,
           unitPrice,
           productType,
-        }) * salesCompetitivenessMultiplier;
+        }) *
+        salesCompetitivenessMultiplier *
+        massMarketingMultiplier;
 
       return { product, productType, sectorId: company.sectorId, capacity, unitPrice, unitCost, competitiveness };
     });

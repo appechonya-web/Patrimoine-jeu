@@ -13,7 +13,9 @@ import type {
   DepositInput,
   HireEmployeeInput,
   InvestCompanyInput,
+  InvestInCapacityExpansionInput,
   InvestmentAxis,
+  LaunchMassMarketingCampaignInput,
   LaunchProductInput,
   LaunchTenderOfferInput,
   ListShareInput,
@@ -40,6 +42,7 @@ import {
   EXPANSION_MIN_CYCLES_ACTIVE,
   INVESTMENT_AXIS_LABELS,
   LIQUIDATION_RESERVE_HOLDING_CYCLES,
+  MASS_MARKETING_CAMPAIGN_DURATION_CYCLES,
   MAX_LOAN_PRINCIPAL_EQUITY_RATIO,
   MIN_TENDER_PREMIUM_RATIO,
   PRODUCT_CATALOG,
@@ -64,6 +67,7 @@ import {
 import {
   assembleCompanyBalanceSheet,
   computeBankReliabilityRating,
+  computeCapacityExpansionMultiplier,
   computeDepartmentContribution,
   computeDilutedSharePercentage,
   computeEffectiveAttractiveness,
@@ -71,6 +75,7 @@ import {
   computeFoundingAttractiveness,
   computeFoundingCost,
   computeInfrastructureAttractivenessBonus,
+  computeMassMarketingCampaignBoost,
   computeQualityPriceTolerance,
   computeLiquidationReserveWithdrawal,
   computeLoanRate,
@@ -339,6 +344,75 @@ export class CompaniesService {
       return tx.company.update({
         where: { id: companyId },
         data: { [field]: { increment: input.amount } },
+        include: COMPANY_VIEW_INCLUDE,
+      });
+    });
+
+    const share = await this.prisma.client.companyShare.findUnique({
+      where: { companyId_playerId: { companyId, playerId } },
+    });
+    return this.toCompanyView(company, share?.sharePercentage.toNumber() ?? 0, currentCycle.number);
+  }
+
+  /**
+   * Expansion de capacité (cf. domain/company.ts) — contrairement à invest()
+   * ci-dessus, PAS de cooldown ni de plafond par action : le seul endroit du
+   * jeu où l'argent disponible compte vraiment sans limite de rythme.
+   */
+  async investInCapacityExpansion(playerId: string, companyId: string, input: InvestInCapacityExpansionInput) {
+    await this.assertPrimaryOwner(playerId, companyId);
+
+    const stats = await this.prisma.client.playerStats.findUnique({ where: { playerId } });
+    if (!stats || stats.wealthLiquid.toNumber() < input.amount) {
+      throw new BadRequestException("Fonds insuffisants pour cet investissement");
+    }
+
+    const currentCycle = await this.cyclesService.getOrCreateOpenCycle();
+    const company = await this.prisma.client.$transaction(async (tx) => {
+      await tx.playerStats.update({
+        where: { playerId },
+        data: { wealthLiquid: { decrement: input.amount } },
+      });
+      return tx.company.update({
+        where: { id: companyId },
+        data: { capacityExpansionInvestment: { increment: input.amount } },
+        include: COMPANY_VIEW_INCLUDE,
+      });
+    });
+
+    const share = await this.prisma.client.companyShare.findUnique({
+      where: { companyId_playerId: { companyId, playerId } },
+    });
+    return this.toCompanyView(company, share?.sharePercentage.toNumber() ?? 0, currentCycle.number);
+  }
+
+  /**
+   * Campagne marketing de masse (cf. domain/company.ts) — bonus de
+   * compétitivité TEMPORAIRE (contrairement au levier marketing permanent),
+   * sans cooldown ni plafond par action. Une nouvelle campagne remplace la
+   * précédente (magnitude et échéance écrasées), pas cumulative.
+   */
+  async launchMassMarketingCampaign(playerId: string, companyId: string, input: LaunchMassMarketingCampaignInput) {
+    await this.assertPrimaryOwner(playerId, companyId);
+
+    const stats = await this.prisma.client.playerStats.findUnique({ where: { playerId } });
+    if (!stats || stats.wealthLiquid.toNumber() < input.amount) {
+      throw new BadRequestException("Fonds insuffisants pour cette campagne");
+    }
+
+    const currentCycle = await this.cyclesService.getOrCreateOpenCycle();
+    const magnitude = computeMassMarketingCampaignBoost(input.amount);
+    const company = await this.prisma.client.$transaction(async (tx) => {
+      await tx.playerStats.update({
+        where: { playerId },
+        data: { wealthLiquid: { decrement: input.amount } },
+      });
+      return tx.company.update({
+        where: { id: companyId },
+        data: {
+          massMarketingBoostMagnitude: magnitude,
+          massMarketingBoostExpiresCycle: currentCycle.number + MASS_MARKETING_CAMPAIGN_DURATION_CYCLES,
+        },
         include: COMPANY_VIEW_INCLUDE,
       });
     });
@@ -2703,6 +2777,9 @@ export class CompaniesService {
       trainingInvestment: { toNumber(): number };
       safetyInvestment: { toNumber(): number };
       insuranceInvestment: { toNumber(): number };
+      capacityExpansionInvestment: { toNumber(): number };
+      massMarketingBoostMagnitude: { toNumber(): number };
+      massMarketingBoostExpiresCycle: number | null;
       sector: { name: string };
       municipality: { name: string; infrastructureFund: { toNumber(): number } };
       cycleReports: {
@@ -2808,6 +2885,18 @@ export class CompaniesService {
         safety: computeEffectiveInvestmentLevel(company.safetyInvestment.toNumber()),
         insurance: computeEffectiveInvestmentLevel(company.insuranceInvestment.toNumber()),
       },
+      // Expansion de capacité & campagne marketing de masse (cf.
+      // domain/company.ts) — les deux puits de dépense SANS plafond ni
+      // cooldown, contrairement aux leviers ci-dessus.
+      capacityExpansionInvestment: company.capacityExpansionInvestment.toNumber(),
+      capacityExpansionMultiplier: computeCapacityExpansionMultiplier(company.capacityExpansionInvestment.toNumber()),
+      massMarketingCampaign:
+        company.massMarketingBoostExpiresCycle !== null && company.massMarketingBoostExpiresCycle >= currentCycleNumber
+          ? {
+              magnitude: company.massMarketingBoostMagnitude.toNumber(),
+              cyclesRemaining: company.massMarketingBoostExpiresCycle - currentCycleNumber,
+            }
+          : null,
       cashReserve: company.cashReserve.toNumber(),
       distributionPolicy: company.distributionPolicy,
       autoReinvestAxis: company.autoReinvestAxis,

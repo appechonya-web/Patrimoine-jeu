@@ -197,6 +197,14 @@ export function investInCompany(companyId: string, axis: InvestmentAxis, amount:
   return postJson(`/companies/${companyId}/invest`, { axis, amount });
 }
 
+export function investInCapacityExpansion(companyId: string, amount: number): Promise<Company> {
+  return postJson(`/companies/${companyId}/capacity-expansion`, { amount });
+}
+
+export function launchMassMarketingCampaign(companyId: string, amount: number): Promise<Company> {
+  return postJson(`/companies/${companyId}/marketing-campaign`, { amount });
+}
+
 export function setAutoReinvestRule(
   companyId: string,
   axis: InvestmentAxis | null,

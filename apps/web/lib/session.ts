@@ -305,6 +305,9 @@ export interface Company {
   cumulativeNetProfit: number;
   sharePercentage: number;
   levels: CompanyLevels;
+  capacityExpansionInvestment: number;
+  capacityExpansionMultiplier: number;
+  massMarketingCampaign: { magnitude: number; cyclesRemaining: number } | null;
   cashReserve: number;
   distributionPolicy: string;
   autoReinvestAxis: string | null;

@@ -13,6 +13,8 @@ import {
   depositInputSchema,
   hireEmployeeInputSchema,
   investCompanyInputSchema,
+  investInCapacityExpansionInputSchema,
+  launchMassMarketingCampaignInputSchema,
   launchProductInputSchema,
   launchTenderOfferInputSchema,
   listShareInputSchema,
@@ -90,6 +92,26 @@ export class CompaniesController {
     }
 
     return this.companiesService.invest(playerId, companyId, parsed.data);
+  }
+
+  @Post("companies/:id/capacity-expansion")
+  investInCapacityExpansion(@CurrentPlayer() playerId: string, @Param("id") companyId: string, @Body() body: unknown) {
+    const parsed = investInCapacityExpansionInputSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+
+    return this.companiesService.investInCapacityExpansion(playerId, companyId, parsed.data);
+  }
+
+  @Post("companies/:id/marketing-campaign")
+  launchMassMarketingCampaign(@CurrentPlayer() playerId: string, @Param("id") companyId: string, @Body() body: unknown) {
+    const parsed = launchMassMarketingCampaignInputSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+
+    return this.companiesService.launchMassMarketingCampaign(playerId, companyId, parsed.data);
   }
 
   @Post("companies/:id/auto-reinvest-rule")

@@ -202,6 +202,41 @@ export const investCompanyInputSchema = z.object({
 
 export type InvestCompanyInput = z.infer<typeof investCompanyInputSchema>;
 
+/**
+ * Expansion de capacité (second site de production) — contrairement aux 10
+ * leviers ci-dessus, PAS de plafond par action ni de cooldown : le seul
+ * endroit du jeu où l'argent disponible compte vraiment sans limite de
+ * rythme, à rendements décroissants (racine carrée, comme le reste du jeu)
+ * mais sans palier 100 — un joueur avec des millions voit un effet
+ * immédiat. La capacité en trop par rapport à ce que le marché peut
+ * absorber part en stock à coût de possession (cf.
+ * STOCK_HOLDING_COST_PER_UNIT) — un vrai plafond économique organique,
+ * pas un mur artificiel.
+ */
+export const MIN_CAPACITY_EXPANSION_AMOUNT = 500;
+export const CAPACITY_EXPANSION_SCALE = 20_000;
+
+export const investInCapacityExpansionInputSchema = z.object({
+  amount: z.number().min(MIN_CAPACITY_EXPANSION_AMOUNT),
+});
+export type InvestInCapacityExpansionInput = z.infer<typeof investInCapacityExpansionInputSchema>;
+
+/**
+ * Campagne marketing de masse — effet TEMPORAIRE (contrairement au levier
+ * marketing classique, permanent), pour ne pas le rendre obsolète : une
+ * grosse dépense ponctuelle donne un vrai coup de fouet à la compétitivité,
+ * qui s'éteint après MASS_MARKETING_CAMPAIGN_DURATION_CYCLES. Comme
+ * l'expansion de capacité, pas de plafond par action ni de cooldown.
+ */
+export const MIN_MASS_MARKETING_CAMPAIGN_AMOUNT = 500;
+export const MASS_MARKETING_CAMPAIGN_SCALE = 5_000;
+export const MASS_MARKETING_CAMPAIGN_DURATION_CYCLES = 30;
+
+export const launchMassMarketingCampaignInputSchema = z.object({
+  amount: z.number().min(MIN_MASS_MARKETING_CAMPAIGN_AMOUNT),
+});
+export type LaunchMassMarketingCampaignInput = z.infer<typeof launchMassMarketingCampaignInputSchema>;
+
 // hireEmployeeInputSchema a déménagé dans ./organization.ts (le recrutement
 // exige désormais un département en plus du palier de qualification).
 

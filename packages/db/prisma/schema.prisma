@@ -848,6 +848,16 @@ model Company {
   safetyInvestment     Decimal @default(0) @db.Decimal(12, 2)
   insuranceInvestment  Decimal @default(0) @db.Decimal(12, 2)
 
+  /// Expansion de capacité (cf. domain/company.ts) — contrairement aux
+  /// leviers ci-dessus, sans plafond par action ni cooldown : le puits de
+  /// dépense sans limite de rythme pour l'argent disponible.
+  capacityExpansionInvestment Decimal @default(0) @db.Decimal(14, 2)
+
+  /// Campagne marketing de masse (cf. domain/company.ts) — effet TEMPORAIRE,
+  /// contrairement au levier marketing permanent ci-dessus.
+  massMarketingBoostMagnitude    Decimal @default(0) @db.Decimal(6, 4)
+  massMarketingBoostExpiresCycle Int?
+
   /// Organisation & RH (cf. domain/organization.ts) : les employés sont
   /// désormais assignés à un département plutôt que comptés globalement, et
   /// chaque département a son propre responsable et son propre moral

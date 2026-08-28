@@ -336,6 +336,29 @@ export default async function GuidePage() {
             dédié pénalise leur capacité (attention divisée) — un vrai arbitrage entre expansion et gestion de
             proximité.
           </p>
+          <p>
+            <strong>Expansion de capacité & campagne marketing de masse :</strong> contrairement aux 11 leviers
+            (plafonnés à 500 €/action, un rythme fixe quel que soit ton capital), ces deux mécanismes n'ont ni
+            plafond par action ni cooldown — c'est ici que l'argent disponible compte vraiment, à rendements
+            décroissants (racine carrée) mais sans mur artificiel.
+          </p>
+          <ul className={guideStyles.list}>
+            <li>
+              <strong>Expansion de capacité</strong> — permanente et cumulative, augmente directement ta capacité
+              de production totale.
+            </li>
+            <li>
+              <strong>Campagne marketing de masse</strong> — TEMPORAIRE (30 cycles), donne un vrai coup de fouet à
+              la compétitivité de toutes tes gammes, puis s'éteint ; une nouvelle campagne remplace la précédente.
+              Distincte du levier marketing classique (permanent, mais plafonné).
+            </li>
+          </ul>
+          <p>
+            Les deux ont un plafond économique <em>organique</em>, pas artificiel : la capacité en trop par
+            rapport à ce que le marché peut absorber part en stock (coût de possession), et la compétitivité en
+            trop au-delà de ~100% de part de marché captée ne sert plus à rien — dépenser des millions y a un vrai
+            effet, jusqu'à ce que tu domines déjà totalement ton marché.
+          </p>
         </section>
 
         <section id="marche" className={guideStyles.guideSection}>

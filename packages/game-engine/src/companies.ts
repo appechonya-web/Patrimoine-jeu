@@ -7,6 +7,7 @@ import {
   BASE_DEMAND_UNITS,
   BASE_UNIT_COST,
   BRANDING_MAX_ELASTICITY_REDUCTION,
+  CAPACITY_EXPANSION_SCALE,
   CORE_MARKET_NPC_REFERENCE_OFFSET,
   DEMAND_PRICE_MULTIPLIER_CAP,
   EMPLOYEE_TIER_CATALOG,
@@ -16,6 +17,7 @@ import {
   INFRASTRUCTURE_ECONOMIC_ACTIVITY_CONVERSION,
   INVESTMENT_LEVEL_SCALE,
   MARKET_DEVELOPMENT_SCALE,
+  MASS_MARKETING_CAMPAIGN_SCALE,
   MAX_GLOBAL_TIER_BONUS,
   MAX_HR_STAFF_MORALE_BONUS,
   MAX_MARKET_DEVELOPMENT_BONUS,
@@ -455,6 +457,31 @@ export function computeProductionCapacity(
   const employeeMultiplier = computeEmployeeCapacityMultiplier(productionDepartment, trainingLevel);
   const equipmentMultiplier = computeEquipmentCapacityMultiplier(equipmentLevel);
   return BASE_CAPACITY_NO_EMPLOYEES * employeeMultiplier * equipmentMultiplier;
+}
+
+/**
+ * Expansion de capacité (cf. domain/company.ts) — contrairement aux leviers
+ * classiques, SANS plafond par action ni cooldown ni palier 100 : le seul
+ * multiplicateur de capacité qui grandit vraiment avec l'argent disponible.
+ * Rendements décroissants (racine carrée) pour éviter qu'un seul très gros
+ * versement double instantanément la capacité, mais aucun mur — un joueur
+ * avec des millions voit un effet réel. La capacité en trop par rapport à ce
+ * que le marché peut absorber part en stock à coût de possession, un
+ * plafond économique organique plutôt qu'artificiel.
+ */
+export function computeCapacityExpansionMultiplier(cumulativeInvestment: number): number {
+  return 1 + Math.sqrt(Math.max(0, cumulativeInvestment) / CAPACITY_EXPANSION_SCALE);
+}
+
+/**
+ * Campagne marketing de masse (cf. domain/company.ts) — bonus de
+ * compétitivité TEMPORAIRE (contrairement au levier marketing permanent),
+ * magnitude proportionnelle à la dépense en rendements décroissants, sans
+ * plafond ni cooldown. Stockée telle quelle (pas recalculée depuis un cumul)
+ * car son effet s'éteint après MASS_MARKETING_CAMPAIGN_DURATION_CYCLES.
+ */
+export function computeMassMarketingCampaignBoost(amount: number): number {
+  return Math.sqrt(Math.max(0, amount) / MASS_MARKETING_CAMPAIGN_SCALE);
 }
 
 export interface CompetitivenessInputs {

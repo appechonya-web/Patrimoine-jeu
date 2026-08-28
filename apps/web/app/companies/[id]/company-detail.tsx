@@ -14,8 +14,11 @@ import {
   MAX_LOAN_PRINCIPAL_EQUITY_RATIO,
   MAX_UNIT_PRICE_RATIO,
   MANAGER_SALARY_PER_CYCLE,
+  MASS_MARKETING_CAMPAIGN_DURATION_CYCLES,
+  MIN_CAPACITY_EXPANSION_AMOUNT,
   MIN_INVESTMENT_AMOUNT,
   MIN_LOAN_PRINCIPAL,
+  MIN_MASS_MARKETING_CAMPAIGN_AMOUNT,
   MIN_UNIT_PRICE,
   PROVINCE_SECTOR_AFFINITIES,
   PROVINCE_SECTOR_AFFINITY_BONUS,
@@ -51,7 +54,9 @@ import {
   hireDepartmentManager,
   hireEmployee,
   hireManager,
+  investInCapacityExpansion,
   investInCompany,
+  launchMassMarketingCampaign,
   launchProduct,
   listShareForSale,
   requestLoan,
@@ -322,6 +327,80 @@ function InvestmentPanel({ companyId, onDone }: { companyId: string; onDone: () 
         {error && <p className={styles.error}>{error}</p>}
       </form>
     </>
+  );
+}
+
+function CapacityExpansionPanel({ companyId, onDone }: { companyId: string; onDone: () => void }) {
+  const [amount, setAmount] = useState(MIN_CAPACITY_EXPANSION_AMOUNT);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    setError(null);
+    setPending(true);
+    try {
+      await investInCapacityExpansion(companyId, amount);
+      onDone();
+    } catch (err) {
+      setError(err instanceof GameError ? err.message : "Une erreur est survenue");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <form className={styles.form} onSubmit={handleSubmit}>
+      <input
+        className={styles.formInput}
+        type="number"
+        min={MIN_CAPACITY_EXPANSION_AMOUNT}
+        step={500}
+        value={amount}
+        onChange={(e) => setAmount(Number(e.target.value))}
+      />
+      <button className={styles.apply} type="submit" disabled={pending}>
+        {pending ? "…" : "🏗️ Agrandir la capacité"}
+      </button>
+      {error && <p className={styles.error}>{error}</p>}
+    </form>
+  );
+}
+
+function MassMarketingCampaignPanel({ companyId, onDone }: { companyId: string; onDone: () => void }) {
+  const [amount, setAmount] = useState(MIN_MASS_MARKETING_CAMPAIGN_AMOUNT);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    setError(null);
+    setPending(true);
+    try {
+      await launchMassMarketingCampaign(companyId, amount);
+      onDone();
+    } catch (err) {
+      setError(err instanceof GameError ? err.message : "Une erreur est survenue");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <form className={styles.form} onSubmit={handleSubmit}>
+      <input
+        className={styles.formInput}
+        type="number"
+        min={MIN_MASS_MARKETING_CAMPAIGN_AMOUNT}
+        step={500}
+        value={amount}
+        onChange={(e) => setAmount(Number(e.target.value))}
+      />
+      <button className={styles.apply} type="submit" disabled={pending}>
+        {pending ? "…" : "📢 Lancer la campagne"}
+      </button>
+      {error && <p className={styles.error}>{error}</p>}
+    </form>
   );
 }
 
@@ -1050,6 +1129,54 @@ export function CompanyDetail({
             </div>
             {company.isPrimaryOwner ? (
               <InvestmentPanel companyId={company.id} onDone={handleDone} />
+            ) : (
+              <p className={styles.jobMeta}>Seul l'actionnaire principal peut investir dans l'entreprise.</p>
+            )}
+          </section>
+
+          <section className={styles.section}>
+            <h2 className={styles.sectionTitle}>
+              <InfoTip
+                label="🏗️"
+                title="Expansion de capacité & campagne de masse"
+                mechanic="Deux puits de dépense SANS plafond par action ni cooldown, contrairement aux 10 leviers ci-dessus — c'est ici que l'argent disponible compte vraiment, à rendements décroissants (racine carrée) mais sans mur. L'expansion de capacité (permanente) augmente directement ta capacité de production totale. La campagne marketing de masse (temporaire) donne un vrai coup de fouet à la compétitivité de toutes tes gammes, mais s'éteint après quelques cycles — contrairement au levier marketing classique qui reste acquis pour toujours."
+                realWorld="Comme construire une seconde usine ou lancer une campagne publicitaire nationale dans la vraie vie : des décisions ponctuelles et coûteuses, pas un abonnement mensuel, qui absorbent vraiment un gros capital d'un coup — contrairement aux budgets courants (leviers classiques) qui restent volontairement modestes et réguliers."
+              />
+              <span>Expansion de capacité & campagne de masse</span>
+            </h2>
+            <div className={styles.jobStats}>
+              <span>
+                🏗️ Capacité ×{company.capacityExpansionMultiplier.toFixed(2)} (
+                {currencyFormatter.format(company.capacityExpansionInvestment)} investis au total)
+              </span>
+              {company.massMarketingCampaign ? (
+                <span>
+                  📢 Campagne active : +{(company.massMarketingCampaign.magnitude * 100).toFixed(0)}% de
+                  compétitivité, encore {company.massMarketingCampaign.cyclesRemaining} cycles
+                </span>
+              ) : (
+                <span>📢 Aucune campagne active</span>
+              )}
+            </div>
+            {company.isPrimaryOwner ? (
+              <div className={styles.jobList}>
+                <div className={styles.jobCard}>
+                  <div>
+                    <div className={styles.jobTitle}>Expansion de capacité</div>
+                    <div className={styles.jobMeta}>Permanent, cumulatif, sans plafond.</div>
+                  </div>
+                  <CapacityExpansionPanel companyId={company.id} onDone={handleDone} />
+                </div>
+                <div className={styles.jobCard}>
+                  <div>
+                    <div className={styles.jobTitle}>Campagne marketing de masse</div>
+                    <div className={styles.jobMeta}>
+                      Remplace toute campagne en cours — dure {MASS_MARKETING_CAMPAIGN_DURATION_CYCLES} cycles.
+                    </div>
+                  </div>
+                  <MassMarketingCampaignPanel companyId={company.id} onDone={handleDone} />
+                </div>
+              </div>
             ) : (
               <p className={styles.jobMeta}>Seul l'actionnaire principal peut investir dans l'entreprise.</p>
             )}
