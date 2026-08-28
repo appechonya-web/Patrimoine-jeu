@@ -201,19 +201,17 @@ export function DistributionSection({ company, onDone }: { company: CompanyDetai
             />
           </div>
 
-          {company.liquidationReserve > 0 && (
-            <>
-              <div className={styles.jobStats}>
-                <span>💰 Réserve {currencyFormatter.format(company.liquidationReserve)}</span>
-                <span>
-                  {company.liquidationReserveIsMature
-                    ? "✅ Retrait gratuit disponible"
-                    : `🔒 Gratuite à partir du cycle n°${company.liquidationReserveMatureAtCycle}`}
-                </span>
-              </div>
-              <WithdrawReserveForm company={company} onDone={onDone} />
-            </>
-          )}
+          <div className={styles.jobStats}>
+            <span>💰 Réserve {currencyFormatter.format(company.liquidationReserve)}</span>
+            {company.liquidationReserve > 0 && (
+              <span>
+                {company.liquidationReserveIsMature
+                  ? "✅ Retrait gratuit disponible"
+                  : `🔒 Gratuite à partir du cycle n°${company.liquidationReserveMatureAtCycle}`}
+              </span>
+            )}
+          </div>
+          {company.liquidationReserve > 0 && <WithdrawReserveForm company={company} onDone={onDone} />}
 
           <AutoReinvestForm company={company} onDone={onDone} />
         </>

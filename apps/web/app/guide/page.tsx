@@ -340,7 +340,10 @@ export default async function GuidePage() {
             <strong>Expansion de capacité & campagne marketing de masse :</strong> contrairement aux 11 leviers
             (plafonnés à 500 €/action, un rythme fixe quel que soit ton capital), ces deux mécanismes n'ont ni
             plafond par action ni cooldown — c'est ici que l'argent disponible compte vraiment, à rendements
-            décroissants (racine carrée) mais sans mur artificiel.
+            décroissants (racine carrée) mais sans mur artificiel. Autre différence importante : ils sont financés
+            par la <strong>trésorerie de l'entreprise</strong> (pas ton patrimoine personnel, contrairement aux 11
+            leviers classiques) — l'argent d'un emprunt, d'une levée de fonds ou de profits mis en réserve peut
+            directement y être dépensé.
           </p>
           <ul className={guideStyles.list}>
             <li>

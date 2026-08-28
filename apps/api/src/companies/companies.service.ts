@@ -362,28 +362,28 @@ export class CompaniesService {
   async investInCapacityExpansion(playerId: string, companyId: string, input: InvestInCapacityExpansionInput) {
     await this.assertPrimaryOwner(playerId, companyId);
 
-    const stats = await this.prisma.client.playerStats.findUnique({ where: { playerId } });
-    if (!stats || stats.wealthLiquid.toNumber() < input.amount) {
-      throw new BadRequestException("Fonds insuffisants pour cet investissement");
+    // Financé par la trésorerie de L'ENTREPRISE, pas le patrimoine personnel
+    // du joueur — agrandir un site de production est une dépense de
+    // l'entreprise, comme ses salaires ou son emprunt (cf. requestLoan).
+    const company = await this.prisma.client.company.findUnique({ where: { id: companyId } });
+    if (!company || company.cashReserve.toNumber() < input.amount) {
+      throw new BadRequestException("Trésorerie insuffisante pour cet investissement");
     }
 
     const currentCycle = await this.cyclesService.getOrCreateOpenCycle();
-    const company = await this.prisma.client.$transaction(async (tx) => {
-      await tx.playerStats.update({
-        where: { playerId },
-        data: { wealthLiquid: { decrement: input.amount } },
-      });
-      return tx.company.update({
-        where: { id: companyId },
-        data: { capacityExpansionInvestment: { increment: input.amount } },
-        include: COMPANY_VIEW_INCLUDE,
-      });
+    const updated = await this.prisma.client.company.update({
+      where: { id: companyId },
+      data: {
+        cashReserve: { decrement: input.amount },
+        capacityExpansionInvestment: { increment: input.amount },
+      },
+      include: COMPANY_VIEW_INCLUDE,
     });
 
     const share = await this.prisma.client.companyShare.findUnique({
       where: { companyId_playerId: { companyId, playerId } },
     });
-    return this.toCompanyView(company, share?.sharePercentage.toNumber() ?? 0, currentCycle.number);
+    return this.toCompanyView(updated, share?.sharePercentage.toNumber() ?? 0, currentCycle.number);
   }
 
   /**
@@ -395,32 +395,29 @@ export class CompaniesService {
   async launchMassMarketingCampaign(playerId: string, companyId: string, input: LaunchMassMarketingCampaignInput) {
     await this.assertPrimaryOwner(playerId, companyId);
 
-    const stats = await this.prisma.client.playerStats.findUnique({ where: { playerId } });
-    if (!stats || stats.wealthLiquid.toNumber() < input.amount) {
-      throw new BadRequestException("Fonds insuffisants pour cette campagne");
+    // Financé par la trésorerie de L'ENTREPRISE, pas le patrimoine personnel
+    // du joueur — une campagne publicitaire est une dépense de l'entreprise.
+    const company = await this.prisma.client.company.findUnique({ where: { id: companyId } });
+    if (!company || company.cashReserve.toNumber() < input.amount) {
+      throw new BadRequestException("Trésorerie insuffisante pour cette campagne");
     }
 
     const currentCycle = await this.cyclesService.getOrCreateOpenCycle();
     const magnitude = computeMassMarketingCampaignBoost(input.amount);
-    const company = await this.prisma.client.$transaction(async (tx) => {
-      await tx.playerStats.update({
-        where: { playerId },
-        data: { wealthLiquid: { decrement: input.amount } },
-      });
-      return tx.company.update({
-        where: { id: companyId },
-        data: {
-          massMarketingBoostMagnitude: magnitude,
-          massMarketingBoostExpiresCycle: currentCycle.number + MASS_MARKETING_CAMPAIGN_DURATION_CYCLES,
-        },
-        include: COMPANY_VIEW_INCLUDE,
-      });
+    const updated = await this.prisma.client.company.update({
+      where: { id: companyId },
+      data: {
+        cashReserve: { decrement: input.amount },
+        massMarketingBoostMagnitude: magnitude,
+        massMarketingBoostExpiresCycle: currentCycle.number + MASS_MARKETING_CAMPAIGN_DURATION_CYCLES,
+      },
+      include: COMPANY_VIEW_INCLUDE,
     });
 
     const share = await this.prisma.client.companyShare.findUnique({
       where: { companyId_playerId: { companyId, playerId } },
     });
-    return this.toCompanyView(company, share?.sharePercentage.toNumber() ?? 0, currentCycle.number);
+    return this.toCompanyView(updated, share?.sharePercentage.toNumber() ?? 0, currentCycle.number);
   }
 
   /**
