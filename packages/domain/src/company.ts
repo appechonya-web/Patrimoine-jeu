@@ -317,7 +317,7 @@ export const STOCK_HOLDING_COST_PER_UNIT = 0.3;
  * vrai arbitrage, pas une capacité qui se démultiplie gratuitement à chaque
  * lancement.
  */
-export const PRODUCT_TYPES = ["core", "economique", "premium", "innovant"] as const;
+export const PRODUCT_TYPES = ["core", "economique", "premium", "innovant", "signature", "mondiale"] as const;
 export type ProductType = (typeof PRODUCT_TYPES)[number];
 
 export interface ProductTypeDefinition {
@@ -376,6 +376,36 @@ export const PRODUCT_CATALOG: Record<ProductType, ProductTypeDefinition> = {
     referencePriceMultiplier: 1.6,
     unitCostMultiplier: 1.4,
     innovationDemandSensitivity: 0.6,
+  },
+  /**
+   * Les deux gammes ci-dessous exploitent le palier mondial (cf.
+   * domain/valorization.ts, computeEffectiveInvestmentLevel) : au-delà du
+   * niveau 100 de base, le levier innovation continue de rapporter des
+   * points, ce qui n'avait auparavant aucun débouché de gamme neuve — un
+   * plafond invisible pour les entreprises les plus abouties. "signature"
+   * se débloque encore dans le palier de base (90), "mondiale" exige d'être
+   * entré dans le palier mondial (130), réservée aux entreprises qui ont
+   * dépassé le niveau 100 sur leur levier R&D.
+   */
+  signature: {
+    id: "signature",
+    label: "Gamme signature",
+    description: "Au-delà du produit de rupture — marge maximale, volume minimal, sensibilité R&D encore plus forte.",
+    unlockInnovationLevel: 90,
+    demandMultiplier: 0.3,
+    referencePriceMultiplier: 3.2,
+    unitCostMultiplier: 2.7,
+    innovationDemandSensitivity: 0.8,
+  },
+  mondiale: {
+    id: "mondiale",
+    label: "Gamme mondiale",
+    description: "Le sommet absolu, réservé aux entreprises entrées dans le palier mondial (R&D > 100) — clientèle internationale ultra-exclusive, la marge la plus élevée du jeu.",
+    unlockInnovationLevel: 130,
+    demandMultiplier: 0.15,
+    referencePriceMultiplier: 5,
+    unitCostMultiplier: 4,
+    innovationDemandSensitivity: 1,
   },
 };
 

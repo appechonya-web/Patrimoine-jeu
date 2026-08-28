@@ -293,11 +293,15 @@ export default async function GuidePage() {
             15 000 €.
           </p>
           <p>
-            <strong>4 gammes de produits</strong>, débloquées par ton niveau de R&D/Innovation (un des 11 leviers
+            <strong>6 gammes de produits</strong>, débloquées par ton niveau de R&D/Innovation (un des 11 leviers
             d'investissement, voir plus bas) : la gamme de fondation (toujours active, niveau 0), économique
-            (niveau 15, volume élevé/marge faible), premium (niveau 35, marché restreint/marge élevée), et produit
-            de rupture (niveau 60 — la seule gamme qui continue de profiter de chaque futur palier de R&D après
-            son lancement). Lancer une nouvelle gamme coûte 1 500 €. Le reste de ta capacité de production non
+            (niveau 15, volume élevé/marge faible), premium (niveau 35, marché restreint/marge élevée), produit de
+            rupture (niveau 60), signature (niveau 90) et gamme mondiale (niveau 130 — réservée aux entreprises
+            entrées dans le palier mondial, au-delà du niveau 100 de base). Les trois dernières continuent de
+            profiter de chaque futur palier de R&D après leur lancement (sensibilité R&D croissante), et la marge
+            par unité grimpe à chaque palier (7 € sur la gamme de base, jusqu'à 40 € sur la gamme mondiale) tandis
+            que le volume accessible se réduit d'autant — un vrai compromis, pas un palier strictement meilleur
+            que le précédent. Lancer une nouvelle gamme coûte 1 500 €. Le reste de ta capacité de production non
             alloué aux autres gammes revient automatiquement à la gamme de fondation.
           </p>
           <p><strong>11 leviers d'investissement</strong>, tous à rendements décroissants (racine carrée du montant cumulé investi — les premiers euros comptent beaucoup plus que les suivants), maximum 500 €/action et un cooldown de 7 cycles par levier :</p>

@@ -963,7 +963,7 @@ model CompanyProduct {
   id                 String  @id @default(uuid())
   company            Company @relation(fields: [companyId], references: [id])
   companyId          String
-  /// Clé dans PRODUCT_CATALOG ("core" | "economique" | "premium" | "innovant").
+  /// Clé dans PRODUCT_CATALOG ("core" | "economique" | "premium" | "innovant" | "signature" | "mondiale").
   type               String
   /// Prix de vente, réglable librement par le joueur à chaque cycle.
   unitPrice          Decimal @db.Decimal(10, 2)
