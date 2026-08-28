@@ -69,6 +69,7 @@ import {
   computeBankReliabilityRating,
   computeCapacityExpansionMultiplier,
   computeDepartmentContribution,
+  computeDepartmentExperienceBonus,
   computeDilutedSharePercentage,
   computeEffectiveAttractiveness,
   computeEffectiveInvestmentLevel,
@@ -2726,7 +2727,7 @@ export class CompaniesService {
    */
   private computeEffectiveInnovationLevel(
     innovationInvestment: number,
-    departments: { department: string; morale: { toNumber(): number } }[],
+    departments: { department: string; morale: { toNumber(): number }; experienceCycles: number }[],
     employeeCounts: { department: string; tier: string; count: number }[],
   ): number {
     const rdCounts = { unskilled: 0, qualified: 0, specialist: 0 };
@@ -2735,8 +2736,9 @@ export class CompaniesService {
         rdCounts[row.tier as keyof typeof rdCounts] = row.count;
       }
     }
-    const rdMorale = departments.find((d) => d.department === "rd")?.morale.toNumber() ?? 50;
-    const rdContribution = computeDepartmentContribution(rdCounts, rdMorale);
+    const rdDeptRow = departments.find((d) => d.department === "rd");
+    const rdMorale = rdDeptRow?.morale.toNumber() ?? 50;
+    const rdContribution = computeDepartmentContribution(rdCounts, rdMorale, rdDeptRow?.experienceCycles ?? 0);
     const baseLevel = computeEffectiveInvestmentLevel(innovationInvestment);
     // Pas de plafond à 100 : baseLevel intègre déjà le palier mondial
     // au-delà de 100 (cf. computeEffectiveInvestmentLevel), cohérent avec
@@ -2753,7 +2755,7 @@ export class CompaniesService {
       createdAt: Date;
       foundedCycle: number;
       hasManager: boolean;
-      departments: { department: string; hasManager: boolean; morale: { toNumber(): number } }[];
+      departments: { department: string; hasManager: boolean; morale: { toNumber(): number }; experienceCycles: number }[];
       employeeCounts: { department: string; tier: string; count: number }[];
       cumulativeNetProfit: { toNumber(): number };
       marketingInvestment: { toNumber(): number };
@@ -2823,6 +2825,7 @@ export class CompaniesService {
           employeeCounts[row.tier as keyof typeof employeeCounts] = row.count;
         }
       }
+      const experienceCycles = deptRow?.experienceCycles ?? 0;
       return {
         department,
         label: DEPARTMENT_CATALOG[department].label,
@@ -2830,6 +2833,8 @@ export class CompaniesService {
         morale: deptRow?.morale.toNumber() ?? 50,
         employeeCounts,
         totalEmployeeCount: employeeCounts.unskilled + employeeCounts.qualified + employeeCounts.specialist,
+        experienceCycles,
+        experienceBonus: computeDepartmentExperienceBonus(experienceCycles),
       };
     });
     const totalEmployeeCount = departmentsView.reduce((sum, d) => sum + d.totalEmployeeCount, 0);

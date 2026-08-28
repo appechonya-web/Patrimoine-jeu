@@ -927,6 +927,11 @@ model CompanyDepartment {
   department String
   hasManager Boolean @default(false)
   morale     Decimal @default(50) @db.Decimal(5, 2)
+  /// Ancienneté cumulée (cf. domain/organization.ts) — +1 par cycle où le
+  /// département a au moins un employé, jamais remis à zéro (juste en pause
+  /// si le département se retrouve vide) : une équipe qui tourne depuis
+  /// longtemps devient plus productive qu'une équipe fraîchement recrutée.
+  experienceCycles Int @default(0)
 
   @@id([companyId, department])
 }

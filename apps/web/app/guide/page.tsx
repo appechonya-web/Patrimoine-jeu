@@ -337,6 +337,14 @@ export default async function GuidePage() {
             proximité.
           </p>
           <p>
+            <strong>Ancienneté d'équipe :</strong> en plus du moral, chaque département accumule de l'ancienneté
+            tant qu'il a au moins un employé (jamais remise à zéro, juste en pause si le département se vide) —
+            elle amplifie son effet (production, ventes, R&D ou RH selon le département), sans plafond, en
+            rendements décroissants. Distincte du levier "formation professionnelle" (argent, immédiat) : ici,
+            c'est le temps qui compte — une équipe stable depuis des mois vaut structurellement plus qu'une équipe
+            fraîchement recrutée, à effectif et moral égaux.
+          </p>
+          <p>
             <strong>Expansion de capacité & campagne marketing de masse :</strong> contrairement aux 11 leviers
             (plafonnés à 500 €/action, un rythme fixe quel que soit ton capital), ces deux mécanismes n'ont ni
             plafond par action ni cooldown — c'est ici que l'argent disponible compte vraiment, à rendements

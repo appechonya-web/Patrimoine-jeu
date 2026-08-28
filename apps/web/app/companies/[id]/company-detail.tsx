@@ -235,6 +235,9 @@ function DepartmentCard({
           <span>
             {moraleEmoji(department.morale)} Moral {department.morale.toFixed(0)}/100
           </span>
+          {department.totalEmployeeCount > 0 && (
+            <span>🎓 Ancienneté {department.experienceCycles} cycles (+{(department.experienceBonus * 100).toFixed(0)}%)</span>
+          )}
           <span>{department.hasManager ? "🧑‍💼 Avec responsable" : "🚫 Sans responsable"}</span>
           {EMPLOYEE_TIERS.map((t) => (
             <span key={t}>
@@ -1226,7 +1229,7 @@ export function CompanyDetail({
               <InfoTip
                 label="🏢"
                 title="Départements"
-                mechanic="Chaque département a son propre moral d'équipe (dérive vers une base fixée par 'conditions de travail', amortie par un responsable dédié) ET un effet distinct sur l'entreprise, propre à son rôle : Production alimente la capacité de production ; Ventes multiplie la compétitivité de tes gammes (jusqu'à +50%) — elle vend mieux ce que tu produis déjà, contrairement au marketing qui attire de la demande ; R&D ajoute des points au niveau d'innovation effectif (jusqu'à +20), en plus de l'argent investi — débloque les gammes plus vite ; RH relève la base de moral de TOUS les départements (jusqu'à +20 points), pas seulement le sien."
+                mechanic="Chaque département a son propre moral d'équipe (dérive vers une base fixée par 'conditions de travail', amortie par un responsable dédié) ET un effet distinct sur l'entreprise, propre à son rôle : Production alimente la capacité de production ; Ventes multiplie la compétitivité de tes gammes (jusqu'à +50%) — elle vend mieux ce que tu produis déjà, contrairement au marketing qui attire de la demande ; R&D ajoute des points au niveau d'innovation effectif (jusqu'à +20), en plus de l'argent investi — débloque les gammes plus vite ; RH relève la base de moral de TOUS les départements (jusqu'à +20 points), pas seulement le sien. En plus du moral, chaque département accumule de l'ANCIENNETÉ tant qu'il a au moins un employé (jamais remise à zéro, juste en pause si le département se vide) — elle amplifie son effet, sans plafond, en rendements décroissants : une équipe qui tourne depuis des mois vaut structurellement plus qu'une équipe fraîchement recrutée, à effectif et moral égaux."
                 realWorld="Une vraie organisation n'a pas 4 équipes interchangeables : les ventes vendent, la R&D innove, la production fabrique, et les RH font tourner l'ensemble en maintenant l'engagement des équipes — chacune a un impact différent et complémentaire sur la performance globale, pas un simple total d'effectif."
               />
               <span>Départements</span>

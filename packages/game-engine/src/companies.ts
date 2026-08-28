@@ -10,6 +10,7 @@ import {
   CAPACITY_EXPANSION_SCALE,
   CORE_MARKET_NPC_REFERENCE_OFFSET,
   DEMAND_PRICE_MULTIPLIER_CAP,
+  DEPARTMENT_EXPERIENCE_SCALE,
   EMPLOYEE_TIER_CATALOG,
   EMPLOYEE_TIERS,
   GLOBAL_TIER_SCALE,
@@ -369,26 +370,44 @@ export interface EmployeeCountsByTier {
 export interface DepartmentEmployeeCounts {
   morale: number;
   counts: EmployeeCountsByTier;
+  /** Ancienneté cumulée du département (cf. domain/organization.ts) — +1/cycle où il a au moins un employé, jamais remise à zéro. */
+  experienceCycles: number;
 }
 
 const MAX_TRAINING_BOOST = 0.5;
 
 /**
+ * Ancienneté d'équipe → bonus multiplicatif de contribution, en rendements
+ * décroissants et SANS plafond (cf. domain/organization.ts,
+ * DEPARTMENT_EXPERIENCE_SCALE) — une équipe qui tourne depuis longtemps
+ * vaut structurellement plus, à effectif et moral égaux.
+ */
+export function computeDepartmentExperienceBonus(experienceCycles: number): number {
+  return Math.sqrt(Math.max(0, experienceCycles) / DEPARTMENT_EXPERIENCE_SCALE);
+}
+
+/**
  * Contribution brute d'un département : somme de son effectif pondérée par
  * la contribution de base de chaque palier (cf. domain EMPLOYEE_TIER_CATALOG),
- * modulée par le moral de CE département (cf. computeDepartmentEfficiency).
- * Brique commune aux 4 effets distincts par département (production,
+ * modulée par le moral de CE département (cf. computeDepartmentEfficiency)
+ * ET son ancienneté (cf. computeDepartmentExperienceBonus). Brique commune
+ * aux 4 effets distincts par département (production,
  * computeSalesCompetitivenessMultiplier, computeRdStaffInnovationBonus,
  * computeHrStaffMoraleBonus) — seule la conversion de cette contribution en
  * effet final diffère selon le département.
  */
-export function computeDepartmentContribution(counts: EmployeeCountsByTier, morale: number): number {
+export function computeDepartmentContribution(
+  counts: EmployeeCountsByTier,
+  morale: number,
+  experienceCycles: number,
+): number {
   const efficiency = computeDepartmentEfficiency(morale);
+  const experienceMultiplier = 1 + computeDepartmentExperienceBonus(experienceCycles);
   const rawContribution = EMPLOYEE_TIERS.reduce(
     (s, tier) => s + counts[tier] * EMPLOYEE_TIER_CATALOG[tier].baseContribution,
     0,
   );
-  return rawContribution * efficiency;
+  return rawContribution * efficiency * experienceMultiplier;
 }
 
 /**
@@ -402,7 +421,11 @@ export function computeEmployeeCapacityMultiplier(
   trainingLevel: number,
 ): number {
   const trainingMultiplier = 1 + (trainingLevel / 100) * MAX_TRAINING_BOOST;
-  const contribution = computeDepartmentContribution(productionDepartment.counts, productionDepartment.morale);
+  const contribution = computeDepartmentContribution(
+    productionDepartment.counts,
+    productionDepartment.morale,
+    productionDepartment.experienceCycles,
+  );
   return 1 + contribution * trainingMultiplier;
 }
 

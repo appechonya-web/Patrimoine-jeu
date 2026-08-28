@@ -277,6 +277,8 @@ export interface CompanyDepartmentView {
   morale: number;
   employeeCounts: EmployeeCounts;
   totalEmployeeCount: number;
+  experienceCycles: number;
+  experienceBonus: number;
 }
 
 export interface AttractivenessBreakdown {

@@ -11,9 +11,12 @@ import { EMPLOYEE_TIERS } from "./company.js";
  * "conditions de travail", secoué par un peu d'aléa), qui pilote
  * l'efficacité des employés qui y travaillent — cf.
  * packages/game-engine/src/companies.ts, computeDepartmentEfficiency.
- * La "formation/carrière" demandée est déjà couverte par le levier
- * d'investissement "training" existant (booste la capacité de chaque
- * employé déjà en poste) — pas de système parallèle réinventé ici.
+ * Deux axes de progression du personnel, distincts et cumulables : le
+ * levier d'investissement "training" (argent, booste la capacité de
+ * l'effectif en poste, immédiat dès l'investissement) et l'ancienneté
+ * d'équipe (temps, cf. CompanyDepartment.experienceCycles plus bas — une
+ * équipe qui tourne depuis des mois vaut plus qu'une équipe fraîchement
+ * recrutée même sans un centime de formation).
  *
  * Chaque département a un effet mécanique DISTINCT (avant, les 4
  * contribuaient identiquement à la même capacité de production globale,
@@ -87,6 +90,16 @@ export const MAX_RD_STAFF_INNOVATION_BONUS = 20;
 /** RH : conversion de la contribution d'équipe en points de base de moral (pour TOUS les départements), et plafond de ce bonus. */
 export const HR_STAFF_MORALE_SCALE = 25;
 export const MAX_HR_STAFF_MORALE_BONUS = 20;
+
+/**
+ * Ancienneté d'équipe (CompanyDepartment.experienceCycles, +1 par cycle où
+ * le département a au moins un employé, jamais remis à zéro) — amplifie LA
+ * contribution du département déjà calculée (production, ventes, R&D, RH),
+ * quel que soit son effet, en rendements décroissants et sans plafond :
+ * une équipe qui tourne depuis des mois vaut structurellement plus qu'une
+ * équipe fraîchement recrutée, à effectif et moral égaux.
+ */
+export const DEPARTMENT_EXPERIENCE_SCALE = 2_500;
 
 export const hireEmployeeInputSchema = z.object({
   tier: z.enum(EMPLOYEE_TIERS),

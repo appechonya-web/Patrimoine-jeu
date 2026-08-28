@@ -931,7 +931,11 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
     // autres car elle influence leur propre calcul de baseline ci-dessous.
     const hrDeptRow = company.departments.find((d) => d.department === "hr");
     const hrCurrentMorale = hrDeptRow?.morale.toNumber() ?? 50;
-    const hrContribution = computeDepartmentContribution(countsByDepartment.get("hr")!, hrCurrentMorale);
+    const hrContribution = computeDepartmentContribution(
+      countsByDepartment.get("hr")!,
+      hrCurrentMorale,
+      hrDeptRow?.experienceCycles ?? 0,
+    );
     const hrMoraleBaselineBonus = computeHrStaffMoraleBonus(hrContribution);
 
     const departmentUpdates = DEPARTMENTS.map((department) => {
@@ -943,21 +947,31 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
         computeDepartmentMoraleBaseline(levels.workConditions, hasManager) + hrMoraleBaselineBonus,
       );
       const newMorale = computeDepartmentMoraleDrift(currentMorale, baseline);
-      return { department, currentMorale, newMorale, hasManager, counts: countsByDepartment.get(department)! };
+      const counts = countsByDepartment.get(department)!;
+      // Ancienneté : +1 tant que le département a au moins un employé,
+      // jamais remise à zéro (juste en pause si vide) — cf. domain/organization.ts.
+      const experienceCycles = deptRow?.experienceCycles ?? 0;
+      const newExperienceCycles = totalEmployeeCount(counts) > 0 ? experienceCycles + 1 : experienceCycles;
+      return { department, currentMorale, newMorale, hasManager, counts, experienceCycles, newExperienceCycles };
     });
 
     const productionUpdate = departmentUpdates.find((d) => d.department === "production")!;
     const productionDepartment: DepartmentEmployeeCounts = {
       morale: productionUpdate.currentMorale,
       counts: productionUpdate.counts,
+      experienceCycles: productionUpdate.experienceCycles,
     };
     // Ventes : multiplicateur de compétitivité (cf. computeSalesCompetitivenessMultiplier).
     const salesUpdate = departmentUpdates.find((d) => d.department === "sales")!;
-    const salesContribution = computeDepartmentContribution(salesUpdate.counts, salesUpdate.currentMorale);
+    const salesContribution = computeDepartmentContribution(
+      salesUpdate.counts,
+      salesUpdate.currentMorale,
+      salesUpdate.experienceCycles,
+    );
     const salesCompetitivenessMultiplier = computeSalesCompetitivenessMultiplier(salesContribution);
     // R&D : bonus de points de niveau d'innovation en plus de l'investissement en argent.
     const rdUpdate = departmentUpdates.find((d) => d.department === "rd")!;
-    const rdContribution = computeDepartmentContribution(rdUpdate.counts, rdUpdate.currentMorale);
+    const rdContribution = computeDepartmentContribution(rdUpdate.counts, rdUpdate.currentMorale, rdUpdate.experienceCycles);
     const rdStaffInnovationBonus = computeRdStaffInnovationBonus(rdContribution);
     // Pas de plafond à 100 ici : levels.innovation intègre déjà le palier
     // mondial au-delà de 100 (cf. computeEffectiveInvestmentLevel) — un
@@ -1860,8 +1874,9 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
             department: departmentUpdate.department,
             hasManager: departmentUpdate.hasManager,
             morale: departmentUpdate.newMorale,
+            experienceCycles: departmentUpdate.newExperienceCycles,
           },
-          update: { morale: departmentUpdate.newMorale },
+          update: { morale: departmentUpdate.newMorale, experienceCycles: departmentUpdate.newExperienceCycles },
         });
       }
 
