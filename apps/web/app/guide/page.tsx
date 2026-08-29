@@ -324,12 +324,15 @@ export default async function GuidePage() {
             que le précédent. Lancer une nouvelle gamme coûte 1 500 €. Le reste de ta capacité de production non
             alloué aux autres gammes revient automatiquement à la gamme de fondation.
           </p>
-          <p><strong>11 leviers d'investissement</strong>, tous à rendements décroissants (racine carrée du montant cumulé investi — les premiers euros comptent beaucoup plus que les suivants), maximum 500 €/action et un cooldown de 7 cycles par levier :</p>
+          <p><strong>11 leviers d'investissement</strong>, tous à rendements décroissants (racine carrée du montant cumulé investi — les premiers euros comptent beaucoup plus que les suivants), maximum 5 000 €/action et un cooldown de 7 cycles par levier :</p>
           <p>
-            Chaque levier plafonne à 100 pour ~50 000 € cumulés (~700 cycles minimum), mais ce n'est pas un mur :
-            au-delà, continuer d'investir rapporte un <strong>bonus de palier mondial</strong>, toujours en
-            rendements décroissants — un niveau affiché à plus de 100/100 en profite déjà. C'est un engagement de
-            plusieurs mois à plusieurs années par levier, réservé aux entreprises les plus abouties.
+            Chaque levier plafonne à 100 pour ~50 000 € cumulés, mais ce n'est pas un mur : au-delà, continuer
+            d'investir rapporte un <strong>bonus de palier mondial</strong>, toujours en rendements décroissants —
+            un niveau affiché à plus de 100/100 en profite déjà. Le cooldown reste une vraie limite de rythme
+            (impossible d'obtenir un niveau instantanément), mais le plafond par action détermine combien
+            d'argent compte réellement : à 500 €/action, ~700 cycles minimum ; au plafond de 5 000 €/action,
+            ~70 cycles suffisent — un investisseur fortuné va bien plus vite, un investisseur modeste garde le
+            même rythme qu'avant.
           </p>
           <ul className={guideStyles.list}>
             <li><strong>Marketing</strong> — plus de demande captée, et fait grossir le marché lui-même collectivement (voir plus bas).</li>
@@ -370,8 +373,9 @@ export default async function GuidePage() {
           </p>
           <p>
             <strong>Expansion de capacité & campagne marketing de masse :</strong> contrairement aux 11 leviers
-            (plafonnés à 500 €/action, un rythme fixe quel que soit ton capital), ces deux mécanismes n'ont ni
-            plafond par action ni cooldown — c'est ici que l'argent disponible compte vraiment, à rendements
+            (plafonnés à 5 000 €/action et un cooldown, un vrai rythme minimal même à gros budget), ces deux
+            mécanismes n'ont ni plafond par action ni cooldown — c'est ici que l'argent disponible compte le
+            plus directement, à rendements
             décroissants (racine carrée) mais sans mur artificiel. Autre différence importante : ils sont financés
             par la <strong>trésorerie de l'entreprise</strong> (pas ton patrimoine personnel, contrairement aux 11
             leviers classiques) — l'argent d'un emprunt, d'une levée de fonds ou de profits mis en réserve peut

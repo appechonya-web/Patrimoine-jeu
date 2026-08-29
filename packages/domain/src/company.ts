@@ -188,14 +188,20 @@ export const INVESTMENT_LEVEL_SCALE = 5;
 
 /**
  * Plafond par action d'investissement, combiné à un cooldown de
- * ACTION_COOLDOWN_CYCLES par levier (cf. CompanyActionCooldown) :
- * impossible d'accélérer une amélioration en y mettant plus d'argent d'un
- * coup. Pour atteindre le niveau 100 d'un levier (50 000 € cumulés, cf.
- * INVESTMENT_LEVEL_SCALE et computeInvestmentLevel), il faut au moins 100
- * actions, espacées de 7 cycles chacune — toujours ~700 cycles (environ 29
- * jours à raison d'1 cycle/heure), quel que soit le capital disponible.
+ * ACTION_COOLDOWN_CYCLES par levier (cf. CompanyActionCooldown) : le
+ * cooldown reste un vrai rythme minimal — impossible d'obtenir un niveau
+ * instantanément quel que soit le capital — mais un joueur qui peut se le
+ * permettre investit désormais jusqu'à 10× plus par action, ce qui
+ * comprime d'autant le nombre d'actions (donc de cycles) nécessaires pour
+ * atteindre un niveau donné. Relevé de 500 € à 5 000 € (cf. discussion
+ * "argent vs temps" — un joueur modeste investissant toujours 500 €/action
+ * garde exactement le même rythme qu'avant ; un joueur fortuné peut
+ * atteindre le niveau 100 d'un levier (50 000 € cumulés, cf.
+ * INVESTMENT_LEVEL_SCALE et computeInvestmentLevel) en ~10 actions au lieu
+ * de ~100, et le niveau 200 (palier mondial) en ~110 actions au lieu de
+ * ~1100.
  */
-export const MAX_INVESTMENT_PER_CYCLE = 500;
+export const MAX_INVESTMENT_PER_CYCLE = 5_000;
 
 /**
  * Une seule action (investissement dans un levier donné, ou embauche) par
