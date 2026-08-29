@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import type {
   BuyShareListingInput,
   CastVoteInput,
+  ContributeCashToCompanyInput,
   ContributeToCapitalRaiseInput,
   CreateCapitalRaiseInput,
   CreateCompanyInput,
@@ -561,6 +562,40 @@ export class CompaniesService {
         cashReserve: { increment: input.amount },
       },
       include: COMPANY_VIEW_INCLUDE,
+    });
+
+    const share = await this.prisma.client.companyShare.findUnique({
+      where: { companyId_playerId: { companyId, playerId } },
+    });
+    return this.toCompanyView(updated, share?.sharePercentage.toNumber() ?? 0, currentCycle.number);
+  }
+
+  /**
+   * Apport personnel à la trésorerie (cf. domain/company-contribution.ts) —
+   * un simple virement patrimoine liquide (joueur) → cashReserve
+   * (entreprise), sans parts émises ni dette créée, sans plafond ni
+   * cooldown : contrairement aux 10 leviers classiques, ce n'est pas un
+   * levier de croissance à limiter, juste de l'argent qui change de poche.
+   */
+  async contributeCashToCompany(playerId: string, companyId: string, input: ContributeCashToCompanyInput) {
+    await this.assertPrimaryOwner(playerId, companyId);
+
+    const stats = await this.prisma.client.playerStats.findUnique({ where: { playerId } });
+    if (!stats || stats.wealthLiquid.toNumber() < input.amount) {
+      throw new BadRequestException("Patrimoine liquide insuffisant pour cet apport");
+    }
+
+    const currentCycle = await this.cyclesService.getOrCreateOpenCycle();
+    const updated = await this.prisma.client.$transaction(async (tx) => {
+      await tx.playerStats.update({
+        where: { playerId },
+        data: { wealthLiquid: { decrement: input.amount } },
+      });
+      return tx.company.update({
+        where: { id: companyId },
+        data: { cashReserve: { increment: input.amount } },
+        include: COMPANY_VIEW_INCLUDE,
+      });
     });
 
     const share = await this.prisma.client.companyShare.findUnique({

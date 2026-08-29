@@ -2,6 +2,7 @@ import { BadRequestException, Body, Controller, Delete, Get, Param, Post, UseGua
 import {
   castVoteInputSchema,
   buyShareListingInputSchema,
+  contributeCashToCompanyInputSchema,
   contributeToCapitalRaiseInputSchema,
   createCapitalRaiseInputSchema,
   createCompanyInputSchema,
@@ -124,6 +125,15 @@ export class CompaniesController {
   @Post("companies/:id/export/unlock")
   unlockExport(@CurrentPlayer() playerId: string, @Param("id") companyId: string) {
     return this.companiesService.unlockExport(playerId, companyId);
+  }
+
+  @Post("companies/:id/contribute-cash")
+  contributeCashToCompany(@CurrentPlayer() playerId: string, @Param("id") companyId: string, @Body() body: unknown) {
+    const parsed = contributeCashToCompanyInputSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.companiesService.contributeCashToCompany(playerId, companyId, parsed.data);
   }
 
   @Post("companies/:id/treasury/invest")

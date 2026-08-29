@@ -210,6 +210,10 @@ export function unlockExport(companyId: string): Promise<Company> {
   return postJson(`/companies/${companyId}/export/unlock`);
 }
 
+export function contributeCashToCompany(companyId: string, amount: number): Promise<Company> {
+  return postJson(`/companies/${companyId}/contribute-cash`, { amount });
+}
+
 export function investCompanyTreasury(companyId: string, amount: number): Promise<Company> {
   return postJson(`/companies/${companyId}/treasury/invest`, { amount });
 }

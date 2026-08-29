@@ -392,6 +392,13 @@ export default async function GuidePage() {
             complément naturel de l'expansion de capacité ci-dessus.
           </p>
           <p>
+            <strong>Apport personnel :</strong> un virement direct de ton patrimoine liquide vers la trésorerie
+            de l'entreprise, sans émettre de parts ni créer de dette, sans plafond ni cooldown — si tu es assis
+            sur beaucoup de capital personnel, c'est le moyen le plus simple de donner à ton entreprise les
+            moyens d'investir massivement (leviers, capacité, marketing) sans attendre qu'elle génère elle-même
+            assez de trésorerie.
+          </p>
+          <p>
             <strong>Placement de trésorerie :</strong> la trésorerie qui dort ne rapporte jamais rien par
             elle-même — un placement (retirable à tout moment, sans cooldown) déplace du cash vers un revenu
             passif modeste chaque cycle, taxé et distribué comme n'importe quel autre revenu de l'entreprise.

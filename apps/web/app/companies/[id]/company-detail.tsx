@@ -17,6 +17,7 @@ import {
   MANAGER_SALARY_PER_CYCLE,
   MASS_MARKETING_CAMPAIGN_DURATION_CYCLES,
   MIN_CAPACITY_EXPANSION_AMOUNT,
+  MIN_CASH_CONTRIBUTION,
   MIN_INVESTMENT_AMOUNT,
   MIN_LOAN_PRINCIPAL,
   MIN_MASS_MARKETING_CAMPAIGN_AMOUNT,
@@ -57,6 +58,7 @@ import {
   hireDepartmentManager,
   hireEmployee,
   hireManager,
+  contributeCashToCompany,
   investCompanyTreasury,
   investInCapacityExpansion,
   investInCompany,
@@ -437,6 +439,43 @@ function ExportUnlockPanel({ companyId, onDone }: { companyId: string; onDone: (
       </button>
       {error && <p className={styles.error}>{error}</p>}
     </div>
+  );
+}
+
+function ContributeCashPanel({ companyId, onDone }: { companyId: string; onDone: () => void }) {
+  const [amount, setAmount] = useState(MIN_CASH_CONTRIBUTION);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    setError(null);
+    setPending(true);
+    try {
+      await contributeCashToCompany(companyId, amount);
+      onDone();
+    } catch (err) {
+      setError(err instanceof GameError ? err.message : "Une erreur est survenue");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <form className={styles.form} onSubmit={handleSubmit}>
+      <input
+        className={styles.formInput}
+        type="number"
+        min={MIN_CASH_CONTRIBUTION}
+        step={100}
+        value={amount}
+        onChange={(e) => setAmount(Number(e.target.value))}
+      />
+      <button className={styles.apply} type="submit" disabled={pending}>
+        {pending ? "…" : "💰 Apporter des fonds"}
+      </button>
+      {error && <p className={styles.error}>{error}</p>}
+    </form>
   );
 }
 
@@ -1343,6 +1382,27 @@ export function CompanyDetail({
               </>
             ) : (
               <p className={styles.jobMeta}>Pas encore débloqués. Seul l'actionnaire principal peut les activer.</p>
+            )}
+          </section>
+
+          <section className={styles.section}>
+            <h2 className={styles.sectionTitle}>
+              <InfoTip
+                label="💰"
+                title="Apport personnel"
+                mechanic="Un virement direct de ton patrimoine liquide vers la trésorerie de l'entreprise — sans émettre de parts (pas de dilution, contrairement à une levée de fonds), sans créer de dette (pas de remboursement, contrairement à un prêt), sans plafond ni cooldown. Contrairement aux 10 leviers classiques (plafonnés à 500 €/action), c'est juste de l'argent qui change de poche : le tien vers celle de l'entreprise que tu contrôles."
+                realWorld="Comme un apport en compte courant d'associé : le dirigeant avance de l'argent à sa société sans que ça change la répartition du capital ni créer un emprunt formel — une souplesse réelle que les levées de fonds ou prêts n'offrent pas."
+              />
+              <span>Apport personnel</span>
+            </h2>
+            <p className={styles.jobMeta}>
+              Depuis ton patrimoine liquide, sans plafond — utile si tu as beaucoup de capital et que la
+              trésorerie de l'entreprise limite ce que tu peux y faire (leviers, capacité, marketing...).
+            </p>
+            {company.isPrimaryOwner ? (
+              <ContributeCashPanel companyId={company.id} onDone={handleDone} />
+            ) : (
+              <p className={styles.jobMeta}>Seul l'actionnaire principal peut apporter des fonds.</p>
             )}
           </section>
 

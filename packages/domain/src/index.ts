@@ -2,6 +2,7 @@ export * from "./player.js";
 export * from "./auth.js";
 export * from "./employment.js";
 export * from "./company.js";
+export * from "./company-contribution.js";
 export * from "./company-treasury.js";
 export * from "./public-contracts.js";
 export * from "./market.js";
