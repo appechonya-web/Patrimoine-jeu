@@ -829,6 +829,13 @@ model Company {
   /// seule.
   cashReserve                      Decimal @default(0) @db.Decimal(12, 2)
 
+  /// Placement de trésorerie (cf. domain/company-treasury.ts) — un bucket
+  /// séparé de cashReserve, alimenté/retiré uniquement par action explicite
+  /// du joueur, qui rapporte un revenu passif modeste chaque cycle
+  /// (computeCompanyTreasuryYieldPerCycle) au lieu de dormir sans rien
+  /// rapporter comme le reste de la trésorerie.
+  treasuryInvestment Decimal @default(0) @db.Decimal(14, 2)
+
   /// Distribution des bénéfices (cf. domain/dividends.ts) : "dividend"
   /// (par défaut) distribue le profit net aux actionnaires à chaque cycle,
   /// taxé au précompte mobilier (30%) ; "reserve" l'accumule dans
@@ -911,6 +918,7 @@ model Company {
   capitalRaises              CompanyCapitalRaise[]
   proposals                  CompanyProposal[]
   cycleReports               CompanyCycleReport[]
+  cycleReportLines           CompanyCycleReportLine[]
   leasesAsTenant             Lease[]
   purchaseContracts          SupplyContract[]        @relation("SupplyBuyer")
   saleContracts              SupplyContract[]        @relation("SupplySeller")
@@ -1359,7 +1367,35 @@ model CompanyCycleReport {
   unitsLost     Decimal @default(0) @db.Decimal(12, 2)
   stockUnits    Decimal @default(0) @db.Decimal(12, 2)
 
+  /// Astuce heuristique générée pour ce cycle (cf.
+  /// game-engine/company-insights.ts computeCompanyCycleTip) — le poste le
+  /// plus actionnable pour améliorer le revenu ou réduire une dépense,
+  /// affiché en clair plutôt que de laisser le joueur déduire lui-même la
+  /// cause d'un revenu décevant depuis les chiffres bruts.
+  tip String?
+
   @@unique([companyId, cycleId])
+}
+
+/// Détail ligne par ligne d'une catégorie de CompanyCycleReport — même
+/// principe que PlayerCycleReportLine côté joueur : CompanyCycleReport garde
+/// les totaux (revenue/costs/profit/taxPaid, lecture rapide), cette table
+/// permet d'afficher précisément quels postes composent ces totaux
+/// (salaires, production, stockage, prêts, assurance, dividendes de
+/// filiale...) plutôt qu'un seul chiffre agrégé opaque — la lacune de
+/// transparence à l'origine de cette table.
+model CompanyCycleReportLine {
+  id          String  @id @default(uuid())
+  company     Company @relation(fields: [companyId], references: [id])
+  companyId   String
+  cycle       Cycle   @relation(fields: [cycleId], references: [id])
+  cycleId     String
+  category    String
+  sourceId    String
+  label       String
+  netAmount   Decimal @db.Decimal(14, 2)
+
+  @@unique([companyId, cycleId, category, sourceId])
 }
 
 model SupplyContract {
@@ -1393,6 +1429,7 @@ model Cycle {
   assetPriceHistory      FinancialAssetPriceHistory[]
   playerCycleReports     PlayerCycleReport[]
   playerCycleReportLines PlayerCycleReportLine[]
+  companyCycleReportLines CompanyCycleReportLine[]
 }
 
 /// Prêt bancaire d'entreprise — distinct du modèle Loan (qui visait des

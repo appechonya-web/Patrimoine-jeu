@@ -13,6 +13,7 @@ import {
   depositInputSchema,
   hireEmployeeInputSchema,
   investCompanyInputSchema,
+  investCompanyTreasuryInputSchema,
   investInCapacityExpansionInputSchema,
   launchMassMarketingCampaignInputSchema,
   launchProductInputSchema,
@@ -26,6 +27,7 @@ import {
   setProductAllocationInputSchema,
   submitSaleBidInputSchema,
   tenderSharesInputSchema,
+  withdrawCompanyTreasuryInputSchema,
   withdrawDepositInputSchema,
   withdrawLiquidationReserveInputSchema,
   type Department,
@@ -122,6 +124,29 @@ export class CompaniesController {
   @Post("companies/:id/export/unlock")
   unlockExport(@CurrentPlayer() playerId: string, @Param("id") companyId: string) {
     return this.companiesService.unlockExport(playerId, companyId);
+  }
+
+  @Post("companies/:id/treasury/invest")
+  investCompanyTreasury(@CurrentPlayer() playerId: string, @Param("id") companyId: string, @Body() body: unknown) {
+    const parsed = investCompanyTreasuryInputSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.companiesService.investCompanyTreasury(playerId, companyId, parsed.data);
+  }
+
+  @Post("companies/:id/treasury/withdraw")
+  withdrawCompanyTreasury(@CurrentPlayer() playerId: string, @Param("id") companyId: string, @Body() body: unknown) {
+    const parsed = withdrawCompanyTreasuryInputSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.companiesService.withdrawCompanyTreasury(playerId, companyId, parsed.data);
+  }
+
+  @Get("companies/:id/cycle-report-lines")
+  getLatestCycleReportLines(@Param("id") companyId: string) {
+    return this.companiesService.getLatestCycleReportLines(companyId);
   }
 
   @Post("companies/:id/auto-reinvest-rule")

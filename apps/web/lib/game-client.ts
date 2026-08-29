@@ -210,6 +210,14 @@ export function unlockExport(companyId: string): Promise<Company> {
   return postJson(`/companies/${companyId}/export/unlock`);
 }
 
+export function investCompanyTreasury(companyId: string, amount: number): Promise<Company> {
+  return postJson(`/companies/${companyId}/treasury/invest`, { amount });
+}
+
+export function withdrawCompanyTreasury(companyId: string, amount: number): Promise<Company> {
+  return postJson(`/companies/${companyId}/treasury/withdraw`, { amount });
+}
+
 export function setAutoReinvestRule(
   companyId: string,
   axis: InvestmentAxis | null,

@@ -3,6 +3,7 @@ import {
   getBankReliability,
   getCapitalRaises,
   getCompany,
+  getCompanyCycleReportLines,
   getCompanyInsurance,
   getCompanyStaff,
   getCompanyTenderOffers,
@@ -31,6 +32,7 @@ export default async function CompanyPage({ params }: { params: Promise<{ id: st
     capitalRaises,
     proposals,
     bankReliability,
+    cycleReportLines,
   ] = await Promise.all([
     getCompany(id),
     getMyCompanies(),
@@ -44,6 +46,7 @@ export default async function CompanyPage({ params }: { params: Promise<{ id: st
     getCapitalRaises(),
     getProposals(id),
     getBankReliability(id),
+    getCompanyCycleReportLines(id),
   ]);
 
   if (!company || !player) {
@@ -76,6 +79,7 @@ export default async function CompanyPage({ params }: { params: Promise<{ id: st
       capitalRaise={myCapitalRaise}
       proposals={proposals}
       bankReliability={bankReliability}
+      cycleReportLines={cycleReportLines}
     />
   );
 }

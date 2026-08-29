@@ -20,6 +20,7 @@ import {
   MIN_INVESTMENT_AMOUNT,
   MIN_LOAN_PRINCIPAL,
   MIN_MASS_MARKETING_CAMPAIGN_AMOUNT,
+  MIN_TREASURY_MOVEMENT,
   MIN_UNIT_PRICE,
   PROVINCE_SECTOR_AFFINITIES,
   PROVINCE_SECTOR_AFFINITY_BONUS,
@@ -32,6 +33,7 @@ import type {
   BankReliabilityView,
   CapitalRaiseView,
   Company,
+  CompanyCycleReportLine,
   CompanyDetail as CompanyDetailData,
   CompanyInsuranceView,
   CompanyStaffView,
@@ -55,12 +57,14 @@ import {
   hireDepartmentManager,
   hireEmployee,
   hireManager,
+  investCompanyTreasury,
   investInCapacityExpansion,
   investInCompany,
   launchMassMarketingCampaign,
   launchProduct,
   unlockExport,
   listShareForSale,
+  withdrawCompanyTreasury,
   requestLoan,
   setProductAllocation,
   setProductPrice,
@@ -436,6 +440,59 @@ function ExportUnlockPanel({ companyId, onDone }: { companyId: string; onDone: (
   );
 }
 
+function CompanyTreasuryPanel({ companyId, onDone }: { companyId: string; onDone: () => void }) {
+  const [amount, setAmount] = useState(MIN_TREASURY_MOVEMENT);
+  const [pending, setPending] = useState<"invest" | "withdraw" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleInvest(event: FormEvent) {
+    event.preventDefault();
+    setError(null);
+    setPending("invest");
+    try {
+      await investCompanyTreasury(companyId, amount);
+      onDone();
+    } catch (err) {
+      setError(err instanceof GameError ? err.message : "Une erreur est survenue");
+    } finally {
+      setPending(null);
+    }
+  }
+
+  async function handleWithdraw() {
+    setError(null);
+    setPending("withdraw");
+    try {
+      await withdrawCompanyTreasury(companyId, amount);
+      onDone();
+    } catch (err) {
+      setError(err instanceof GameError ? err.message : "Une erreur est survenue");
+    } finally {
+      setPending(null);
+    }
+  }
+
+  return (
+    <form className={styles.form} onSubmit={handleInvest}>
+      <input
+        className={styles.formInput}
+        type="number"
+        min={MIN_TREASURY_MOVEMENT}
+        step={50}
+        value={amount}
+        onChange={(e) => setAmount(Number(e.target.value))}
+      />
+      <button className={styles.apply} type="submit" disabled={pending !== null}>
+        {pending === "invest" ? "…" : "📥 Placer"}
+      </button>
+      <button className={styles.logout} type="button" disabled={pending !== null} onClick={handleWithdraw}>
+        {pending === "withdraw" ? "…" : "📤 Retirer"}
+      </button>
+      {error && <p className={styles.error}>{error}</p>}
+    </form>
+  );
+}
+
 /** Même formule que game-engine/companies.ts computeCompetitiveness — juste le facteur prix, en isolation, pour la prévisualisation live. */
 function priceMultiplierAt(candidatePrice: number, pricing: ProductPricing): number {
   return Math.min(
@@ -569,6 +626,35 @@ function ProductAllocationForm({
   );
 }
 
+function CycleLineRow({ line }: { line: CompanyCycleReportLine }) {
+  return (
+    <div className={styles.wealthLegendItem}>
+      <span className={styles.wealthLegendLabel}>{line.label}</span>
+      <span className={styles.wealthLegendValue} style={{ color: line.netAmount >= 0 ? "var(--wellbeing)" : "var(--danger)" }}>
+        {line.netAmount >= 0 ? "+" : ""}
+        {currencyFormatter.format(line.netAmount)}
+      </span>
+    </div>
+  );
+}
+
+function CycleReportLinesDetail({ lines }: { lines: CompanyCycleReportLine[] }) {
+  if (lines.length === 0) return null;
+  const sorted = [...lines].sort((a, b) => b.netAmount - a.netAmount);
+  return (
+    <>
+      <p className={styles.jobMeta} style={{ marginTop: "0.9rem" }}>
+        Détail — d'où vient et où part l'argent ce cycle :
+      </p>
+      <div className={styles.wealthLegend}>
+        {sorted.map((line) => (
+          <CycleLineRow key={`${line.category}:${line.sourceId}`} line={line} />
+        ))}
+      </div>
+    </>
+  );
+}
+
 function ProductCard({
   company,
   product,
@@ -629,6 +715,16 @@ function ProductCard({
               <span>
                 <StatHint hint="Chiffre d'affaires de cette gamme ce cycle = unités vendues × prix affiché. Avant coûts, salaires, charges et impôts — voir Profit net pour le résultat final de l'entreprise.">
                   💵 Revenu {currencyFormatter.format(report.revenue)}
+                </StatHint>
+              </span>
+              <span className={report.margin < 0 ? styles.error : undefined}>
+                <StatHint hint="Marge unitaire = prix affiché − coût de production. Négative signifie que chaque unité vendue de cette gamme te coûte plus qu'elle ne rapporte, quel que soit le volume vendu.">
+                  📊 Marge {currencyFormatter.format(report.margin)}/unité ({report.marginPercent.toFixed(0)}%)
+                </StatHint>
+              </span>
+              <span>
+                <StatHint hint="Part de la demande totale que tu as effectivement pu servir (vendu / (vendu + perdu)). Un taux bas signale un manque de capacité de production, pas un problème de demande.">
+                  🎯 Conversion {report.conversionPercent.toFixed(0)}%
                 </StatHint>
               </span>
             </>
@@ -896,6 +992,7 @@ export function CompanyDetail({
   capitalRaise,
   proposals,
   bankReliability,
+  cycleReportLines,
 }: {
   company: CompanyDetailData;
   myControlledCompanies: { id: string; name: string }[];
@@ -911,6 +1008,7 @@ export function CompanyDetail({
   capitalRaise: CapitalRaiseView | null;
   proposals: ProposalView[];
   bankReliability: BankReliabilityView | null;
+  cycleReportLines: CompanyCycleReportLine[];
 }) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<CompanyTabId>("overview");
@@ -1029,7 +1127,7 @@ export function CompanyDetail({
                 <InfoTip
                   label="📅"
                   title="Dernier cycle"
-                  mechanic="Le résumé financier du cycle qui vient de se clôturer : revenu généré par la vente de tes produits, coûts totaux (production, salaires, intérêts), et l'ISOC (impôt des sociétés) prélevé sur le profit avant qu'il ne soit distribué ou réinvesti."
+                  mechanic="Le résumé financier du cycle qui vient de se clôturer : revenu généré par la vente de tes produits, coûts totaux (production, salaires, intérêts), et l'ISOC (impôt des sociétés) prélevé sur le profit avant qu'il ne soit distribué ou réinvesti. Le détail ci-dessous ventile ces totaux poste par poste, et l'astuce pointe le levier le plus actionnable pour ce cycle."
                   realWorld="L'ISOC est le vrai impôt belge sur les bénéfices des sociétés — calculé ici sur une base annualisée puis ramené au cycle, exactement comme un exercice comptable réel est ensuite décomposé en acomptes trimestriels."
                 />
                 <span>Dernier cycle</span>
@@ -1042,6 +1140,12 @@ export function CompanyDetail({
               {company.latestCycleReport.eventLabel && (
                 <p className={styles.jobMeta}>🎲 Événement : {company.latestCycleReport.eventLabel}</p>
               )}
+              {company.latestCycleReport.tip && (
+                <p className={styles.jobMeta} style={{ marginTop: "0.6rem" }}>
+                  💡 <strong>Astuce :</strong> {company.latestCycleReport.tip}
+                </p>
+              )}
+              <CycleReportLinesDetail lines={cycleReportLines} />
             </section>
           )}
 
@@ -1239,6 +1343,27 @@ export function CompanyDetail({
               </>
             ) : (
               <p className={styles.jobMeta}>Pas encore débloqués. Seul l'actionnaire principal peut les activer.</p>
+            )}
+          </section>
+
+          <section className={styles.section}>
+            <h2 className={styles.sectionTitle}>
+              <InfoTip
+                label="🏦"
+                title="Placement de trésorerie"
+                mechanic="La trésorerie (cashReserve) qui dort sans être dépensée ne rapporte jamais rien. Ce placement déplace du cash vers un bucket séparé qui rapporte un revenu passif modeste chaque cycle — taxé et distribué comme n'importe quel autre revenu de l'entreprise, pas un régime fiscal à part. Toujours retirable, sans cooldown : ce n'est qu'un transfert entre deux poches de la même entreprise."
+                realWorld="Comme une entreprise qui place sa trésorerie excédentaire plutôt que de la laisser sur un compte courant sans intérêt — un rendement modeste mais réel sur du capital qui, sinon, ne sert à rien tant qu'il n'est pas dépensé."
+              />
+              <span>Placement de trésorerie</span>
+            </h2>
+            <div className={styles.jobStats}>
+              <span>💰 Placé {currencyFormatter.format(company.treasuryInvestment)}</span>
+              <span>📈 Rapporte {currencyFormatter.format(company.treasuryYieldPerCycle)}/cycle</span>
+            </div>
+            {company.isPrimaryOwner ? (
+              <CompanyTreasuryPanel companyId={company.id} onDone={handleDone} />
+            ) : (
+              <p className={styles.jobMeta}>Seul l'actionnaire principal peut placer/retirer la trésorerie.</p>
             )}
           </section>
 

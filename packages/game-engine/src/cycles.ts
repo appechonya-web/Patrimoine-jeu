@@ -25,6 +25,7 @@ import {
   NON_CORE_REFERENCE_COMPETITIVENESS,
   NPC_JOBS,
   PERSONAL_GOOD_CATALOG,
+  PRODUCT_CATALOG,
   PROVINCE_SECTOR_AFFINITIES,
   PROPERTY_TYPE_RANGES,
   PROVINCE_PROPERTY_PROFILES,
@@ -106,6 +107,9 @@ import { computeBankDepositInterest } from "./banking.js";
 import { rollGuildDetection } from "./guild.js";
 import { computeDividendDistribution, computeLiquidationReserveEntry } from "./dividends.js";
 import { computeSectoralDemandMultiplier, rollSectoralEvent, type ActiveSectoralEffect } from "./sectoral-events.js";
+import { computeCompanyCycleTip } from "./company-insights.js";
+import { computeCompanyTreasuryYieldPerCycle } from "./company-treasury.js";
+import { computePublicContractRevenue } from "./public-contracts.js";
 import { computeInfrastructureAttractivenessBonus, computeLocalInfrastructureDemandBonus } from "./municipality.js";
 import {
   clampStat,
@@ -1282,7 +1286,14 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
       departmentManagerSalaryCosts,
     } = ctx;
 
-    const aggregateRevenue = productResults.reduce((sum, r) => sum + r.revenue, 0) + revenueAdjustment;
+    // Contrats publics (cf. domain/public-contracts.ts) et placement de
+    // trésorerie (cf. domain/company-treasury.ts) — deux nouveaux revenus
+    // passifs, taxés et distribués comme n'importe quel autre revenu
+    // d'entreprise, pas un régime fiscal à part.
+    const publicContractRevenue = computePublicContractRevenue(company.attractivenessScore.toNumber());
+    const treasuryYield = computeCompanyTreasuryYieldPerCycle(company.treasuryInvestment.toNumber());
+    const aggregateRevenue =
+      productResults.reduce((sum, r) => sum + r.revenue, 0) + revenueAdjustment + publicContractRevenue + treasuryYield;
     const aggregateVariableCosts = productResults.reduce((sum, r) => sum + r.variableCosts, 0);
     const aggregateHoldingCosts = productResults.reduce((sum, r) => sum + r.holdingCosts, 0);
 
@@ -1294,12 +1305,32 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
     );
     const revenue = Math.max(0, aggregateRevenue + (event?.revenueDelta ?? 0));
 
-    const staffCosts =
-      (company.hasManager ? MANAGER_SALARY_PER_CYCLE : 0) +
-      departmentManagerSalaryCosts +
-      computeEmployeeSalaryCosts(employeeCounts);
+    const managerCosts = (company.hasManager ? MANAGER_SALARY_PER_CYCLE : 0) + departmentManagerSalaryCosts;
+    const employeeSalaryCosts = computeEmployeeSalaryCosts(employeeCounts);
+    const staffCosts = managerCosts + employeeSalaryCosts;
     const costs = aggregateVariableCosts + aggregateHoldingCosts + staffCosts + depreciationExpense + totalLoanPayments;
     const profitPerCycle = revenue - costs;
+
+    // Astuce heuristique (cf. game-engine/company-insights.ts) — répond
+    // directement à "je ne comprends pas pourquoi mon revenu reste faible" :
+    // pointe le poste le plus actionnable plutôt que de laisser le joueur
+    // déduire lui-même la cause depuis des chiffres bruts.
+    const worstProductMargin = productResults.reduce<{ label: string; margin: number } | null>((worst, r) => {
+      const margin = r.unitPrice - r.unitCost;
+      const label = PRODUCT_CATALOG[r.product.type as ProductType]?.label ?? r.product.type;
+      return !worst || margin < worst.margin ? { label, margin } : worst;
+    }, null);
+    const tip = computeCompanyCycleTip({
+      revenue,
+      costs,
+      unitsSold: productResults.reduce((sum, r) => sum + r.unitsSold, 0),
+      unitsLostDemand: productResults.reduce((sum, r) => sum + r.unitsLostDemand, 0),
+      worstProductMargin,
+      staffCosts,
+      totalLoanPayments,
+      cashReserve: company.cashReserve.toNumber(),
+      treasuryInvestment: company.treasuryInvestment.toNumber(),
+    });
     const taxPerCycle = calculateIsoc(profitPerCycle * CYCLES_PER_YEAR, isoc) / CYCLES_PER_YEAR;
     const netProfitPerCycle = profitPerCycle - taxPerCycle;
     const newCumulativeNetProfit = company.cumulativeNetProfit.toNumber() + netProfitPerCycle;
@@ -1356,6 +1387,18 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
       isBankrupt,
       reputationDelta,
       eventLabel: event?.label ?? null,
+      tip,
+      // Détail ligne par ligne (cf. CompanyCycleReportLine) — costs/revenue
+      // ci-dessus restent les totaux agrégés déjà consommés partout
+      // ailleurs, inchangés.
+      aggregateVariableCosts,
+      aggregateHoldingCosts,
+      employeeSalaryCosts,
+      managerCosts,
+      totalLoanPayments,
+      b2bRevenue: revenueAdjustment,
+      publicContractRevenue,
+      treasuryYield,
       // Perte nette d'un aléa d'entreprise négatif (déjà amortie par les
       // leviers branding/insurance et la réserve, cf. rollCompanyEvent) —
       // base assurable d'un sinistre (cf. domain/insurance.ts).
@@ -1790,6 +1833,7 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
           unitsSold: result.unitsSold,
           unitsLost: result.unitsLostDemand,
           stockUnits: result.stockUnitsTotal,
+          tip: result.tip,
         },
         update: {
           revenue: result.revenue,
@@ -1801,6 +1845,7 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
           unitsSold: result.unitsSold,
           unitsLost: result.unitsLostDemand,
           stockUnits: result.stockUnitsTotal,
+          tip: result.tip,
         },
       });
 
@@ -1822,6 +1867,47 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
       const autoReinvestField = autoReinvestAxis ? AUTO_REINVEST_FIELD_BY_AXIS[autoReinvestAxis] : null;
       const operatingReserveRetained = operatingReserveRetainedByCompany.get(result.company.id) ?? 0;
       const subsidiaryDividendsReceived = companyIncomeByHolderCompany.get(result.company.id) ?? 0;
+
+      // Détail ligne par ligne du cycle (cf. CompanyCycleReportLine) — le
+      // moteur calculait déjà chacun de ces montants, mais seuls
+      // revenue/costs agrégés survivaient jusqu'ici ; la lacune de
+      // transparence à l'origine de cette table.
+      const companyLineWrites: { category: string; sourceId: string; label: string; netAmount: number }[] = [
+        { category: "cost-production", sourceId: "production", label: "Production (matières + coûts variables)", netAmount: -result.aggregateVariableCosts },
+        { category: "cost-holding", sourceId: "holding", label: "Stockage (surproduction)", netAmount: -result.aggregateHoldingCosts },
+        { category: "cost-salaries", sourceId: "salaries", label: "Salaires employés", netAmount: -result.employeeSalaryCosts },
+        { category: "cost-managers", sourceId: "managers", label: "Salaires managers", netAmount: -result.managerCosts },
+        { category: "cost-depreciation", sourceId: "depreciation", label: "Amortissement équipement", netAmount: -result.depreciationExpense },
+        { category: "cost-loans", sourceId: "loans", label: "Échéances de prêt", netAmount: -result.totalLoanPayments },
+        { category: "cost-insurance-premium", sourceId: "insurance-premium", label: "Prime d'assurance payée", netAmount: -insurancePremiumCost },
+        { category: "cost-deposit-interest", sourceId: "deposit-interest", label: "Intérêts versés aux déposants", netAmount: -depositInterestPaid },
+        { category: "cost-guild-fine", sourceId: "guild-fine", label: "Amende de cartel", netAmount: -guildFine },
+        { category: "cost-insurance-claim-paid", sourceId: "insurance-claim-paid", label: "Sinistre versé à un assuré", netAmount: -insuranceClaimPaidOut },
+        { category: "revenue-b2b", sourceId: "b2b", label: "Vente de matières premières (B2B)", netAmount: result.b2bRevenue },
+        { category: "revenue-subsidiary-dividends", sourceId: "subsidiary-dividends", label: "Dividendes d'une filiale", netAmount: subsidiaryDividendsReceived },
+        { category: "revenue-insurance-premiums", sourceId: "insurance-premiums", label: "Primes d'assurance encaissées", netAmount: insurancePremiumIncome },
+        { category: "revenue-insurance-claim", sourceId: "insurance-claim", label: "Sinistre remboursé par l'assurance", netAmount: insuranceClaimReceived },
+        { category: "revenue-loan-interest", sourceId: "loan-interest", label: "Intérêts de crédit communautaire", netAmount: communityLoanCredit },
+        { category: "revenue-public-contract", sourceId: "public-contract", label: "Contrats publics", netAmount: result.publicContractRevenue },
+        { category: "revenue-treasury-yield", sourceId: "treasury-yield", label: "Placement de trésorerie", netAmount: result.treasuryYield },
+        { category: "cost-isoc", sourceId: "isoc", label: "ISOC (impôt société)", netAmount: -result.taxPerCycle },
+      ];
+      for (const line of companyLineWrites) {
+        if (Math.abs(line.netAmount) < 0.005) continue;
+        await tx.companyCycleReportLine.upsert({
+          where: {
+            companyId_cycleId_category_sourceId: {
+              companyId: result.company.id,
+              cycleId: openCycle.id,
+              category: line.category,
+              sourceId: line.sourceId,
+            },
+          },
+          create: { companyId: result.company.id, cycleId: openCycle.id, ...line },
+          update: { netAmount: line.netAmount },
+        });
+      }
+
       await tx.company.update({
         where: { id: result.company.id },
         data: {

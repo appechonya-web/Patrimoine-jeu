@@ -208,6 +208,14 @@ export interface CompanyCycleReport {
   unitsSold: number;
   unitsLost: number;
   stockUnits: number;
+  tip: string | null;
+}
+
+export interface CompanyCycleReportLine {
+  category: string;
+  sourceId: string;
+  label: string;
+  netAmount: number;
 }
 
 export interface ProductCycleReport {
@@ -217,6 +225,9 @@ export interface ProductCycleReport {
   unitCost: number;
   revenue: number;
   marketSharePercent: number;
+  margin: number;
+  marginPercent: number;
+  conversionPercent: number;
 }
 
 export interface SectorCompetitor {
@@ -315,6 +326,8 @@ export interface Company {
   exportUnlocked: boolean;
   exportUnlockedCycle: number | null;
   cashReserve: number;
+  treasuryInvestment: number;
+  treasuryYieldPerCycle: number;
   distributionPolicy: string;
   autoReinvestAxis: string | null;
   autoReinvestCapPerCycle: number | null;
@@ -724,6 +737,12 @@ export async function getMyCompanies(): Promise<MyCompanies> {
 export async function getCompany(id: string): Promise<CompanyDetail | null> {
   const res = await fetchWithSessionCookie(`/companies/${id}`);
   if (!res.ok) return null;
+  return res.json();
+}
+
+export async function getCompanyCycleReportLines(id: string): Promise<CompanyCycleReportLine[]> {
+  const res = await fetchWithSessionCookie(`/companies/${id}/cycle-report-lines`);
+  if (!res.ok) return [];
   return res.json();
 }
 

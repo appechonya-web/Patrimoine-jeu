@@ -13,6 +13,7 @@ import type {
   DepositInput,
   HireEmployeeInput,
   InvestCompanyInput,
+  InvestCompanyTreasuryInput,
   InvestInCapacityExpansionInput,
   InvestmentAxis,
   LaunchMassMarketingCampaignInput,
@@ -28,6 +29,7 @@ import type {
   SetProductAllocationInput,
   SubmitSaleBidInput,
   TenderSharesInput,
+  WithdrawCompanyTreasuryInput,
   WithdrawDepositInput,
   WithdrawLiquidationReserveInput,
 } from "@patrimoine-jeu/domain";
@@ -69,6 +71,7 @@ import {
   assembleCompanyBalanceSheet,
   computeBankReliabilityRating,
   computeCapacityExpansionMultiplier,
+  computeCompanyTreasuryYieldPerCycle,
   computeDepartmentContribution,
   computeDepartmentExperienceBonus,
   computeDilutedSharePercentage,
@@ -509,6 +512,79 @@ export class CompaniesService {
       where: { companyId_playerId: { companyId, playerId } },
     });
     return this.toCompanyView(updated, share?.sharePercentage.toNumber() ?? 0, currentCycle.number);
+  }
+
+  /**
+   * Placement de trésorerie (cf. domain/company-treasury.ts) — déplace du
+   * cash de cashReserve (dormant) vers treasuryInvestment (rapporte un
+   * revenu passif chaque cycle, cf. game-engine/company-treasury.ts). Aucun
+   * cooldown : c'est juste un transfert entre deux poches de la même
+   * entreprise, pas un levier de croissance à limiter.
+   */
+  async investCompanyTreasury(playerId: string, companyId: string, input: InvestCompanyTreasuryInput) {
+    await this.assertPrimaryOwner(playerId, companyId);
+
+    const company = await this.prisma.client.company.findUnique({ where: { id: companyId } });
+    if (!company || company.cashReserve.toNumber() < input.amount) {
+      throw new BadRequestException("Trésorerie insuffisante pour ce placement");
+    }
+
+    const currentCycle = await this.cyclesService.getOrCreateOpenCycle();
+    const updated = await this.prisma.client.company.update({
+      where: { id: companyId },
+      data: {
+        cashReserve: { decrement: input.amount },
+        treasuryInvestment: { increment: input.amount },
+      },
+      include: COMPANY_VIEW_INCLUDE,
+    });
+
+    const share = await this.prisma.client.companyShare.findUnique({
+      where: { companyId_playerId: { companyId, playerId } },
+    });
+    return this.toCompanyView(updated, share?.sharePercentage.toNumber() ?? 0, currentCycle.number);
+  }
+
+  async withdrawCompanyTreasury(playerId: string, companyId: string, input: WithdrawCompanyTreasuryInput) {
+    await this.assertPrimaryOwner(playerId, companyId);
+
+    const company = await this.prisma.client.company.findUnique({ where: { id: companyId } });
+    if (!company || company.treasuryInvestment.toNumber() < input.amount) {
+      throw new BadRequestException("Placement insuffisant pour ce retrait");
+    }
+
+    const currentCycle = await this.cyclesService.getOrCreateOpenCycle();
+    const updated = await this.prisma.client.company.update({
+      where: { id: companyId },
+      data: {
+        treasuryInvestment: { decrement: input.amount },
+        cashReserve: { increment: input.amount },
+      },
+      include: COMPANY_VIEW_INCLUDE,
+    });
+
+    const share = await this.prisma.client.companyShare.findUnique({
+      where: { companyId_playerId: { companyId, playerId } },
+    });
+    return this.toCompanyView(updated, share?.sharePercentage.toNumber() ?? 0, currentCycle.number);
+  }
+
+  /**
+   * Détail ligne par ligne du dernier cycle clôturé (cf.
+   * CompanyCycleReportLine) — répond à "je ne comprends pas où va l'argent",
+   * même principe que PlayerCycleReportLine côté joueur.
+   */
+  async getLatestCycleReportLines(companyId: string) {
+    const latestReport = await this.prisma.client.companyCycleReport.findFirst({
+      where: { companyId },
+      orderBy: { cycle: { number: "desc" } },
+    });
+    if (!latestReport) return [];
+
+    return this.prisma.client.companyCycleReportLine.findMany({
+      where: { companyId, cycleId: latestReport.cycleId },
+      orderBy: { netAmount: "asc" },
+    });
   }
 
   /**
@@ -2853,6 +2929,7 @@ export class CompaniesService {
       equipmentInvestment: { toNumber(): number };
       workConditionsInvestment: { toNumber(): number };
       cashReserve: { toNumber(): number };
+      treasuryInvestment: { toNumber(): number };
       distributionPolicy: string;
       autoReinvestAxis: string | null;
       autoReinvestCapPerCycle: { toNumber(): number } | null;
@@ -2882,6 +2959,7 @@ export class CompaniesService {
         unitsSold: { toNumber(): number };
         unitsLost: { toNumber(): number };
         stockUnits: { toNumber(): number };
+        tip: string | null;
       }[];
       products: {
         id: string;
@@ -2895,6 +2973,7 @@ export class CompaniesService {
           unitsSold: { toNumber(): number };
           unitsLost: { toNumber(): number };
           unitCost: { toNumber(): number };
+          unitPrice: { toNumber(): number };
           revenue: { toNumber(): number };
           marketSharePercent: { toNumber(): number };
         }[];
@@ -2994,6 +3073,10 @@ export class CompaniesService {
       exportUnlocked: company.exportUnlockedCycle !== null,
       exportUnlockedCycle: company.exportUnlockedCycle,
       cashReserve: company.cashReserve.toNumber(),
+      // Placement de trésorerie (cf. domain/company-treasury.ts) — un
+      // revenu passif sur le cash qui dormirait sinon dans cashReserve.
+      treasuryInvestment: company.treasuryInvestment.toNumber(),
+      treasuryYieldPerCycle: computeCompanyTreasuryYieldPerCycle(company.treasuryInvestment.toNumber()),
       distributionPolicy: company.distributionPolicy,
       autoReinvestAxis: company.autoReinvestAxis,
       autoReinvestCapPerCycle: company.autoReinvestCapPerCycle?.toNumber() ?? null,
@@ -3020,6 +3103,7 @@ export class CompaniesService {
             unitsSold: latestReport.unitsSold.toNumber(),
             unitsLost: latestReport.unitsLost.toNumber(),
             stockUnits: latestReport.stockUnits.toNumber(),
+            tip: latestReport.tip,
           }
         : null,
       products: company.products.map((product) => {
@@ -3065,14 +3149,27 @@ export class CompaniesService {
             currentPriceMultiplier,
           },
           latestCycleReport: latestProductReport
-            ? {
-                unitsProduced: latestProductReport.unitsProduced.toNumber(),
-                unitsSold: latestProductReport.unitsSold.toNumber(),
-                unitsLost: latestProductReport.unitsLost.toNumber(),
-                unitCost: latestProductReport.unitCost.toNumber(),
-                revenue: latestProductReport.revenue.toNumber(),
-                marketSharePercent: latestProductReport.marketSharePercent.toNumber(),
-              }
+            ? (() => {
+                const unitsSold = latestProductReport.unitsSold.toNumber();
+                const unitsLost = latestProductReport.unitsLost.toNumber();
+                const unitPrice = latestProductReport.unitPrice.toNumber();
+                const unitCost = latestProductReport.unitCost.toNumber();
+                const totalDemand = unitsSold + unitsLost;
+                return {
+                  unitsProduced: latestProductReport.unitsProduced.toNumber(),
+                  unitsSold,
+                  unitsLost,
+                  unitCost,
+                  revenue: latestProductReport.revenue.toNumber(),
+                  marketSharePercent: latestProductReport.marketSharePercent.toNumber(),
+                  // Transparence marge/conversion (cf. "je ne comprends pas
+                  // pourquoi mon revenu reste faible") — le joueur devait
+                  // faire ce calcul lui-même jusqu'ici.
+                  margin: unitPrice - unitCost,
+                  marginPercent: unitPrice > 0 ? ((unitPrice - unitCost) / unitPrice) * 100 : 0,
+                  conversionPercent: totalDemand > 0 ? (unitsSold / totalDemand) * 100 : 0,
+                };
+              })()
             : null,
         };
       }),

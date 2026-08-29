@@ -391,6 +391,24 @@ export default async function GuidePage() {
             ne rapporte donc que si la capacité a de la marge au-delà de ce que le national consomme déjà — le
             complément naturel de l'expansion de capacité ci-dessus.
           </p>
+          <p>
+            <strong>Placement de trésorerie :</strong> la trésorerie qui dort ne rapporte jamais rien par
+            elle-même — un placement (retirable à tout moment, sans cooldown) déplace du cash vers un revenu
+            passif modeste chaque cycle, taxé et distribué comme n'importe quel autre revenu de l'entreprise.
+          </p>
+          <p>
+            <strong>Contrats publics :</strong> un revenu passif automatique, sans action du joueur, réservé aux
+            entreprises suffisamment attractives (au-delà d'une base de départ + manager) — rendements
+            décroissants, un supplément mérité par une entreprise bien tenue plutôt qu'un levier à maximiser.
+          </p>
+          <p>
+            <strong>Détail du cycle & astuce :</strong> l'onglet vue d'ensemble affiche désormais le détail
+            ligne par ligne de tout ce qui a composé le revenu et les coûts du dernier cycle (production,
+            salaires, prêts, assurance, dividendes de filiale, contrats publics, placement de trésorerie...),
+            avec une astuce pointant le poste le plus actionnable — au lieu de "Revenu / Coûts / ISOC" en 3
+            chiffres seulement. Chaque gamme affiche aussi sa marge réelle (prix − coût) et son taux de
+            conversion demande→ventes.
+          </p>
         </section>
 
         <section id="marche" className={guideStyles.guideSection}>
