@@ -75,7 +75,7 @@ function ContributeForm({ municipalityId, onDone }: { municipalityId: string; on
   }
 
   return (
-    <form className={styles.form} onSubmit={handleSubmit}>
+    <form noValidate className={styles.form} onSubmit={handleSubmit}>
       <input
         className={styles.formInput}
         type="number"
@@ -168,7 +168,7 @@ function CreateProposalForm({
   const max = currentRate + MAX_REGISTRATION_DUTY_RATE_DELTA;
 
   return (
-    <form className={styles.form} onSubmit={handleSubmit}>
+    <form noValidate className={styles.form} onSubmit={handleSubmit}>
       <input
         className={styles.formInput}
         type="number"

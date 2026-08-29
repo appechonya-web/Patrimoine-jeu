@@ -62,7 +62,7 @@ function OpenAccountForm({
       : 0;
 
   return (
-    <form className={styles.form} onSubmit={handleSubmit}>
+    <form noValidate className={styles.form} onSubmit={handleSubmit}>
       <select
         className={styles.formInput}
         value={productType}
@@ -181,7 +181,7 @@ function AccountCard({ account, onDone }: { account: SavingsAccountView; onDone:
         <div className={styles.jobSalary}>{currencyFormatter.format(account.balance)}</div>
         {isLivret ? (
           <>
-            <form className={styles.form} onSubmit={handleDeposit}>
+            <form noValidate className={styles.form} onSubmit={handleDeposit}>
               <input
                 className={styles.formInput}
                 type="number"

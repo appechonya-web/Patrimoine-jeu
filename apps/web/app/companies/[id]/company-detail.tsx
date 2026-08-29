@@ -263,7 +263,7 @@ function DepartmentCard({
                 onDone={onDone}
               />
             </div>
-            <form className={styles.form} onSubmit={(e) => e.preventDefault()}>
+            <form noValidate className={styles.form} onSubmit={(e) => e.preventDefault()}>
               <select className={styles.formInput} value={tier} onChange={(e) => setTier(e.target.value as EmployeeTier)}>
                 {EMPLOYEE_TIERS.map((t) => (
                   <option key={t} value={t}>
@@ -315,7 +315,7 @@ function InvestmentPanel({ companyId, onDone }: { companyId: string; onDone: () 
         {currencyFormatter.format(MAX_INVESTMENT_PER_CYCLE)} — impossible d'accélérer avec plus d'argent, seul le
         temps fait progresser une entreprise.
       </p>
-      <form className={styles.form} onSubmit={handleSubmit}>
+      <form noValidate className={styles.form} onSubmit={handleSubmit}>
         <select className={styles.formInput} value={axis} onChange={(e) => setAxis(e.target.value as InvestmentAxis)}>
           {Object.entries(INVESTMENT_AXIS_LABELS).map(([value, label]) => (
             <option key={value} value={value}>
@@ -361,7 +361,7 @@ function CapacityExpansionPanel({ companyId, onDone }: { companyId: string; onDo
   }
 
   return (
-    <form className={styles.form} onSubmit={handleSubmit}>
+    <form noValidate className={styles.form} onSubmit={handleSubmit}>
       <input
         className={styles.formInput}
         type="number"
@@ -398,7 +398,7 @@ function MassMarketingCampaignPanel({ companyId, onDone }: { companyId: string; 
   }
 
   return (
-    <form className={styles.form} onSubmit={handleSubmit}>
+    <form noValidate className={styles.form} onSubmit={handleSubmit}>
       <input
         className={styles.formInput}
         type="number"
@@ -462,7 +462,7 @@ function ContributeCashPanel({ companyId, onDone }: { companyId: string; onDone:
   }
 
   return (
-    <form className={styles.form} onSubmit={handleSubmit}>
+    <form noValidate className={styles.form} onSubmit={handleSubmit}>
       <input
         className={styles.formInput}
         type="number"
@@ -512,7 +512,7 @@ function CompanyTreasuryPanel({ companyId, onDone }: { companyId: string; onDone
   }
 
   return (
-    <form className={styles.form} onSubmit={handleInvest}>
+    <form noValidate className={styles.form} onSubmit={handleInvest}>
       <input
         className={styles.formInput}
         type="number"
@@ -593,7 +593,7 @@ function ProductPriceForm({
         <span>🎯 Prix de référence {currencyFormatter.format(pricing.acceptedReferencePrice)}/unité</span>
         <span>Aujourd'hui : ×{currentMultiplier.toFixed(2)} demande</span>
       </div>
-      <form className={styles.form} onSubmit={handleSubmit}>
+      <form noValidate className={styles.form} onSubmit={handleSubmit}>
         <input
           className={styles.formInput}
           type="number"
@@ -646,7 +646,7 @@ function ProductAllocationForm({
   }
 
   return (
-    <form className={styles.form} onSubmit={handleSubmit}>
+    <form noValidate className={styles.form} onSubmit={handleSubmit}>
       <input
         className={styles.formInput}
         type="number"
@@ -870,7 +870,7 @@ function ShareListingForm({ companyId, maxPercentage, onDone }: { companyId: str
   }
 
   return (
-    <form className={styles.form} onSubmit={handleSubmit}>
+    <form noValidate className={styles.form} onSubmit={handleSubmit}>
       <input
         className={styles.formInput}
         type="number"
@@ -991,7 +991,7 @@ function LoanRequestForm({ companyId, maxPrincipal, onDone }: { companyId: strin
   }
 
   return (
-    <form className={styles.form} onSubmit={handleSubmit}>
+    <form noValidate className={styles.form} onSubmit={handleSubmit}>
       <input
         className={styles.formInput}
         type="number"

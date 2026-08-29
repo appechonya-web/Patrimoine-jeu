@@ -66,7 +66,7 @@ function ListingCard({ listing, myControlledCompanies }: { listing: SaleListingV
         {sent && <p className={styles.jobMeta}>Offre envoyée — le vendeur décide en privé.</p>}
       </div>
       <div className={styles.jobActions}>
-        <form className={styles.form} onSubmit={handleSubmit}>
+        <form noValidate className={styles.form} onSubmit={handleSubmit}>
           <input
             className={styles.formInput}
             type="number"

@@ -60,7 +60,7 @@ function OrderForm({ asset, onDone }: { asset: FinancialAssetView; onDone: () =>
   }
 
   return (
-    <form className={styles.form} onSubmit={handleSubmit} style={{ flexWrap: "wrap" }}>
+    <form noValidate className={styles.form} onSubmit={handleSubmit} style={{ flexWrap: "wrap" }}>
       <select
         className={styles.formInput}
         style={{ width: "auto" }}

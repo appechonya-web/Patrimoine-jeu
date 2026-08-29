@@ -107,7 +107,7 @@ function CreateProposalForm({ companyId, onDone }: { companyId: string; onDone: 
   }
 
   return (
-    <form className={styles.form} onSubmit={handleSubmit}>
+    <form noValidate className={styles.form} onSubmit={handleSubmit}>
       <select className={styles.formInput} value={kind} onChange={(e) => setKind(e.target.value as "policy" | "invest")}>
         <option value="policy">Changer la politique de distribution</option>
         <option value="invest">Investir dans un levier</option>

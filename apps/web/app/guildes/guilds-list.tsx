@@ -52,7 +52,7 @@ function FoundGuildForm({ myCompanies, onDone }: { myCompanies: Company[]; onDon
   }
 
   return (
-    <form className={styles.form} onSubmit={handleSubmit}>
+    <form noValidate className={styles.form} onSubmit={handleSubmit}>
       <input
         className={styles.formInput}
         type="text"
@@ -129,7 +129,7 @@ function GuildMessageBoard({ guildId, initialMessages }: { guildId: string; init
           ))}
         </div>
       )}
-      <form className={styles.form} onSubmit={handleSubmit}>
+      <form noValidate className={styles.form} onSubmit={handleSubmit}>
         <input
           className={styles.formInput}
           type="text"
@@ -249,7 +249,7 @@ function GuildCard({
       </div>
       <div className={styles.jobActions}>
         {isFounder && (
-          <form className={styles.form} onSubmit={handleSetFloor}>
+          <form noValidate className={styles.form} onSubmit={handleSetFloor}>
             <input
               className={styles.formInput}
               type="number"

@@ -72,7 +72,7 @@ function OfferCard({ offer, myPseudo }: { offer: TenderOfferView; myPseudo: stri
             {pending ? "…" : "🚫 Retirer"}
           </button>
         ) : (
-          <form className={styles.form} onSubmit={handleTender}>
+          <form noValidate className={styles.form} onSubmit={handleTender}>
             <input
               className={styles.formInput}
               type="number"

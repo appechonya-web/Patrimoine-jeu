@@ -103,7 +103,7 @@ function CreatePostingForm({ companyId, onDone }: { companyId: string; onDone: (
   }
 
   return (
-    <form className={styles.form} onSubmit={handleSubmit}>
+    <form noValidate className={styles.form} onSubmit={handleSubmit}>
       <input
         className={styles.formInput}
         type="text"

@@ -88,7 +88,7 @@ function CommodityCard({ market }: { market: CommodityMarketView }) {
         {error && <p className={styles.error}>{error}</p>}
       </div>
       <div className={styles.jobActions}>
-        <form className={styles.form} onSubmit={handleBuy}>
+        <form noValidate className={styles.form} onSubmit={handleBuy}>
           <input
             className={styles.formInput}
             type="number"
@@ -101,7 +101,7 @@ function CommodityCard({ market }: { market: CommodityMarketView }) {
             {pending === "buy" ? "…" : "🛒 Acheter (€)"}
           </button>
         </form>
-        <form className={styles.form} onSubmit={handleSell}>
+        <form noValidate className={styles.form} onSubmit={handleSell}>
           <input
             className={styles.formInput}
             type="number"

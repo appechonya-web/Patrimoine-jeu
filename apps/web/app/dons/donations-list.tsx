@@ -37,7 +37,7 @@ function DonateToPlayerForm({ onDone }: { onDone: () => void }) {
   const projectedTax = amount * PLAYER_DONATION_GIFT_TAX_RATE;
 
   return (
-    <form className={styles.form} onSubmit={handleSubmit}>
+    <form noValidate className={styles.form} onSubmit={handleSubmit}>
       <input
         className={styles.formInput}
         type="text"
@@ -113,7 +113,7 @@ function CauseCard({
         {error && <p className={styles.error}>{error}</p>}
       </div>
       <div className={styles.jobActions}>
-        <form className={styles.form} onSubmit={handleSubmit}>
+        <form noValidate className={styles.form} onSubmit={handleSubmit}>
           <input
             className={styles.formInput}
             type="number"

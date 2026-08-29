@@ -89,7 +89,7 @@ function WithdrawReserveForm({ company, onDone }: { company: CompanyDetail; onDo
   const taxRate = company.liquidationReserveIsMature ? 0 : LIQUIDATION_RESERVE_EARLY_WITHDRAWAL_TAX_RATE;
 
   return (
-    <form className={styles.form} onSubmit={handleSubmit}>
+    <form noValidate className={styles.form} onSubmit={handleSubmit}>
       <input
         className={styles.formInput}
         type="number"
@@ -134,7 +134,7 @@ function AutoReinvestForm({ company, onDone }: { company: CompanyDetail; onDone:
         Chaque cycle, jusqu'au plafond choisi du profit POSITIF est automatiquement investi dans ce levier avant la
         distribution — le reliquat suit la politique ci-dessus normalement.
       </p>
-      <form className={styles.form} onSubmit={handleSubmit}>
+      <form noValidate className={styles.form} onSubmit={handleSubmit}>
         <select className={styles.formInput} value={axis} onChange={(e) => setAxis(e.target.value as InvestmentAxis | "")}>
           <option value="">Désactivé</option>
           {INVESTMENT_AXES.map((a) => (

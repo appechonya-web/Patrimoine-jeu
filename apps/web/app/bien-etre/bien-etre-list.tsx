@@ -51,7 +51,7 @@ function AxisCard({ axis, onDone }: { axis: PersonalAxisView; onDone: () => void
       </div>
       <div className={styles.jobActions}>
         {axis.available ? (
-          <form className={styles.form} onSubmit={handleSubmit}>
+          <form noValidate className={styles.form} onSubmit={handleSubmit}>
             <input
               className={styles.formInput}
               type="number"

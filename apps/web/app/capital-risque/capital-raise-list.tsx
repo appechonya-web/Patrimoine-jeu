@@ -140,7 +140,7 @@ function RaiseCard({ raise, myControlledCompanies }: { raise: CapitalRaiseView; 
       </div>
       <div className={styles.jobActions}>
         <div className={styles.jobSalary}>{currencyFormatter.format(raise.remainingAmount)} restants</div>
-        <form className={styles.form} onSubmit={handleFund}>
+        <form noValidate className={styles.form} onSubmit={handleFund}>
           <input
             className={styles.formInput}
             type="number"

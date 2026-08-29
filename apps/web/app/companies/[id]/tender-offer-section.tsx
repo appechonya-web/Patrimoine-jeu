@@ -67,7 +67,7 @@ function OfferRow({
             {pending ? "…" : "🚫 Retirer l'offre"}
           </button>
         ) : mySharePercentage > 0 ? (
-          <form className={styles.form} onSubmit={handleTender}>
+          <form noValidate className={styles.form} onSubmit={handleTender}>
             <input
               className={styles.formInput}
               type="number"
@@ -118,7 +118,7 @@ function LaunchOfferForm({
   }
 
   return (
-    <form className={styles.form} onSubmit={handleSubmit}>
+    <form noValidate className={styles.form} onSubmit={handleSubmit}>
       <input
         className={styles.formInput}
         type="number"

@@ -35,7 +35,7 @@ function RateForm({ company, onDone }: { company: CompanyDetail; onDone: () => v
   }
 
   return (
-    <form className={styles.form} onSubmit={handleSubmit}>
+    <form noValidate className={styles.form} onSubmit={handleSubmit}>
       <input
         className={styles.formInput}
         type="number"
@@ -73,7 +73,7 @@ function DepositForm({ company, onDone }: { company: CompanyDetail; onDone: () =
   }
 
   return (
-    <form className={styles.form} onSubmit={handleSubmit}>
+    <form noValidate className={styles.form} onSubmit={handleSubmit}>
       <input
         className={styles.formInput}
         type="number"

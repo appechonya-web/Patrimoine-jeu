@@ -85,7 +85,7 @@ function BidForm({ propertyId, minNextBid, onDone }: { propertyId: string; minNe
   }
 
   return (
-    <form className={styles.form} onSubmit={handleSubmit}>
+    <form noValidate className={styles.form} onSubmit={handleSubmit}>
       <input
         className={styles.formInput}
         type="number"
@@ -136,7 +136,7 @@ function MortgageForm({
   if (roundedMax < MIN_MORTGAGE_PRINCIPAL) return null;
 
   return (
-    <form className={styles.form} onSubmit={handleSubmit}>
+    <form noValidate className={styles.form} onSubmit={handleSubmit}>
       <input
         className={styles.formInput}
         type="number"
@@ -328,7 +328,7 @@ function CustomNameForm({ property, onDone }: { property: PropertyView; onDone: 
   if (property.type !== "LUXURY") return null;
 
   return (
-    <form className={styles.form} onSubmit={handleSubmit}>
+    <form noValidate className={styles.form} onSubmit={handleSubmit}>
       <input
         className={styles.formInput}
         type="text"
@@ -365,7 +365,7 @@ function SellForm({ propertyId, marketValue, onDone }: { propertyId: string; mar
   }
 
   return (
-    <form className={styles.form} onSubmit={handleSubmit}>
+    <form noValidate className={styles.form} onSubmit={handleSubmit}>
       <input
         className={styles.formInput}
         type="number"
@@ -402,7 +402,7 @@ function AuctionListForm({ propertyId, marketValue, onDone }: { propertyId: stri
   }
 
   return (
-    <form className={styles.form} onSubmit={handleSubmit}>
+    <form noValidate className={styles.form} onSubmit={handleSubmit}>
       <input
         className={styles.formInput}
         type="number"
