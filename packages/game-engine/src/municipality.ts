@@ -2,6 +2,8 @@ import {
   INFRASTRUCTURE_FUND_SCALE,
   MAX_INFRASTRUCTURE_ATTRACTIVENESS_BONUS,
   MAX_LOCAL_INFRASTRUCTURE_DEMAND_BONUS,
+  NATURAL_POPULATION_GROWTH_RATE,
+  POPULATION_GROWTH_SCALE,
 } from "@patrimoine-jeu/domain";
 
 /** Même échelle "niveau de développement communal" (0-100) que les deux bonus ci-dessous en dépendent. */
@@ -30,4 +32,16 @@ export function computeInfrastructureAttractivenessBonus(cumulativeFund: number)
  */
 export function computeLocalInfrastructureDemandBonus(cumulativeFund: number): number {
   return (computeInfrastructureLevel(cumulativeFund) / 100) * MAX_LOCAL_INFRASTRUCTURE_DEMAND_BONUS;
+}
+
+/**
+ * Croissance démographique par cycle (cf. domain/municipality-governance.ts)
+ * — croissance naturelle lente proportionnelle à la population déjà là, plus
+ * un bonus d'immigration proportionnel à la racine carrée du fonds
+ * d'infrastructure de CETTE commune (pas le total national) : investir dans
+ * sa commune fait grandir SA population, qui alimente ensuite la population
+ * nationale (cf. companies.ts computeDemandGrowthMultiplier).
+ */
+export function computePopulationGrowthPerCycle(population: number, infrastructureFund: number): number {
+  return Math.max(0, population) * NATURAL_POPULATION_GROWTH_RATE + POPULATION_GROWTH_SCALE * Math.sqrt(Math.max(0, infrastructureFund));
 }

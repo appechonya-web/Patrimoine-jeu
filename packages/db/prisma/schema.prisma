@@ -99,6 +99,19 @@ model Municipality {
   /// automatiquement à infrastructureFund (cf. game-engine/cycles.ts).
   annualPropertyTaxRate Decimal @default(0.006) @db.Decimal(5, 4)
 
+  /// Population de la province (cf. domain/market.ts,
+  /// game-engine/municipality.ts computePopulationGrowthPerCycle) — seedée
+  /// sur les proportions démographiques réelles des provinces belges.
+  /// Croît naturellement chaque cycle, accélérée par l'investissement
+  /// communal en infrastructure (immigration) : c'est CE nombre, sommé au
+  /// niveau national, qui fait maintenant grossir la taille des marchés
+  /// (cf. domain/market.ts computeDemandGrowthMultiplier) — plutôt que le
+  /// seul nombre de joueurs inscrits, qui plafonnait artificiellement
+  /// l'économie simulée à la taille de la communauté de joueurs réelle.
+  /// La demande d'export international (domain/export.ts) reste
+  /// volontairement indépendante de cette population.
+  population Decimal @default(0) @db.Decimal(14, 2)
+
   properties    Property[]
   companies     Company[]
   contributions MunicipalityContribution[]

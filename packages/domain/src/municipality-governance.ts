@@ -46,6 +46,20 @@ export const MAX_INFRASTRUCTURE_ATTRACTIVENESS_BONUS = 15;
  */
 export const MAX_LOCAL_INFRASTRUCTURE_DEMAND_BONUS = 0.5;
 
+/**
+ * Croissance démographique (cf. Municipality.population,
+ * game-engine/municipality.ts computePopulationGrowthPerCycle) — deux
+ * composantes par cycle : une croissance naturelle lente, proportionnelle
+ * à la population déjà là (comme une vraie démographie), et un bonus
+ * d'immigration proportionnel à la racine carrée du fonds d'infrastructure
+ * de LA commune (pas le total national comme pour l'indice d'activité
+ * économique) — investir dans SA commune fait grandir SA population, qui
+ * contribue ensuite à la population nationale et donc à la demande de
+ * TOUS les secteurs (cf. domain/market.ts).
+ */
+export const NATURAL_POPULATION_GROWTH_RATE = 0.0001;
+export const POPULATION_GROWTH_SCALE = 0.05;
+
 export const contributeToInfrastructureInputSchema = z.object({
   amount: z.number().min(MIN_INFRASTRUCTURE_CONTRIBUTION),
 });

@@ -10,7 +10,11 @@ import {
   type CreateCouncilProposalInput,
   type MoveResidenceInput,
 } from "@patrimoine-jeu/domain";
-import { computeInfrastructureAttractivenessBonus, computeLocalInfrastructureDemandBonus } from "@patrimoine-jeu/game-engine";
+import {
+  computeInfrastructureAttractivenessBonus,
+  computeLocalInfrastructureDemandBonus,
+  computePopulationGrowthPerCycle,
+} from "@patrimoine-jeu/game-engine";
 import { CyclesService } from "../cycles/cycles.service.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 
@@ -60,6 +64,7 @@ export class MunicipalitiesService {
   async getSummary(municipalityId: string) {
     const municipality = await this.prisma.client.municipality.findUniqueOrThrow({ where: { id: municipalityId } });
     const fund = municipality.infrastructureFund.toNumber();
+    const population = municipality.population.toNumber();
     return {
       id: municipality.id,
       infrastructureFund: fund,
@@ -68,6 +73,8 @@ export class MunicipalitiesService {
       registrationDutyRate: municipality.registrationDutyRate.toNumber(),
       additionalTaxRate: municipality.additionalTaxRate.toNumber(),
       annualPropertyTaxRate: municipality.annualPropertyTaxRate.toNumber(),
+      population,
+      populationGrowthPerCycle: computePopulationGrowthPerCycle(population, fund),
     };
   }
 
@@ -346,10 +353,11 @@ export class MunicipalitiesService {
         name: municipality.name,
         regionName: municipality.region.name,
         infrastructureFund: municipality.infrastructureFund.toNumber(),
+        population: municipality.population.toNumber(),
         activeCompanyCount: companyCountById.get(municipality.id) ?? 0,
         residentCount: residentCountById.get(municipality.id) ?? 0,
         residentWealth: wealthById.get(municipality.id) ?? 0,
       }))
-      .sort((a, b) => b.infrastructureFund - a.infrastructureFund);
+      .sort((a, b) => b.population - a.population);
   }
 }

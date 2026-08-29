@@ -34,11 +34,11 @@ const REGIONS = [
     registrationDutyRate: 0.12,
     registrationDutyRateOwnHome: 0.02,
     municipalities: [
-      { name: "Anvers", additionalTaxRate: 0.08 },
-      { name: "Brabant flamand", additionalTaxRate: 0.075 },
-      { name: "Flandre-Occidentale", additionalTaxRate: 0.0685 },
-      { name: "Flandre-Orientale", additionalTaxRate: 0.067 },
-      { name: "Limbourg", additionalTaxRate: 0.073 },
+      { name: "Anvers", additionalTaxRate: 0.08, population: 16_300 },
+      { name: "Brabant flamand", additionalTaxRate: 0.075, population: 10_000 },
+      { name: "Flandre-Occidentale", additionalTaxRate: 0.0685, population: 10_400 },
+      { name: "Flandre-Orientale", additionalTaxRate: 0.067, population: 13_300 },
+      { name: "Limbourg", additionalTaxRate: 0.073, population: 7_600 },
     ],
   },
   {
@@ -46,18 +46,18 @@ const REGIONS = [
     registrationDutyRate: 0.125,
     registrationDutyRateOwnHome: 0.03,
     municipalities: [
-      { name: "Brabant wallon", additionalTaxRate: 0.07 },
-      { name: "Hainaut", additionalTaxRate: 0.09 },
-      { name: "Liège", additionalTaxRate: 0.08 },
-      { name: "Luxembourg", additionalTaxRate: 0.075 },
-      { name: "Namur", additionalTaxRate: 0.0755 },
+      { name: "Brabant wallon", additionalTaxRate: 0.07, population: 3_600 },
+      { name: "Hainaut", additionalTaxRate: 0.09, population: 11_700 },
+      { name: "Liège", additionalTaxRate: 0.08, population: 9_700 },
+      { name: "Luxembourg", additionalTaxRate: 0.075, population: 2_500 },
+      { name: "Namur", additionalTaxRate: 0.0755, population: 4_300 },
     ],
   },
   {
     name: "Bruxelles-Capitale",
     registrationDutyRate: 0.125,
     registrationDutyRateOwnHome: 0.125,
-    municipalities: [{ name: "Bruxelles-Capitale", additionalTaxRate: 0.07 }],
+    municipalities: [{ name: "Bruxelles-Capitale", additionalTaxRate: 0.07, population: 10_600 }],
   },
 ];
 
@@ -99,6 +99,7 @@ async function main() {
           additionalTaxRate: municipality.additionalTaxRate,
           registrationDutyRate: region.registrationDutyRate,
           registrationDutyRateOwnHome: region.registrationDutyRateOwnHome,
+          population: municipality.population,
         },
         update: {},
       });

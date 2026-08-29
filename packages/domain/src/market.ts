@@ -54,19 +54,24 @@ export const NON_CORE_REFERENCE_COMPETITIVENESS = 1;
  * la taille du marché reste une constante figée quel que soit le nombre de
  * joueurs actifs, ce qui transforme le jeu en pur jeu à somme nulle par
  * secteur (plus de concurrents = mécaniquement moins pour chacun, jamais
- * plus de gâteau à partager). Deux leviers alimentent le même indice
+ * plus de gâteau à partager). Trois leviers alimentent le même indice
  * d'activité économique, avec les mêmes rendements décroissants (racine
- * carrée) que les autres progressions du jeu : le nombre de joueurs inscrits
- * (plus de joueurs = plus de "consommateurs" dans l'économie simulée), et
- * l'investissement communal cumulé en infrastructure — investir
- * collectivement dans les communes fait donc, en plus du bonus
- * d'attractivité individuel déjà existant (cf. municipality.ts), réellement
- * grossir la demande nationale, pas juste la part que chacun en capte.
+ * carrée) que les autres progressions du jeu : le nombre de joueurs
+ * inscrits, la POPULATION nationale simulée (cf. Municipality.population,
+ * game-engine/municipality.ts) — désormais le moteur principal, pour que
+ * la taille de l'économie ne reste plus plafonnée à la taille de la
+ * communauté de joueurs réelle — et l'investissement communal cumulé en
+ * infrastructure, qui fait aussi grossir cette population (immigration).
+ * La demande d'export international (domain/export.ts) reste
+ * volontairement indépendante de ces trois leviers.
  */
 export const POPULATION_DEMAND_SCALE = 10;
 
 /** € de fonds d'infrastructure cumulés (toutes communes confondues) équivalents à un joueur inscrit de plus, dans l'indice d'activité économique. */
 export const INFRASTRUCTURE_ECONOMIC_ACTIVITY_CONVERSION = 1_000;
+
+/** Habitants (population nationale simulée cumulée) équivalents à un joueur inscrit de plus, dans l'indice d'activité économique. */
+export const NATIONAL_POPULATION_PER_ACTIVITY_UNIT = 1_000;
 
 /**
  * Développement du marché par l'investissement marketing collectif —

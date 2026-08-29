@@ -111,7 +111,11 @@ import { computeSectoralDemandMultiplier, rollSectoralEvent, type ActiveSectoral
 import { computeCompanyCycleTip } from "./company-insights.js";
 import { computeCompanyTreasuryYieldPerCycle } from "./company-treasury.js";
 import { computePublicContractRevenue } from "./public-contracts.js";
-import { computeInfrastructureAttractivenessBonus, computeLocalInfrastructureDemandBonus } from "./municipality.js";
+import {
+  computeInfrastructureAttractivenessBonus,
+  computeLocalInfrastructureDemandBonus,
+  computePopulationGrowthPerCycle,
+} from "./municipality.js";
 import {
   clampStat,
   computeBaselineWellbeingRegen,
@@ -543,7 +547,7 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
     prisma.bankDeposit.findMany({ where: { withdrawnCycle: null } }),
     prisma.guild.findMany({ where: { status: "ACTIVE" }, include: { members: true } }),
     prisma.region.findMany(),
-    prisma.municipality.findMany({ select: { id: true, name: true } }),
+    prisma.municipality.findMany({ select: { id: true, name: true, population: true, infrastructureFund: true } }),
     prisma.sectoralEvent.findMany({ where: { endCycle: { gte: openCycle.number } } }),
     prisma.insurancePolicy.findMany({ where: { status: "ACTIVE" } }),
     prisma.playerAchievement.findMany({ select: { playerId: true, achievementId: true } }),
@@ -552,13 +556,17 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
 
   // Croissance de la demande (cf. domain/market.ts,
   // computeDemandGrowthMultiplier) — un seul indice d'activité économique
-  // global, alimenté par le nombre de joueurs inscrits et l'investissement
-  // communal cumulé en infrastructure (toutes communes confondues, pas
-  // seulement celles avec une entreprise active) : sans ce facteur, la
-  // taille de chaque marché (cf. computeMarketPoolSize plus bas) resterait
-  // une constante figée quel que soit le nombre de joueurs.
+  // global, alimenté par le nombre de joueurs inscrits, la population
+  // nationale simulée (désormais le moteur principal, cf.
+  // Municipality.population) et l'investissement communal cumulé en
+  // infrastructure (toutes communes confondues, pas seulement celles avec
+  // une entreprise active) : sans ce facteur, la taille de chaque marché
+  // (cf. computeMarketPoolSize plus bas) resterait une constante figée quel
+  // que soit le nombre de joueurs.
+  const totalNationalPopulation = municipalities.reduce((sum, m) => sum + m.population.toNumber(), 0);
   const demandGrowthMultiplier = computeDemandGrowthMultiplier(
     players.length,
+    totalNationalPopulation,
     infrastructureFundAggregate._sum.infrastructureFund?.toNumber() ?? 0,
   );
   // Hors de la transaction principale (comme settleExpiredAuctions) : purement
@@ -2660,6 +2668,21 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
       await tx.municipality.update({
         where: { id: municipalityId },
         data: { infrastructureFund: { increment: amount } },
+      });
+    }
+
+    // Croissance démographique (cf. domain/municipality-governance.ts) —
+    // chaque province, pas seulement celles avec du précompte collecté
+    // ce cycle-ci.
+    for (const municipality of municipalities) {
+      const growth = computePopulationGrowthPerCycle(
+        municipality.population.toNumber(),
+        municipality.infrastructureFund.toNumber(),
+      );
+      if (growth < 0.005) continue;
+      await tx.municipality.update({
+        where: { id: municipality.id },
+        data: { population: { increment: growth } },
       });
     }
 

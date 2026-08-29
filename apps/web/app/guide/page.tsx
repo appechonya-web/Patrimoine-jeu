@@ -443,7 +443,15 @@ export default async function GuidePage() {
             <strong>Ce qui fait grossir le gâteau lui-même</strong> (pas seulement ta part) :
           </p>
           <ul className={guideStyles.list}>
-            <li>Le nombre de joueurs inscrits dans le jeu (l'économie nationale grossit avec la population).</li>
+            <li>
+              <strong>La population nationale</strong> (somme de la population des 11 provinces, voir Provinces)
+              — désormais le vrai moteur de la taille de l'économie, plutôt que le seul nombre de joueurs
+              inscrits qui plafonnait artificiellement le jeu à la taille de la communauté de joueurs réelle. La
+              population de chaque province grandit naturellement chaque cycle, et plus vite avec
+              l'investissement communal en infrastructure de CETTE province (immigration) — investir dans les
+              provinces fait donc grossir l'économie de tout le pays, pas seulement la tienne. Le nombre de
+              joueurs inscrits contribue toujours, mais en appoint.
+            </li>
             <li>
               L'investissement <strong>marketing cumulé de toutes les entreprises</strong> actives sur un même
               (secteur, gamme) — un effet de catégorie réaliste : faire connaître un type de produit profite à
@@ -451,10 +459,15 @@ export default async function GuidePage() {
               plusieurs) double déjà la taille de ce marché précis.
             </li>
             <li>
-              L'investissement communal en infrastructure (voir Provinces) — à la fois pour l'économie nationale
-              globalement, et pour la clientèle locale de ta propre province spécifiquement.
+              L'investissement communal en infrastructure (voir Provinces) a aussi deux effets immédiats et
+              locaux, en plus de la croissance démographique ci-dessus : l'attractivité de ta province et la
+              clientèle locale de ta propre province spécifiquement.
             </li>
           </ul>
+          <p>
+            La demande d'<strong>export international</strong> (voir plus bas) reste volontairement indépendante
+            de la population nationale — un pool à part, contesté uniquement entre exportateurs.
+          </p>
           <p>
             <strong>Attractivité effective</strong> = ton score de base (figé à la fondation, ne baisse que sur
             défaut de prêt) + bonus manager (+10) + bonus d'infrastructure de ta province (jusqu'à +15) + bonus
@@ -548,14 +561,20 @@ export default async function GuidePage() {
             d'attractivité permanent pour l'entreprise du bon secteur au bon endroit.
           </p>
           <p>
-            <strong>Contribuer au fonds d'infrastructure</strong> d'une province a deux effets distincts, partagés
-            par toutes les entreprises qui y sont installées, à rendements décroissants :
+            <strong>Contribuer au fonds d'infrastructure</strong> d'une province a trois effets distincts, à
+            rendements décroissants :
           </p>
           <ul className={guideStyles.list}>
-            <li>Un bonus d'attractivité (une part plus grande d'un marché national partagé).</li>
+            <li>Un bonus d'attractivité (une part plus grande d'un marché national partagé), pour toutes les entreprises de la province.</li>
             <li>
               Un bonus de <strong>clientèle locale</strong> (jusqu'à +50%) — de la demande neuve propre à chaque
               entreprise de la province, qui ne vient du panier d'aucun concurrent.
+            </li>
+            <li>
+              Une <strong>croissance démographique</strong> par immigration : la population de la province
+              augmente un peu plus vite que sa croissance naturelle. Sommée au niveau national, cette population
+              est désormais le vrai moteur de la taille de tous les marchés du pays (voir Marché &
+              compétitivité) — investir dans une province profite donc, à terme, à toute l'économie du jeu.
             </li>
           </ul>
           <p>

@@ -32,6 +32,7 @@ import {
   MORALE_DRIFT_RATE,
   MORALE_RANDOM_WALK_RANGE,
   MORALE_UNMANAGED_PENALTY,
+  NATIONAL_POPULATION_PER_ACTIVITY_UNIT,
   NON_CORE_MARKET_REFERENCE_SIZE,
   POPULATION_DEMAND_SCALE,
   PRICE_ELASTICITY_BASE,
@@ -568,13 +569,22 @@ export function computeCompetitiveness(inputs: CompetitivenessInputs): number {
 /**
  * Facteur de croissance de la demande, appliqué à TOUS les marchés (cf.
  * computeMarketPoolSize) — un seul indice d'activité économique global,
- * alimenté par deux leviers cumulables (cf. domain/market.ts) : le nombre de
- * joueurs inscrits, et l'investissement communal cumulé en infrastructure
- * (converti en "joueurs-équivalents"). Rendements décroissants (racine
- * carrée), comme le reste du jeu.
+ * alimenté par trois leviers cumulables (cf. domain/market.ts) : le nombre
+ * de joueurs inscrits, la population nationale simulée (désormais le
+ * moteur principal — cf. computePopulationGrowthPerCycle ci-dessous), et
+ * l'investissement communal cumulé en infrastructure (converti en
+ * "joueurs-équivalents"). Rendements décroissants (racine carrée), comme
+ * le reste du jeu.
  */
-export function computeDemandGrowthMultiplier(activePlayerCount: number, totalInfrastructureFund: number): number {
-  const economicActivityIndex = Math.max(0, activePlayerCount) + Math.max(0, totalInfrastructureFund) / INFRASTRUCTURE_ECONOMIC_ACTIVITY_CONVERSION;
+export function computeDemandGrowthMultiplier(
+  activePlayerCount: number,
+  totalNationalPopulation: number,
+  totalInfrastructureFund: number,
+): number {
+  const economicActivityIndex =
+    Math.max(0, activePlayerCount) +
+    Math.max(0, totalNationalPopulation) / NATIONAL_POPULATION_PER_ACTIVITY_UNIT +
+    Math.max(0, totalInfrastructureFund) / INFRASTRUCTURE_ECONOMIC_ACTIVITY_CONVERSION;
   return 1 + Math.sqrt(economicActivityIndex / POPULATION_DEMAND_SCALE);
 }
 

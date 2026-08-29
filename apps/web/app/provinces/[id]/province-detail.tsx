@@ -241,15 +241,16 @@ export function ProvinceDetail({
           <InfoTip
             label="🏗️"
             title="Fonds d'infrastructure"
-            mechanic="Le fonds cumulé de la province a deux effets distincts pour TOUTES les entreprises qui y sont installées, à rendement décroissant (les premiers euros comptent plus que les suivants) : un bonus d'attractivité (une part plus grande d'un marché national partagé avec les concurrents du secteur) ET un bonus de clientèle locale — de la demande neuve, propre à chaque entreprise de la province, qui ne vient du panier d'aucun concurrent. Le total investi dans TOUTES les provinces du jeu contribue aussi à faire grossir la demande nationale elle-même."
-            realWorld="C'est un vrai bien public local financé collectivement : personne n'est exclu du bénéfice même sans contribuer. Une région qui investit dans ses infrastructures attire de nouveaux habitants (plus de clients pour tout le monde) ET rend son tissu économique plus compétitif à l'échelle nationale — deux effets réels et distincts d'un même investissement."
+            mechanic="Le fonds cumulé de la province a trois effets distincts, à rendement décroissant (les premiers euros comptent plus que les suivants) : un bonus d'attractivité (une part plus grande d'un marché national partagé avec les concurrents du secteur) pour TOUTES les entreprises de la province, un bonus de clientèle locale propre à chaque entreprise, ET une croissance démographique par immigration — cette population, sommée au niveau national, fait grossir la taille de TOUS les marchés du pays (cf. Marché & compétitivité). C'est désormais le vrai moteur de croissance de l'économie simulée, plus que le seul nombre de joueurs inscrits."
+            realWorld="C'est un vrai bien public local financé collectivement : personne n'est exclu du bénéfice même sans contribuer. Une région qui investit dans ses infrastructures attire réellement de nouveaux habitants dans la vraie vie aussi — plus de population, plus de consommateurs, une économie qui grandit avec sa communauté plutôt que d'être plafonnée par elle."
           />
           <span>Fonds d'infrastructure</span>
         </h2>
         <div className={styles.jobStats}>
+          <span>👥 Population {Math.round(summary.population).toLocaleString("fr-BE")} habitants (+{summary.populationGrowthPerCycle.toFixed(2)}/cycle)</span>
           <span>💰 Fonds cumulé {currencyFormatter.format(summary.infrastructureFund)}</span>
           <span>⭐ Bonus d'attractivité +{summary.attractivenessBonus.toFixed(1)} pour toutes les entreprises de la province</span>
-          <span>👥 +{(summary.localDemandBonus * 100).toFixed(1)}% de clientèle locale pour les entreprises de la province</span>
+          <span>🛒 +{(summary.localDemandBonus * 100).toFixed(1)}% de clientèle locale pour les entreprises de la province</span>
           <span>📋 Droits d'enregistrement {(summary.registrationDutyRate * 100).toFixed(1)}%</span>
         </div>
         <ContributeForm municipalityId={municipalityId} onDone={handleDone} />

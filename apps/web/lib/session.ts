@@ -653,6 +653,8 @@ export interface MunicipalitySummaryView {
   registrationDutyRate: number;
   additionalTaxRate: number;
   annualPropertyTaxRate: number;
+  population: number;
+  populationGrowthPerCycle: number;
 }
 
 export async function getMunicipalitySummary(municipalityId: string): Promise<MunicipalitySummaryView | null> {
@@ -710,6 +712,7 @@ export interface ProvinceRankingEntry {
   name: string;
   regionName: string;
   infrastructureFund: number;
+  population: number;
   activeCompanyCount: number;
   residentCount: number;
   residentWealth: number;
