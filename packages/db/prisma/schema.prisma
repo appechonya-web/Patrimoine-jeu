@@ -236,6 +236,8 @@ model Player {
   achievements          PlayerAchievement[]
   capitalRaiseContributions CapitalRaiseContribution[]
   assetHoldings         PlayerAssetHolding[]
+  assetTransactions     FinancialAssetTransaction[]
+  assetOrders           FinancialAssetOrder[]
   bankDeposits          BankDeposit[]
   causeDonations        CauseDonation[]
   cycleReports          PlayerCycleReport[]
@@ -454,6 +456,8 @@ model FinancialAsset {
 
   holdings     PlayerAssetHolding[]
   priceHistory FinancialAssetPriceHistory[]
+  transactions FinancialAssetTransaction[]
+  orders       FinancialAssetOrder[]
 }
 
 /// Cours d'un actif financier à chaque clôture de cycle — même schéma que
@@ -498,6 +502,74 @@ model PlayerAssetHolding {
 enum DividendPolicy {
   CASH
   REINVEST
+}
+
+enum AssetTransactionType {
+  BUY
+  SELL
+}
+
+/// Historique personnel des achats/ventes d'un joueur (cf.
+/// domain/financial-assets.ts) — distinct de FinancialAssetPriceHistory
+/// (le cours du marché, public) : ici, un relevé façon compte-titres,
+/// propre à chaque joueur, gain/tax renseignés uniquement pour une vente.
+model FinancialAssetTransaction {
+  id        String               @id @default(uuid())
+  player    Player               @relation(fields: [playerId], references: [id])
+  playerId  String
+  asset     FinancialAsset       @relation(fields: [assetId], references: [id])
+  assetId   String
+  type      AssetTransactionType
+  quantity  Decimal              @db.Decimal(16, 6)
+  price     Decimal              @db.Decimal(14, 4)
+  amount    Decimal              @db.Decimal(14, 2)
+  gain      Decimal?             @db.Decimal(14, 2)
+  tax       Decimal?             @db.Decimal(14, 2)
+  cycle     Cycle                @relation(fields: [cycleId], references: [id])
+  cycleId   String
+  createdAt DateTime             @default(now())
+}
+
+enum AssetOrderDirection {
+  BUY
+  SELL
+}
+
+enum AssetOrderCondition {
+  ABOVE
+  BELOW
+}
+
+enum AssetOrderStatus {
+  OPEN
+  FILLED
+  CANCELLED
+}
+
+/// Ordre à cours déclenché (cf. domain/financial-assets.ts) — couvre à la
+/// fois l'ordre à cours limité et le stop-loss avec un seul mécanisme
+/// générique : BUY+BELOW = achat si le cours baisse jusqu'au seuil,
+/// BUY+ABOVE = achat sur cassure haussière, SELL+ABOVE = prise de
+/// bénéfice, SELL+BELOW = stop-loss. Vérifié à chaque clôture de cycle
+/// (cf. game-engine/cycles.ts) contre le nouveau cours ; si les fonds/la
+/// position ne suffisent plus au moment du déclenchement, l'ordre est
+/// annulé plutôt qu'exécuté partiellement.
+model FinancialAssetOrder {
+  id           String              @id @default(uuid())
+  player       Player              @relation(fields: [playerId], references: [id])
+  playerId     String
+  asset        FinancialAsset      @relation(fields: [assetId], references: [id])
+  assetId      String
+  direction    AssetOrderDirection
+  condition    AssetOrderCondition
+  triggerPrice Decimal             @db.Decimal(14, 4)
+  /// Renseigné pour un ordre BUY (€ à dépenser au déclenchement).
+  amount       Decimal?            @db.Decimal(14, 2)
+  /// Renseigné pour un ordre SELL (unités à vendre au déclenchement).
+  quantity     Decimal?            @db.Decimal(16, 6)
+  status       AssetOrderStatus    @default(OPEN)
+  createdCycle Int
+  filledCycle  Int?
 }
 
 /// Dépôt d'un joueur dans une entreprise-banque (cf. Company.depositRate) —
@@ -1460,6 +1532,7 @@ model Cycle {
   supplyContracts        SupplyContract[]
   commodityPriceHistory  CommodityPriceHistory[]
   assetPriceHistory      FinancialAssetPriceHistory[]
+  assetTransactions      FinancialAssetTransaction[]
   playerCycleReports     PlayerCycleReport[]
   playerCycleReportLines PlayerCycleReportLine[]
   companyCycleReportLines CompanyCycleReportLine[]

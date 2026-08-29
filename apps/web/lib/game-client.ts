@@ -14,6 +14,7 @@ import type {
   Company,
   CompanyLoanOffer,
   EmploymentView,
+  AssetOrderView,
   FinancialAssetView,
   GuildMessageView,
   GuildView,
@@ -358,6 +359,23 @@ export function sellFinancialAsset(key: string, quantity: number): Promise<SellA
 
 export function setDividendPolicy(key: string, policy: "CASH" | "REINVEST"): Promise<FinancialAssetView> {
   return postJson(`/financial-assets/${key}/dividend-policy`, { policy });
+}
+
+export function createAssetOrder(
+  key: string,
+  input: {
+    direction: "BUY" | "SELL";
+    condition: "ABOVE" | "BELOW";
+    triggerPrice: number;
+    amount?: number;
+    quantity?: number;
+  },
+): Promise<AssetOrderView> {
+  return postJson(`/financial-assets/${key}/orders`, input);
+}
+
+export function cancelAssetOrder(orderId: string): Promise<{ cancelled: boolean }> {
+  return deleteJson(`/financial-assets/orders/${orderId}`);
 }
 
 export function foundGuild(name: string, companyId: string, priceFloor: number): Promise<GuildView> {

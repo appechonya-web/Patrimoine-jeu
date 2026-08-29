@@ -1,4 +1,12 @@
-import { CYCLES_PER_YEAR, MIN_ASSET_PRICE } from "@patrimoine-jeu/domain";
+import { type AssetRiskLevel, CYCLES_PER_YEAR, MIN_ASSET_PRICE } from "@patrimoine-jeu/domain";
+
+/** Traduit la volatilité brute d'un actif (cf. domain/financial-assets.ts) en repère lisible, affiché avant achat. */
+export function computeAssetRiskLevel(volatility: number): AssetRiskLevel {
+  if (volatility < 0.008) return "low";
+  if (volatility < 0.02) return "moderate";
+  if (volatility < 0.04) return "high";
+  return "extreme";
+}
 
 /**
  * Marche aléatoire propre à chaque actif — dérive + volatilité (cf.

@@ -271,11 +271,92 @@ export const FINANCIAL_ASSET_CATALOG: Record<string, FinancialAssetDefinition> =
     sectorName: "Métallurgie",
     dividendRate: 0,
   },
+  // Enrichissement du catalogue (au-delà des paires sectorielles) — comble
+  // des trous de profil de risque qui n'existaient pas encore : une valeur
+  // ultra-défensive, une valeur de croissance pure, une crypto stable, une
+  // crypto extrême, et un second actif de collection plus accessible.
+  "belgacap-rentes": {
+    key: "belgacap-rentes",
+    name: "BelgaCap Rentes",
+    type: "stock",
+    startPrice: 100,
+    drift: 0.0001,
+    volatility: 0.003,
+    sectorName: null,
+    // La valeur la plus défensive du catalogue — volatilité quasi nulle,
+    // rendement modeste mais très stable, à l'image d'une obligation d'État.
+    dividendRate: 0.025,
+  },
+  "startup-brux-tech": {
+    key: "startup-brux-tech",
+    name: "Startup Brux Tech",
+    type: "stock",
+    startPrice: 8,
+    drift: 0.0007,
+    volatility: 0.03,
+    sectorName: null,
+    // Croissance pure : tout est réinvesti, aucun dividende.
+    dividendRate: 0,
+  },
+  "stablecoin-brux": {
+    key: "stablecoin-brux",
+    name: "StableCoin Brux",
+    type: "crypto",
+    startPrice: 1,
+    drift: 0.00005,
+    volatility: 0.002,
+    sectorName: null,
+    // La crypto "refuge" du catalogue — jusqu'ici les deux seules cryptos
+    // disponibles étaient toutes deux très volatiles, sans alternative
+    // pour qui veut de l'exposition crypto sans le grand frisson.
+    dividendRate: 0,
+  },
+  "jeton-govdex": {
+    key: "jeton-govdex",
+    name: "Jeton GovDEX",
+    type: "crypto",
+    startPrice: 5,
+    drift: 0.0008,
+    volatility: 0.07,
+    sectorName: null,
+    // La crypto la plus volatile du catalogue — pour qui cherche
+    // délibérément le profil le plus extrême.
+    dividendRate: 0,
+  },
+  "sculpture-contemporaine": {
+    key: "sculpture-contemporaine",
+    name: "Sculpture contemporaine",
+    type: "art",
+    startPrice: 600,
+    drift: 0.0004,
+    volatility: 0.015,
+    sectorName: null,
+    // Un point d'entrée bien plus accessible que la toile Magritte
+    // (2 400 €), pour qui veut goûter au marché de l'art sans y engager
+    // une somme aussi lourde — volatilité plus élevée en contrepartie.
+    dividendRate: 0,
+  },
 };
 export const FINANCIAL_ASSET_LIST: FinancialAssetDefinition[] = Object.values(FINANCIAL_ASSET_CATALOG);
 
 export const MIN_ASSET_PRICE = 0.01;
 export const MIN_ASSET_BUY_AMOUNT = 5;
+
+/**
+ * Indicateur de risque affiché au joueur AVANT achat — jusqu'ici la
+ * volatilité existait dans les données mais n'était jamais traduite en
+ * repère lisible. Seuils calibrés sur l'étendue réelle du catalogue
+ * (0.002 pour la crypto la plus stable, 0.07 pour la plus extrême).
+ */
+export const ASSET_RISK_LEVELS = ["low", "moderate", "high", "extreme"] as const;
+export type AssetRiskLevel = (typeof ASSET_RISK_LEVELS)[number];
+
+export const ASSET_RISK_LEVEL_LABELS: Record<AssetRiskLevel, string> = {
+  low: "🟢 Faible",
+  moderate: "🟡 Modéré",
+  high: "🟠 Élevé",
+  extreme: "🔴 Très élevé",
+};
 
 export const buyAssetInputSchema = z.object({
   amount: z.number().min(MIN_ASSET_BUY_AMOUNT),
@@ -294,3 +375,27 @@ export const setDividendPolicyInputSchema = z.object({
   policy: z.enum(DIVIDEND_POLICIES),
 });
 export type SetDividendPolicyInput = z.infer<typeof setDividendPolicyInputSchema>;
+
+/**
+ * Ordre à cours déclenché (cf. game-engine/cycles.ts pour l'exécution) —
+ * un seul mécanisme générique couvre l'ordre à cours limité ET le
+ * stop-loss : BUY+BELOW (achat si le cours baisse jusqu'au seuil),
+ * BUY+ABOVE (achat sur cassure haussière), SELL+ABOVE (prise de
+ * bénéfice), SELL+BELOW (stop-loss classique). `amount` pour un ordre
+ * BUY, `quantity` pour un ordre SELL — vérifié côté service selon
+ * `direction`, pas par le schéma lui-même.
+ */
+export const ASSET_ORDER_DIRECTIONS = ["BUY", "SELL"] as const;
+export type AssetOrderDirection = (typeof ASSET_ORDER_DIRECTIONS)[number];
+
+export const ASSET_ORDER_CONDITIONS = ["ABOVE", "BELOW"] as const;
+export type AssetOrderCondition = (typeof ASSET_ORDER_CONDITIONS)[number];
+
+export const createAssetOrderInputSchema = z.object({
+  direction: z.enum(ASSET_ORDER_DIRECTIONS),
+  condition: z.enum(ASSET_ORDER_CONDITIONS),
+  triggerPrice: z.number().positive(),
+  amount: z.number().min(MIN_ASSET_BUY_AMOUNT).optional(),
+  quantity: z.number().positive().optional(),
+});
+export type CreateAssetOrderInput = z.infer<typeof createAssetOrderInputSchema>;

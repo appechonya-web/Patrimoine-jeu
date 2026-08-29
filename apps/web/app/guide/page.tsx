@@ -286,13 +286,22 @@ export default async function GuidePage() {
           </p>
           <ul className={guideStyles.list}>
             <li>
-              <strong>Placements (actions, cryptomonnaie, art) :</strong> chaque actif suit sa propre marche
-              aléatoire (dérive + volatilité propres), indépendante des joueurs — personne ne fixe ce prix.
-              Certaines actions sont liées à un vrai secteur économique et réagissent en plus aux crises/booms
-              sectoriels nationaux. Certaines versent un dividende (jamais la crypto ni l'art), au choix encaissé
-              en liquide ou réinvesti automatiquement en davantage de parts — un effet boule de neige pour qui
-              reste investi longtemps. Tu peux vendre en indiquant soit une quantité, soit directement un montant
-              en euros à récupérer.
+              <strong>Placements (24 actifs : actions, cryptomonnaie, art) :</strong> chaque actif suit sa propre
+              marche aléatoire (dérive + volatilité propres), indépendante des joueurs — personne ne fixe ce
+              prix. Certaines actions sont liées à un vrai secteur économique et réagissent en plus aux
+              crises/booms sectoriels nationaux. Certaines versent un dividende (jamais la crypto ni l'art), au
+              choix encaissé en liquide ou réinvesti automatiquement en davantage de parts — un effet boule de
+              neige pour qui reste investi longtemps. Tu peux vendre en indiquant soit une quantité, soit
+              directement un montant en euros à récupérer. Chaque actif affiche désormais un niveau de risque
+              (🟢 Faible à 🔴 Très élevé, basé sur sa volatilité) directement dans sa fiche, et un relevé
+              personnel de tes 100 dernières transactions est disponible en bas de la page.
+            </li>
+            <li>
+              <strong>Ordres à cours déclenché :</strong> couvre à la fois l'ordre à cours limité et le
+              stop-loss avec un seul mécanisme — achète si le cours descend (bonne affaire) ou monte (cassure
+              haussière), vends si le cours monte (prise de bénéfice) ou descend (stop-loss classique). Vérifié
+              et exécuté uniquement à la clôture de cycle, jamais en direct : si les fonds ou la position ne
+              suffisent plus au moment du déclenchement, l'ordre est annulé plutôt qu'exécuté partiellement.
             </li>
             <li>
               <strong>Bourse de matières premières :</strong> marché automatisé (AMM) — le prix bouge mécaniquement

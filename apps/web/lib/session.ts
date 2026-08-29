@@ -935,6 +935,8 @@ export interface FinancialAssetView {
   type: string;
   sectorName: string | null;
   dividendRate: number;
+  volatility: number;
+  riskLevel: "low" | "moderate" | "high" | "extreme";
   price: number;
   previousPrice: number;
   quantity: number;
@@ -958,6 +960,45 @@ export interface AssetPricePoint {
 export async function getFinancialAssetPriceHistory(): Promise<Record<string, AssetPricePoint[]>> {
   const res = await fetchWithSessionCookie("/financial-assets/price-history");
   if (!res.ok) return {};
+  return res.json();
+}
+
+export interface AssetTransactionView {
+  id: string;
+  assetKey: string;
+  assetName: string;
+  type: "BUY" | "SELL";
+  quantity: number;
+  price: number;
+  amount: number;
+  gain: number | null;
+  tax: number | null;
+  createdAt: string;
+}
+
+export async function getAssetTransactions(): Promise<AssetTransactionView[]> {
+  const res = await fetchWithSessionCookie("/financial-assets/transactions");
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export interface AssetOrderView {
+  id: string;
+  assetKey: string;
+  assetName: string;
+  direction: "BUY" | "SELL";
+  condition: "ABOVE" | "BELOW";
+  triggerPrice: number;
+  amount: number | null;
+  quantity: number | null;
+  status: "OPEN" | "FILLED" | "CANCELLED";
+  createdCycle: number;
+  filledCycle: number | null;
+}
+
+export async function getAssetOrders(): Promise<AssetOrderView[]> {
+  const res = await fetchWithSessionCookie("/financial-assets/orders");
+  if (!res.ok) return [];
   return res.json();
 }
 

@@ -1,6 +1,12 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { getCurrentPlayer, getFinancialAssetPriceHistory, getFinancialAssets } from "../../lib/session";
+import {
+  getAssetOrders,
+  getAssetTransactions,
+  getCurrentPlayer,
+  getFinancialAssetPriceHistory,
+  getFinancialAssets,
+} from "../../lib/session";
 import { PlacementsList } from "./placements-list";
 import { InfoTip } from "../info-tip";
 import styles from "../page.module.css";
@@ -11,7 +17,12 @@ export default async function PlacementsPage() {
     redirect("/login");
   }
 
-  const [assets, priceHistory] = await Promise.all([getFinancialAssets(), getFinancialAssetPriceHistory()]);
+  const [assets, priceHistory, orders, transactions] = await Promise.all([
+    getFinancialAssets(),
+    getFinancialAssetPriceHistory(),
+    getAssetOrders(),
+    getAssetTransactions(),
+  ]);
 
   return (
     <main className={styles.main}>
@@ -38,7 +49,7 @@ export default async function PlacementsPage() {
         </Link>
       </header>
 
-      <PlacementsList assets={assets} priceHistory={priceHistory} />
+      <PlacementsList assets={assets} priceHistory={priceHistory} orders={orders} transactions={transactions} />
     </main>
   );
 }

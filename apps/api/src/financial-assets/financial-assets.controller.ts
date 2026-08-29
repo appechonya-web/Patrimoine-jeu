@@ -1,5 +1,10 @@
-import { BadRequestException, Body, Controller, Get, Param, Post, UseGuards } from "@nestjs/common";
-import { buyAssetInputSchema, sellAssetInputSchema, setDividendPolicyInputSchema } from "@patrimoine-jeu/domain";
+import { BadRequestException, Body, Controller, Delete, Get, Param, Post, UseGuards } from "@nestjs/common";
+import {
+  buyAssetInputSchema,
+  createAssetOrderInputSchema,
+  sellAssetInputSchema,
+  setDividendPolicyInputSchema,
+} from "@patrimoine-jeu/domain";
 import { CurrentPlayer } from "../auth/current-player.decorator.js";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard.js";
 import { FinancialAssetsService } from "./financial-assets.service.js";
@@ -44,5 +49,29 @@ export class FinancialAssetsController {
       throw new BadRequestException(parsed.error.flatten());
     }
     return this.financialAssetsService.setDividendPolicy(playerId, key, parsed.data.policy);
+  }
+
+  @Get("transactions")
+  listTransactions(@CurrentPlayer() playerId: string) {
+    return this.financialAssetsService.listTransactions(playerId);
+  }
+
+  @Get("orders")
+  listOrders(@CurrentPlayer() playerId: string) {
+    return this.financialAssetsService.listOrders(playerId);
+  }
+
+  @Post(":key/orders")
+  createOrder(@CurrentPlayer() playerId: string, @Param("key") key: string, @Body() body: unknown) {
+    const parsed = createAssetOrderInputSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.financialAssetsService.createOrder(playerId, key, parsed.data);
+  }
+
+  @Delete("orders/:orderId")
+  cancelOrder(@CurrentPlayer() playerId: string, @Param("orderId") orderId: string) {
+    return this.financialAssetsService.cancelOrder(playerId, orderId);
   }
 }

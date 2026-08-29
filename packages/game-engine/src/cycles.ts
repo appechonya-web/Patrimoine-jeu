@@ -103,7 +103,7 @@ import { computePersonalGoodValue } from "./personal-goods.js";
 import { rollPersonalLifeEvent } from "./personal-events.js";
 import { computeAuctionState, type AuctionBidInput } from "./property-auction.js";
 import { matchB2bSupply, type B2bBuyer, type B2bSeller } from "./supply-chain.js";
-import { computeAssetDividend, computeNextAssetPrice } from "./financial-assets.js";
+import { computeAssetDividend, computeCapitalGainsTax, computeNextAssetPrice } from "./financial-assets.js";
 import { computeBankDepositInterest } from "./banking.js";
 import { rollGuildDetection } from "./guild.js";
 import { computeDividendDistribution, computeLiquidationReserveEntry } from "./dividends.js";
@@ -488,6 +488,7 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
     commodityMarkets,
     financialAssets,
     assetHoldings,
+    openAssetOrders,
     ownedProperties,
     mortgageLoans,
     commodityHoldings,
@@ -529,6 +530,7 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
     prisma.commodityMarket.findMany(),
     prisma.financialAsset.findMany(),
     prisma.playerAssetHolding.findMany({ where: { quantity: { gt: 0 } } }),
+    prisma.financialAssetOrder.findMany({ where: { status: "OPEN" } }),
     prisma.property.findMany({
       where: { ownerId: { not: null } },
       include: {
@@ -767,6 +769,7 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
     return { asset, previousPrice: asset.price.toNumber(), nextPrice };
   });
   const nextAssetPriceById = new Map(financialAssetUpdates.map((u) => [u.asset.id, u.nextPrice]));
+  const assetNameById = new Map(financialAssets.map((a) => [a.id, a.name]));
   const assetById = new Map(financialAssets.map((asset) => [asset.id, asset]));
   const assetHoldingsByPlayer = new Map<string, typeof assetHoldings>();
   for (const holding of assetHoldings) {
@@ -2721,6 +2724,130 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
         create: { assetId: update.asset.id, cycleId: openCycle.id, price: update.nextPrice },
         update: { price: update.nextPrice },
       });
+    }
+
+    // Ordres à cours déclenché (cf. domain/financial-assets.ts) — vérifiés
+    // contre le nouveau cours qui vient d'être écrit ci-dessus. Si les
+    // fonds/la position ne suffisent plus au moment du déclenchement,
+    // l'ordre est annulé plutôt qu'exécuté partiellement.
+    for (const order of openAssetOrders) {
+      const newPrice = nextAssetPriceById.get(order.assetId);
+      if (newPrice === undefined) continue;
+      const triggerPrice = order.triggerPrice.toNumber();
+      const triggered = order.condition === "ABOVE" ? newPrice >= triggerPrice : newPrice <= triggerPrice;
+      if (!triggered) continue;
+
+      if (order.direction === "BUY") {
+        const amount = order.amount!.toNumber();
+        const stats = await tx.playerStats.findUnique({ where: { playerId: order.playerId } });
+        if (!stats || stats.wealthLiquid.toNumber() < amount) {
+          await tx.financialAssetOrder.update({ where: { id: order.id }, data: { status: "CANCELLED" } });
+          await tx.playerNotification.create({
+            data: {
+              playerId: order.playerId,
+              type: "asset-order-cancelled",
+              message: `Ordre d'achat annulé (fonds insuffisants au déclenchement) — ${assetNameById.get(order.assetId) ?? "actif"}.`,
+              cycle: openCycle.number,
+            },
+          });
+          continue;
+        }
+        const quantity = amount / newPrice;
+        await tx.playerStats.update({ where: { playerId: order.playerId }, data: { wealthLiquid: { decrement: amount } } });
+        await tx.playerAssetHolding.upsert({
+          where: { playerId_assetId: { playerId: order.playerId, assetId: order.assetId } },
+          create: { playerId: order.playerId, assetId: order.assetId, quantity, costBasis: amount },
+          update: { quantity: { increment: quantity }, costBasis: { increment: amount } },
+        });
+        await tx.financialAssetTransaction.create({
+          data: {
+            playerId: order.playerId,
+            assetId: order.assetId,
+            type: "BUY",
+            quantity,
+            price: newPrice,
+            amount,
+            cycleId: openCycle.id,
+          },
+        });
+        await tx.financialAssetOrder.update({
+          where: { id: order.id },
+          data: { status: "FILLED", filledCycle: openCycle.number },
+        });
+        await tx.playerNotification.create({
+          data: {
+            playerId: order.playerId,
+            type: "asset-order-filled",
+            message: `Ordre d'achat déclenché : ${assetNameById.get(order.assetId) ?? "actif"} à ${newPrice.toFixed(2)} €.`,
+            cycle: openCycle.number,
+          },
+        });
+      } else {
+        const quantity = order.quantity!.toNumber();
+        const holding = await tx.playerAssetHolding.findUnique({
+          where: { playerId_assetId: { playerId: order.playerId, assetId: order.assetId } },
+        });
+        const heldQuantity = holding?.quantity.toNumber() ?? 0;
+        if (!holding || heldQuantity < quantity - 1e-9) {
+          await tx.financialAssetOrder.update({ where: { id: order.id }, data: { status: "CANCELLED" } });
+          await tx.playerNotification.create({
+            data: {
+              playerId: order.playerId,
+              type: "asset-order-cancelled",
+              message: `Ordre de vente annulé (position insuffisante au déclenchement) — ${assetNameById.get(order.assetId) ?? "actif"}.`,
+              cycle: openCycle.number,
+            },
+          });
+          continue;
+        }
+
+        const totalCostBasis = holding.costBasis.toNumber();
+        const costBasisSold = totalCostBasis * (quantity / heldQuantity);
+        const saleProceeds = quantity * newPrice;
+        const stats = await tx.playerStats.findUnique({ where: { playerId: order.playerId } });
+        const exemptionRemaining = capitalGains.exemption - (stats?.cumulativeInvestmentGains.toNumber() ?? 0);
+        const { gain, tax, net } = computeCapitalGainsTax(saleProceeds, costBasisSold, exemptionRemaining, capitalGains.rate);
+        const remainingQuantity = heldQuantity - quantity;
+        const remainingCostBasis = totalCostBasis - costBasisSold;
+
+        await tx.playerStats.update({
+          where: { playerId: order.playerId },
+          data: { wealthLiquid: { increment: net }, cumulativeInvestmentGains: { increment: gain } },
+        });
+        if (remainingQuantity <= 1e-9) {
+          await tx.playerAssetHolding.delete({ where: { playerId_assetId: { playerId: order.playerId, assetId: order.assetId } } });
+        } else {
+          await tx.playerAssetHolding.update({
+            where: { playerId_assetId: { playerId: order.playerId, assetId: order.assetId } },
+            data: { quantity: remainingQuantity, costBasis: remainingCostBasis },
+          });
+        }
+        await tx.financialAssetTransaction.create({
+          data: {
+            playerId: order.playerId,
+            assetId: order.assetId,
+            type: "SELL",
+            quantity,
+            price: newPrice,
+            amount: saleProceeds,
+            gain,
+            tax,
+            cycleId: openCycle.id,
+          },
+        });
+        await tx.financialAssetOrder.update({
+          where: { id: order.id },
+          data: { status: "FILLED", filledCycle: openCycle.number },
+        });
+        await tx.playerNotification.create({
+          data: {
+            playerId: order.playerId,
+            type: "asset-order-filled",
+            message: `Ordre de vente déclenché : ${assetNameById.get(order.assetId) ?? "actif"} à ${newPrice.toFixed(2)} €.`,
+            cycle: openCycle.number,
+          },
+        });
+      }
     }
 
     for (const update of bankDepositUpdates) {
