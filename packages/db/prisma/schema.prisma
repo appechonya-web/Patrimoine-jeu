@@ -227,6 +227,7 @@ model Player {
   causeDonations        CauseDonation[]
   cycleReports          PlayerCycleReport[]
   cycleReportLines      PlayerCycleReportLine[]
+  wellbeingCycleLines   PlayerWellbeingCycleLine[]
 }
 
 /// Récap "revenus & dépenses" d'un cycle pour un joueur — contrairement à
@@ -279,6 +280,25 @@ model PlayerCycleReportLine {
   grossAmount Decimal? @db.Decimal(14, 2)
   taxAmount   Decimal? @db.Decimal(14, 2)
   netAmount   Decimal  @db.Decimal(14, 2)
+
+  @@unique([playerId, cycleId, category, sourceId])
+}
+
+/// Détail ligne par ligne de ce qui a fait bouger le bien-être à ce cycle
+/// (régénération passive, biens de consommation, pression au travail,
+/// événement de vie...) — même principe que PlayerCycleReportLine pour le
+/// patrimoine, mais pour PlayerStats.wellbeing : jusqu'ici ce chiffre
+/// bougeait sans qu'aucun détail ne soit conservé nulle part.
+model PlayerWellbeingCycleLine {
+  id       String  @id @default(uuid())
+  player   Player  @relation(fields: [playerId], references: [id])
+  playerId String
+  cycle    Cycle   @relation(fields: [cycleId], references: [id])
+  cycleId  String
+  category String
+  sourceId String
+  label    String
+  delta    Decimal @db.Decimal(6, 3)
 
   @@unique([playerId, cycleId, category, sourceId])
 }
@@ -1430,6 +1450,7 @@ model Cycle {
   playerCycleReports     PlayerCycleReport[]
   playerCycleReportLines PlayerCycleReportLine[]
   companyCycleReportLines CompanyCycleReportLine[]
+  wellbeingCycleLines    PlayerWellbeingCycleLine[]
 }
 
 /// Prêt bancaire d'entreprise — distinct du modèle Loan (qui visait des

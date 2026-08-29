@@ -10,6 +10,7 @@ import {
   CYCLES_PER_YEAR,
   getCareerTier,
   INVESTMENT_LEVEL_MILESTONES,
+  WELLBEING_MILESTONES,
   NET_WORTH_MILESTONES,
   DEPARTMENTS,
   FINANCIAL_ASSET_CATALOG,
@@ -2169,10 +2170,18 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
       let assetDividendReinvestedValue = 0;
 
       let wealthDelta = dividendIncome + (propertyWealthDeltaByPlayer.get(player.id) ?? 0);
-      let wellbeingDelta =
-        computeBaselineWellbeingRegen(sportLevel) +
-        personalGoodsWellbeingBonus -
-        computeUnmanagedCompanyWellbeingDrain(unmanagedActiveCompanyCountByOwner.get(player.id) ?? 0);
+      // Détail ligne par ligne du bien-être (cf. PlayerWellbeingCycleLine,
+      // affiché sur /bien-etre) — même principe que le récap patrimoine :
+      // wellbeingDelta ci-dessous reste le total agrégé déjà utilisé
+      // partout ailleurs, inchangé.
+      const wellbeingRegenDelta = computeBaselineWellbeingRegen(sportLevel);
+      const unmanagedCompanyWellbeingDrain = computeUnmanagedCompanyWellbeingDrain(
+        unmanagedActiveCompanyCountByOwner.get(player.id) ?? 0,
+      );
+      let lifeEventWellbeingDelta = 0;
+      let independentActivityWellbeingDrain = 0;
+      let jobPressureWellbeingDrain = 0;
+      let wellbeingDelta = wellbeingRegenDelta + personalGoodsWellbeingBonus - unmanagedCompanyWellbeingDrain;
       let reputationDelta =
         (companyReputationByPlayer.get(player.id) ?? 0) - (guildReputationPenaltyByOwner.get(player.id) ?? 0);
       let experienceDelta = 0;
@@ -2183,6 +2192,7 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
       if (lifeEvent) {
         lifeEventDelta = lifeEvent.wealthDelta;
         wealthDelta += lifeEvent.wealthDelta;
+        lifeEventWellbeingDelta = lifeEvent.wellbeingDelta;
         wellbeingDelta += lifeEvent.wellbeingDelta;
         reputationDelta += lifeEvent.reputationDelta;
         await tx.playerNotification.create({
@@ -2223,14 +2233,18 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
           salaryIncome = ((totalNet * salaryShare) / CYCLES_PER_YEAR) * incomeMultiplier;
           independentActivityIncome = (totalNet * (1 - salaryShare)) / CYCLES_PER_YEAR;
           wealthDelta += salaryIncome + independentActivityIncome;
-          wellbeingDelta -= computeIndependentActivityWellbeingDrain(independentActivity.grossRevenuePerCycle.toNumber());
+          independentActivityWellbeingDrain = computeIndependentActivityWellbeingDrain(
+            independentActivity.grossRevenuePerCycle.toNumber(),
+          );
+          wellbeingDelta -= independentActivityWellbeingDrain;
         } else {
           const { netAnnualIncome } = calculateNetAnnualIncome(annualGross, ipp, communalSurchargeRate);
           salaryIncome = (netAnnualIncome / CYCLES_PER_YEAR) * incomeMultiplier;
           wealthDelta += salaryIncome;
         }
 
-        wellbeingDelta -= computePressureDrain(effectivePressure ?? 50, sectorCycles, nutritionLevel);
+        jobPressureWellbeingDrain = computePressureDrain(effectivePressure ?? 50, sectorCycles, nutritionLevel);
+        wellbeingDelta -= jobPressureWellbeingDrain;
         reputationDelta += job?.reputationPerCycle ?? 0;
         experienceDelta = 1;
 
@@ -2488,6 +2502,33 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
         },
       });
 
+      // Détail ligne par ligne du bien-être (cf. PlayerWellbeingCycleLine,
+      // affiché sur /bien-etre) — répond à "pourquoi mon bien-être bouge"
+      // sans que le joueur doive le déduire d'un chiffre brut.
+      const wellbeingLineWrites: { category: string; sourceId: string; label: string; delta: number }[] = [
+        { category: "regen", sourceId: "baseline", label: "Régénération passive", delta: wellbeingRegenDelta },
+        { category: "personal-goods", sourceId: "goods", label: "Biens de consommation possédés", delta: personalGoodsWellbeingBonus },
+        { category: "unmanaged-companies", sourceId: "companies", label: "Entreprises gérées sans manager", delta: -unmanagedCompanyWellbeingDrain },
+        { category: "job-pressure", sourceId: "job", label: "Pression au travail", delta: -jobPressureWellbeingDrain },
+        { category: "independent-activity", sourceId: "independent", label: "Activité d'indépendant complémentaire", delta: -independentActivityWellbeingDrain },
+        { category: "life-event", sourceId: "event", label: lifeEvent?.label ?? "Événement de vie", delta: lifeEventWellbeingDelta },
+      ];
+      for (const line of wellbeingLineWrites) {
+        if (Math.abs(line.delta) < 0.0005) continue;
+        await tx.playerWellbeingCycleLine.upsert({
+          where: {
+            playerId_cycleId_category_sourceId: {
+              playerId: player.id,
+              cycleId: openCycle.id,
+              category: line.category,
+              sourceId: line.sourceId,
+            },
+          },
+          create: { playerId: player.id, cycleId: openCycle.id, ...line },
+          update: { delta: line.delta },
+        });
+      }
+
       // Jalons de progression moyen terme (audit d'équilibrage, cf.
       // domain/achievements.ts) — mêmes trois pistes que le catalogue
       // décrit : patrimoine net, profit d'entreprise, niveau de levier
@@ -2501,6 +2542,7 @@ export async function closeCurrentCycle(prisma: PrismaClient) {
         { value: updatedStats.netWorth.toNumber(), milestones: NET_WORTH_MILESTONES },
         { value: maxCompanyProfitByOwner.get(player.id) ?? -Infinity, milestones: COMPANY_PROFIT_MILESTONES },
         { value: maxLeverLevel, milestones: INVESTMENT_LEVEL_MILESTONES },
+        { value: updatedStats.wellbeing.toNumber(), milestones: WELLBEING_MILESTONES },
       ];
       for (const { value, milestones } of milestoneChecks) {
         for (const milestone of milestones) {

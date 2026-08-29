@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { PersonalAxis } from "@patrimoine-jeu/domain";
-import type { PersonalActionView, PersonalAxisView, PersonalOverview } from "../../lib/session";
+import type { PersonalActionView, PersonalAxisView, PersonalOverview, WellbeingCycleLine } from "../../lib/session";
 import { GameError, investPersonal, performPersonalAction } from "../../lib/game-client";
 import { currencyFormatter } from "../../lib/format";
 import { InfoTip } from "../info-tip";
@@ -114,7 +114,65 @@ function ActionCard({ action, onDone }: { action: PersonalActionView; onDone: ()
   );
 }
 
-export function PersonalOverviewList({ overview }: { overview: PersonalOverview }) {
+function wellbeingZoneLabel(wellbeing: number): string {
+  if (wellbeing >= 70) return "épanoui, léger bonus de revenu";
+  if (wellbeing < 30) return "burnout, malus de revenu";
+  return "neutre";
+}
+
+function WellbeingLineRow({ line }: { line: WellbeingCycleLine }) {
+  return (
+    <div className={styles.wealthLegendItem}>
+      <span className={styles.wealthLegendLabel}>{line.label}</span>
+      <span
+        className={styles.wealthLegendValue}
+        style={{ color: line.delta >= 0 ? "var(--wellbeing)" : "var(--danger)" }}
+      >
+        {line.delta >= 0 ? "+" : ""}
+        {line.delta.toFixed(2)}
+      </span>
+    </div>
+  );
+}
+
+function WellbeingSummary({ overview, wellbeingCycleLines }: { overview: PersonalOverview; wellbeingCycleLines: WellbeingCycleLine[] }) {
+  return (
+    <section className={styles.section}>
+      <h2 className={styles.sectionTitle}>
+        <InfoTip
+          label="💗"
+          title="Bien-être"
+          mechanic="Descend avec la pression au travail, l'activité d'indépendant et la gestion d'entreprises sans manager ; remonte passivement chaque cycle (accéléré par le levier Sport) et avec les biens de consommation possédés. Sous 30/100, un malus de revenu s'applique (jusqu'à -25%) ; au-dessus de 70/100, un bonus (jusqu'à +10%)."
+          realWorld="C'est un vrai résultat de recherche en santé au travail : le burnout réduit concrètement la performance professionnelle, tandis qu'un bon équilibre de vie l'améliore."
+        />
+        <span>Bien-être : {overview.wellbeing.toFixed(0)}/100 ({wellbeingZoneLabel(overview.wellbeing)})</span>
+      </h2>
+      <div className={`${styles.meterTrack} ${styles.meterTrackWellbeing}`}>
+        <div className={`${styles.meterFill} ${styles.meterFillWellbeing}`} style={{ width: `${overview.wellbeing}%` }} />
+      </div>
+      {wellbeingCycleLines.length > 0 && (
+        <>
+          <p className={styles.jobMeta} style={{ marginTop: "0.9rem" }}>
+            Détail du dernier cycle — d'où vient et où part le bien-être :
+          </p>
+          <div className={styles.wealthLegend}>
+            {wellbeingCycleLines.map((line) => (
+              <WellbeingLineRow key={`${line.category}:${line.sourceId}`} line={line} />
+            ))}
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
+export function PersonalOverviewList({
+  overview,
+  wellbeingCycleLines,
+}: {
+  overview: PersonalOverview;
+  wellbeingCycleLines: WellbeingCycleLine[];
+}) {
   const router = useRouter();
 
   function handleDone() {
@@ -123,6 +181,8 @@ export function PersonalOverviewList({ overview }: { overview: PersonalOverview 
 
   return (
     <>
+      <WellbeingSummary overview={overview} wellbeingCycleLines={wellbeingCycleLines} />
+
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>
           <InfoTip

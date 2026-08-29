@@ -201,19 +201,30 @@ export default async function GuidePage() {
               axes personnels même en étant assis sur des millions.
             </li>
             <li>
-              <strong>Actions ponctuelles :</strong> un boost immédiat contre de l'argent, effet temporaire — ne
-              change rien structurellement, contrairement aux axes permanents.
+              <strong>Actions ponctuelles</strong> (7 au catalogue, de la méditation presque gratuite au voyage à
+              l'étranger) : un boost immédiat contre de l'argent, effet temporaire — ne change rien
+              structurellement, contrairement aux axes permanents.
             </li>
             <li>
-              <strong>Biens de consommation</strong> (voiture, mobilier, électronique...) : bonus de bien-être
-              passif tant que tu les possèdes, cumulable entre plusieurs biens, mais valeur de revente qui se
-              déprécie exponentiellement (jusqu'à un plancher de 10% du prix d'achat).
+              <strong>Biens de consommation</strong> (13 au catalogue : véhicules, mobilier, électronique,
+              loisirs) : bonus de bien-être passif tant que tu les possèdes, cumulable entre plusieurs biens, mais
+              valeur de revente qui se déprécie exponentiellement (jusqu'à un plancher de 10% du prix d'achat).
             </li>
             <li>
-              <strong>Événements de vie aléatoires :</strong> à chaque cycle, une petite chance (0,8%) qu'un
-              événement personnel te touche — héritage, prime, rencontre marquante côté positif ; problème de
-              santé, accident (si tu possèdes un véhicule), litige côté négatif. Ni prévisible ni évitable, juste
-              la vie qui continue.
+              <strong>Événements de vie aléatoires</strong> (15 au catalogue) : à chaque cycle, une petite chance
+              (0,8%) qu'un événement personnel te touche — héritage, prime, rencontre marquante, reconnaissance
+              inattendue au travail côté positif ; problème de santé, accident (si tu possèdes un véhicule),
+              litige, conflit de voisinage côté négatif. Ni prévisible ni évitable, juste la vie qui continue.
+            </li>
+            <li>
+              <strong>Détail du cycle :</strong> la page bien-être affiche désormais ton chiffre de bien-être
+              brut et le détail ligne par ligne de ce qui l'a fait bouger au dernier cycle (régénération, biens
+              possédés, pression au travail, événement de vie...) — au lieu d'un chiffre qui bouge sans
+              explication.
+            </li>
+            <li>
+              <strong>Jalons :</strong> atteindre 70, 85 puis 95/100 de bien-être débloque chacun un jalon
+              (une fois pour toutes, même si le bien-être redescend ensuite).
             </li>
           </ul>
         </section>
@@ -599,10 +610,10 @@ export default async function GuidePage() {
           <h2>🎯 Défis, prime quotidienne & quiz fiscal</h2>
           <ul className={guideStyles.list}>
             <li>
-              <strong>Défis :</strong> 26 jalons ponctuels ou cumulatifs — huit "premières fois" (10 à 150 €
-              chacune), et dix-huit paliers de patrimoine net (jusqu'à 10 millions €) / profit d'entreprise
-              (jusqu'à 1 million €) / niveau de levier (jusqu'à 200, palier mondial inclus) — 30 à 5 000 € chacun
-              selon le seuil.
+              <strong>Défis :</strong> 29 jalons ponctuels ou cumulatifs — huit "premières fois" (10 à 150 €
+              chacune), dix-huit paliers de patrimoine net (jusqu'à 10 millions €) / profit d'entreprise
+              (jusqu'à 1 million €) / niveau de levier (jusqu'à 200, palier mondial inclus), et trois paliers de
+              bien-être (70/85/95, 30 à 200 €) — 30 à 5 000 € chacun selon le seuil.
             </li>
             <li>
               <strong>Prime de connexion quotidienne :</strong> grandit avec ta série de jours consécutifs — 10 €

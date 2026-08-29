@@ -616,10 +616,16 @@ export class CompaniesService {
     });
     if (!latestReport) return [];
 
-    return this.prisma.client.companyCycleReportLine.findMany({
+    const lines = await this.prisma.client.companyCycleReportLine.findMany({
       where: { companyId, cycleId: latestReport.cycleId },
       orderBy: { netAmount: "asc" },
     });
+    return lines.map((line) => ({
+      category: line.category,
+      sourceId: line.sourceId,
+      label: line.label,
+      netAmount: line.netAmount.toNumber(),
+    }));
   }
 
   /**

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { getCurrentPlayer, getPersonalGoods, getPersonalOverview } from "../../lib/session";
+import { getCurrentPlayer, getPersonalGoods, getPersonalOverview, getWellbeingCycleLines } from "../../lib/session";
 import { PersonalOverviewList } from "./bien-etre-list";
 import { PersonalGoodsSection } from "./personal-goods-section";
 import styles from "../page.module.css";
@@ -11,7 +11,11 @@ export default async function BienEtrePage() {
     redirect("/login");
   }
 
-  const [overview, personalGoods] = await Promise.all([getPersonalOverview(), getPersonalGoods()]);
+  const [overview, personalGoods, wellbeingCycleLines] = await Promise.all([
+    getPersonalOverview(),
+    getPersonalGoods(),
+    getWellbeingCycleLines(),
+  ]);
 
   return (
     <main className={styles.main}>
@@ -28,7 +32,7 @@ export default async function BienEtrePage() {
         </Link>
       </header>
 
-      <PersonalOverviewList overview={overview} />
+      <PersonalOverviewList overview={overview} wellbeingCycleLines={wellbeingCycleLines} />
 
       <PersonalGoodsSection overview={personalGoods} />
     </main>

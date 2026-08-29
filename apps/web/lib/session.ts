@@ -1103,6 +1103,19 @@ export async function getPersonalOverview(): Promise<PersonalOverview> {
   return res.json();
 }
 
+export interface WellbeingCycleLine {
+  category: string;
+  sourceId: string;
+  label: string;
+  delta: number;
+}
+
+export async function getWellbeingCycleLines(): Promise<WellbeingCycleLine[]> {
+  const res = await fetchWithSessionCookie("/personal/wellbeing-cycle-lines");
+  if (!res.ok) return [];
+  return res.json();
+}
+
 export interface LeaderboardEntry {
   rank: number;
   playerId: string;

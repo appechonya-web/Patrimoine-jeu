@@ -14,6 +14,11 @@ export class PersonalController {
     return this.personalService.getOverview(playerId);
   }
 
+  @Get("wellbeing-cycle-lines")
+  getLatestWellbeingCycleLines(@CurrentPlayer() playerId: string) {
+    return this.personalService.getLatestWellbeingCycleLines(playerId);
+  }
+
   @Post("invest")
   invest(@CurrentPlayer() playerId: string, @Body() body: unknown) {
     const parsed = investPersonalInputSchema.safeParse(body);

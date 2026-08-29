@@ -46,6 +46,9 @@ export const ACHIEVEMENT_IDS = [
   "investment-level-100",
   "investment-level-150",
   "investment-level-200",
+  "wellbeing-70",
+  "wellbeing-85",
+  "wellbeing-95",
 ] as const;
 export type AchievementId = (typeof ACHIEVEMENT_IDS)[number];
 
@@ -213,6 +216,24 @@ export const ACHIEVEMENT_CATALOG: Record<AchievementId, AchievementDefinition> =
     description: "Un levier d'investissement d'entreprise atteint le plafond absolu du palier mondial (niveau 200).",
     reward: 1_000,
   },
+  "wellbeing-70": {
+    id: "wellbeing-70",
+    label: "Épanoui",
+    description: "Atteindre 70/100 de bien-être — le seuil qui déclenche le bonus de revenu.",
+    reward: 30,
+  },
+  "wellbeing-85": {
+    id: "wellbeing-85",
+    label: "Radieux",
+    description: "Atteindre 85/100 de bien-être.",
+    reward: 80,
+  },
+  "wellbeing-95": {
+    id: "wellbeing-95",
+    label: "Zen total",
+    description: "Atteindre 95/100 de bien-être — quasiment le maximum.",
+    reward: 200,
+  },
 };
 export const ACHIEVEMENT_LIST: AchievementDefinition[] = Object.values(ACHIEVEMENT_CATALOG);
 
@@ -260,4 +281,17 @@ export const INVESTMENT_LEVEL_MILESTONES: AchievementMilestone[] = [
   { id: "investment-level-100", threshold: 100 },
   { id: "investment-level-150", threshold: 150 },
   { id: "investment-level-200", threshold: 200 },
+];
+
+/**
+ * Bien-être (PlayerStats.wellbeing, 0-100) — vérifié à chaque clôture de
+ * cycle comme les autres pistes, mais contrairement à elles ce n'est PAS
+ * cumulatif : le bien-être fluctue dans les deux sens. Un palier une fois
+ * atteint reste débloqué pour toujours (même sémantique que les autres
+ * jalons — "as-tu déjà atteint X", pas "es-tu actuellement à X").
+ */
+export const WELLBEING_MILESTONES: AchievementMilestone[] = [
+  { id: "wellbeing-70", threshold: 70 },
+  { id: "wellbeing-85", threshold: 85 },
+  { id: "wellbeing-95", threshold: 95 },
 ];

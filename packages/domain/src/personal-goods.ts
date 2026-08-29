@@ -12,13 +12,14 @@ import { z } from "zod";
  * résiduelle courante quand on veut.
  */
 
-export const PERSONAL_GOOD_CATEGORIES = ["vehicule", "mobilier", "electronique"] as const;
+export const PERSONAL_GOOD_CATEGORIES = ["vehicule", "mobilier", "electronique", "loisir"] as const;
 export type PersonalGoodCategory = (typeof PERSONAL_GOOD_CATEGORIES)[number];
 
 export const PERSONAL_GOOD_CATEGORY_LABELS: Record<PersonalGoodCategory, string> = {
   vehicule: "🚗 Véhicules",
   mobilier: "🛋️ Mobilier",
   electronique: "💻 Électronique",
+  loisir: "🎨 Loisirs",
 };
 
 export const PERSONAL_GOOD_IDS = [
@@ -32,6 +33,9 @@ export const PERSONAL_GOOD_IDS = [
   "smartphone",
   "ordinateur-gaming",
   "home-studio",
+  "equipement-sport",
+  "instrument-musique",
+  "collection-passion",
 ] as const;
 export type PersonalGoodId = (typeof PERSONAL_GOOD_IDS)[number];
 
@@ -137,6 +141,33 @@ export const PERSONAL_GOOD_CATALOG: Record<PersonalGoodId, PersonalGoodDefinitio
     price: 6_000,
     wellbeingBonusPerCycle: 0.016,
     depreciationRatePerCycle: 0.0008,
+  },
+  "equipement-sport": {
+    id: "equipement-sport",
+    category: "loisir",
+    label: "Équipement de sport à domicile",
+    description: "Un vrai coin sport chez soi, à toute heure.",
+    price: 1_200,
+    wellbeingBonusPerCycle: 0.011,
+    depreciationRatePerCycle: 0.0006,
+  },
+  "instrument-musique": {
+    id: "instrument-musique",
+    category: "loisir",
+    label: "Instrument de musique",
+    description: "De quoi décompresser en jouant, sans écran.",
+    price: 1_800,
+    wellbeingBonusPerCycle: 0.013,
+    depreciationRatePerCycle: 0.0004,
+  },
+  "collection-passion": {
+    id: "collection-passion",
+    category: "loisir",
+    label: "Collection de passionné",
+    description: "Vinyles, figurines, timbres — une passion qu'on cultive pour soi.",
+    price: 4_000,
+    wellbeingBonusPerCycle: 0.015,
+    depreciationRatePerCycle: 0.0003,
   },
 };
 

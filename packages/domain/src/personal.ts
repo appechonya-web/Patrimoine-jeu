@@ -76,7 +76,7 @@ export type InvestPersonalInput = z.infer<typeof investPersonalInputSchema>;
 
 // --- Actions ponctuelles ---------------------------------------------------
 
-export const PERSONAL_ACTION_IDS = ["sortie", "therapie", "weekend", "vacances"] as const;
+export const PERSONAL_ACTION_IDS = ["meditation", "sortie", "sport-club", "therapie", "weekend", "vacances", "voyage-etranger"] as const;
 export type PersonalActionId = (typeof PERSONAL_ACTION_IDS)[number];
 
 export interface PersonalActionDefinition {
@@ -89,6 +89,14 @@ export interface PersonalActionDefinition {
 }
 
 export const PERSONAL_ACTION_CATALOG: Record<PersonalActionId, PersonalActionDefinition> = {
+  meditation: {
+    id: "meditation",
+    label: "Séance de méditation",
+    description: "Presque gratuit, effet modeste, mais renouvelable dès le lendemain.",
+    cost: 5,
+    wellbeingBoost: 1,
+    cooldownCycles: 1,
+  },
   sortie: {
     id: "sortie",
     label: "Sortie entre amis",
@@ -96,6 +104,14 @@ export const PERSONAL_ACTION_CATALOG: Record<PersonalActionId, PersonalActionDef
     cost: 20,
     wellbeingBoost: 3,
     cooldownCycles: 3,
+  },
+  "sport-club": {
+    id: "sport-club",
+    label: "Séance dans un club de sport",
+    description: "Une vraie dépense physique encadrée — entre la sortie entre amis et la thérapie.",
+    cost: 40,
+    wellbeingBoost: 5,
+    cooldownCycles: 5,
   },
   therapie: {
     id: "therapie",
@@ -116,10 +132,18 @@ export const PERSONAL_ACTION_CATALOG: Record<PersonalActionId, PersonalActionDef
   vacances: {
     id: "vacances",
     label: "Vacances",
-    description: "Une vraie coupure — le meilleur boost, mais rare et cher.",
+    description: "Une vraie coupure, mais rare et cher.",
     cost: 400,
     wellbeingBoost: 20,
     cooldownCycles: 30,
+  },
+  "voyage-etranger": {
+    id: "voyage-etranger",
+    label: "Voyage à l'étranger",
+    description: "Le vrai dépaysement — le meilleur boost du catalogue, un vrai investissement.",
+    cost: 800,
+    wellbeingBoost: 35,
+    cooldownCycles: 45,
   },
 };
 

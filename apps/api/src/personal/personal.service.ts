@@ -30,6 +30,30 @@ export class PersonalService {
     private readonly cyclesService: CyclesService,
   ) {}
 
+  /**
+   * Détail ligne par ligne du dernier cycle clôturé (cf.
+   * PlayerWellbeingCycleLine) — répond à "pourquoi mon bien-être bouge",
+   * même principe que CompanyCycleReportLine côté entreprise.
+   */
+  async getLatestWellbeingCycleLines(playerId: string) {
+    const latestLine = await this.prisma.client.playerWellbeingCycleLine.findFirst({
+      where: { playerId },
+      orderBy: { cycle: { number: "desc" } },
+    });
+    if (!latestLine) return [];
+
+    const lines = await this.prisma.client.playerWellbeingCycleLine.findMany({
+      where: { playerId, cycleId: latestLine.cycleId },
+      orderBy: { delta: "asc" },
+    });
+    return lines.map((line) => ({
+      category: line.category,
+      sourceId: line.sourceId,
+      label: line.label,
+      delta: line.delta.toNumber(),
+    }));
+  }
+
   async getOverview(playerId: string) {
     const [stats, cooldowns, currentCycle] = await Promise.all([
       this.prisma.client.playerStats.findUnique({ where: { playerId } }),
