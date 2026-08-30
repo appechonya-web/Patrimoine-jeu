@@ -288,9 +288,18 @@ function DepartmentCard({
   );
 }
 
-function InvestmentPanel({ companyId, onDone }: { companyId: string; onDone: () => void }) {
+function InvestmentPanel({
+  companyId,
+  cashReserve,
+  onDone,
+}: {
+  companyId: string;
+  cashReserve: number;
+  onDone: () => void;
+}) {
   const [axis, setAxis] = useState<InvestmentAxis>("marketing");
   const [amount, setAmount] = useState(MIN_INVESTMENT_AMOUNT);
+  const [source, setSource] = useState<"personal" | "treasury">("personal");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -299,7 +308,7 @@ function InvestmentPanel({ companyId, onDone }: { companyId: string; onDone: () 
     setError(null);
     setPending(true);
     try {
-      await investInCompany(companyId, axis, amount);
+      await investInCompany(companyId, axis, amount, source);
       onDone();
     } catch (err) {
       setError(err instanceof GameError ? err.message : "Une erreur est survenue");
@@ -312,8 +321,8 @@ function InvestmentPanel({ companyId, onDone }: { companyId: string; onDone: () 
     <>
       <p className={styles.jobMeta}>
         Un seul investissement par levier tous les {ACTION_COOLDOWN_CYCLES} cycles, plafonné à{" "}
-        {currencyFormatter.format(MAX_INVESTMENT_PER_CYCLE)} — impossible d'accélérer avec plus d'argent, seul le
-        temps fait progresser une entreprise.
+        {currencyFormatter.format(MAX_INVESTMENT_PER_CYCLE)} — le temps reste le facteur limitant, mais l'argent
+        permet de saturer chaque cycle disponible plus vite.
       </p>
       <form noValidate className={styles.form} onSubmit={handleSubmit}>
         <select className={styles.formInput} value={axis} onChange={(e) => setAxis(e.target.value as InvestmentAxis)}>
@@ -322,6 +331,14 @@ function InvestmentPanel({ companyId, onDone }: { companyId: string; onDone: () 
               {INVESTMENT_AXIS_ICONS[value as InvestmentAxis]} {label}
             </option>
           ))}
+        </select>
+        <select
+          className={styles.formInput}
+          value={source}
+          onChange={(e) => setSource(e.target.value as "personal" | "treasury")}
+        >
+          <option value="personal">👤 Mon patrimoine propre</option>
+          <option value="treasury">🏦 Trésorerie de l'entreprise ({currencyFormatter.format(cashReserve)})</option>
         </select>
         <input
           className={styles.formInput}
@@ -1283,7 +1300,7 @@ export function CompanyDetail({
               <InfoTip
                 label="📊"
                 title="Niveaux d'investissement"
-                mechanic={`10 leviers indépendants (marketing, qualité, automatisation...), chacun plafonné à ${currencyFormatter.format(MAX_INVESTMENT_PER_CYCLE)} investis par action et à une action tous les ${ACTION_COOLDOWN_CYCLES} cycles — le cooldown reste un vrai rythme minimal (impossible d'obtenir un niveau instantanément), mais plus de capital par action comprime le nombre d'actions nécessaires. Un investisseur modeste (quelques centaines d'euros par action) atteint le niveau 100 d'un levier (50 000 € cumulés) en ~100 actions, ~700 cycles ; au plafond, ~10 actions suffisent. Au-delà de 100, continuer d'investir rapporte un bonus de "palier mondial" en rendements décroissants (pas de mur) — un niveau affiché à plus de 100/100 en profite déjà.`}
+                mechanic={`10 leviers indépendants (marketing, qualité, automatisation...), chacun plafonné à ${currencyFormatter.format(MAX_INVESTMENT_PER_CYCLE)} investis par action et à une action tous les ${ACTION_COOLDOWN_CYCLES} cycles — le cooldown reste un vrai rythme minimal (impossible d'obtenir un niveau instantanément), mais plus de capital par action comprime le nombre d'actions nécessaires. Un investisseur modeste (quelques centaines d'euros par action) atteint le niveau 100 d'un levier (50 000 € cumulés) en ~100 actions, ~700 cycles ; au plafond, ~10 actions suffisent. Chaque action peut être financée soit par ton patrimoine propre, soit directement par la trésorerie de l'entreprise, au choix. Au-delà de 100, continuer d'investir rapporte un bonus de "palier mondial" en rendements décroissants (pas de mur) — un niveau affiché à plus de 100/100 en profite déjà.`}
                 realWorld="C'est la différence entre un budget serré et un gros chèque : les deux peuvent atteindre le même résultat, mais celui qui peut mettre beaucoup d'argent d'un coup y arrive bien plus vite — l'organisation et l'adoption par le marché prennent quand même un minimum de temps, jamais zéro."
                 tip="Chaque levier résout un problème différent : marketing/qualité/branding augmentent ta part de marché, équipement/formation augmentent ta capacité de production, sécurité/assurance amortissent les coups durs. Investir un peu partout n'est pas un mauvais réflexe — identifie plutôt lequel de ces trois blocs te limite vraiment avant d'y mettre plus d'argent."
               />
@@ -1303,7 +1320,7 @@ export function CompanyDetail({
               <span>{INVESTMENT_AXIS_ICONS.reserve} {INVESTMENT_AXIS_LABELS.reserve} {currencyFormatter.format(company.cashReserve)}</span>
             </div>
             {company.isPrimaryOwner ? (
-              <InvestmentPanel companyId={company.id} onDone={handleDone} />
+              <InvestmentPanel companyId={company.id} cashReserve={company.cashReserve} onDone={handleDone} />
             ) : (
               <p className={styles.jobMeta}>Seul l'actionnaire principal peut investir dans l'entreprise.</p>
             )}
@@ -1390,7 +1407,7 @@ export function CompanyDetail({
               <InfoTip
                 label="💰"
                 title="Apport personnel"
-                mechanic="Un virement direct de ton patrimoine liquide vers la trésorerie de l'entreprise — sans émettre de parts (pas de dilution, contrairement à une levée de fonds), sans créer de dette (pas de remboursement, contrairement à un prêt), sans plafond ni cooldown. Contrairement aux 10 leviers classiques (plafonnés à 500 €/action), c'est juste de l'argent qui change de poche : le tien vers celle de l'entreprise que tu contrôles."
+                mechanic={`Un virement direct de ton patrimoine liquide vers la trésorerie de l'entreprise — sans émettre de parts (pas de dilution, contrairement à une levée de fonds), sans créer de dette (pas de remboursement, contrairement à un prêt), sans plafond ni cooldown. Contrairement aux 10 leviers classiques (plafonnés à ${currencyFormatter.format(MAX_INVESTMENT_PER_CYCLE)}/action), c'est juste de l'argent qui change de poche : le tien vers celle de l'entreprise que tu contrôles. Une fois dans la trésorerie, cet argent peut ensuite financer directement les 10 leviers classiques, sans repasser par ton patrimoine propre.`}
                 realWorld="Comme un apport en compte courant d'associé : le dirigeant avance de l'argent à sa société sans que ça change la répartition du capital ni créer un emprunt formel — une souplesse réelle que les levées de fonds ou prêts n'offrent pas."
               />
               <span>Apport personnel</span>

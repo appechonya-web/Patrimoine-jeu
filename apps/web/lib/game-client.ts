@@ -195,8 +195,13 @@ export function fireManager(companyId: string): Promise<Company> {
   return deleteJson(`/companies/${companyId}/manager`);
 }
 
-export function investInCompany(companyId: string, axis: InvestmentAxis, amount: number): Promise<Company> {
-  return postJson(`/companies/${companyId}/invest`, { axis, amount });
+export function investInCompany(
+  companyId: string,
+  axis: InvestmentAxis,
+  amount: number,
+  source: "personal" | "treasury" = "personal",
+): Promise<Company> {
+  return postJson(`/companies/${companyId}/invest`, { axis, amount, source });
 }
 
 export function investInCapacityExpansion(companyId: string, amount: number): Promise<Company> {

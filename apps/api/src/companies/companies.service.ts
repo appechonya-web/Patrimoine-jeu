@@ -386,9 +386,17 @@ export class CompaniesService {
   async invest(playerId: string, companyId: string, input: InvestCompanyInput) {
     await this.assertPrimaryOwner(playerId, companyId);
 
-    const stats = await this.prisma.client.playerStats.findUnique({ where: { playerId } });
-    if (!stats || stats.wealthLiquid.toNumber() < input.amount) {
-      throw new BadRequestException("Fonds insuffisants pour cet investissement");
+    const fromTreasury = input.source === "treasury";
+    if (fromTreasury) {
+      const company = await this.prisma.client.company.findUnique({ where: { id: companyId } });
+      if (!company || company.cashReserve.toNumber() < input.amount) {
+        throw new BadRequestException("Trésorerie insuffisante pour cet investissement");
+      }
+    } else {
+      const stats = await this.prisma.client.playerStats.findUnique({ where: { playerId } });
+      if (!stats || stats.wealthLiquid.toNumber() < input.amount) {
+        throw new BadRequestException("Fonds insuffisants pour cet investissement");
+      }
     }
 
     const field = INVESTMENT_FIELD_BY_AXIS[input.axis];
@@ -397,14 +405,19 @@ export class CompaniesService {
     const company = await this.prisma.client.$transaction(async (tx) => {
       await this.enforceCooldown(tx, companyId, `invest:${input.axis}`, currentCycle.number);
 
-      await tx.playerStats.update({
-        where: { playerId },
-        data: { wealthLiquid: { decrement: input.amount } },
-      });
+      if (!fromTreasury) {
+        await tx.playerStats.update({
+          where: { playerId },
+          data: { wealthLiquid: { decrement: input.amount } },
+        });
+      }
 
       return tx.company.update({
         where: { id: companyId },
-        data: { [field]: { increment: input.amount } },
+        data: {
+          [field]: { increment: input.amount },
+          ...(fromTreasury ? { cashReserve: { decrement: input.amount } } : {}),
+        },
         include: COMPANY_VIEW_INCLUDE,
       });
     });

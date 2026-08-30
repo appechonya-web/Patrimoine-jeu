@@ -212,9 +212,22 @@ export const MAX_INVESTMENT_PER_CYCLE = 5_000;
  */
 export const ACTION_COOLDOWN_CYCLES = 7;
 
+/**
+ * Source de financement d'un investissement dans un levier classique —
+ * jusqu'ici toujours le patrimoine personnel du joueur (contrairement à
+ * l'expansion de capacité/marketing de masse ci-dessous, toujours financées
+ * par la trésorerie de l'entreprise). Un joueur peut désormais choisir : la
+ * trésorerie de SON entreprise fonctionne exactement pareil si elle a les
+ * fonds, sans changer ni le plafond par action ni le cooldown — seule la
+ * poche débitée change.
+ */
+export const INVESTMENT_SOURCES = ["personal", "treasury"] as const;
+export type InvestmentSource = (typeof INVESTMENT_SOURCES)[number];
+
 export const investCompanyInputSchema = z.object({
   axis: z.enum(INVESTMENT_AXES),
   amount: z.number().min(MIN_INVESTMENT_AMOUNT).max(MAX_INVESTMENT_PER_CYCLE),
+  source: z.enum(INVESTMENT_SOURCES).default("personal"),
 });
 
 export type InvestCompanyInput = z.infer<typeof investCompanyInputSchema>;
