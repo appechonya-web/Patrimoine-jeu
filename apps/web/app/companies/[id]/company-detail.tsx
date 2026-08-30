@@ -40,6 +40,7 @@ import type {
   CompanyStaffView,
   InsuranceOfferView,
   Product,
+  ProductCycleReport,
   ProductPricing,
   ExpansionRequirement,
   ProposalView,
@@ -570,17 +571,40 @@ function priceMultiplierLabel(multiplier: number): string {
   return "🥶 Prix très élevé — demande quasi nulle";
 }
 
+/**
+ * Demande projetée à un nouveau multiplicateur prix, à part de marché et
+ * concurrence inchangées (seul le multiplicateur prix de CETTE entreprise
+ * bouge dans computeCapturedDemand — cf. game-engine/companies.ts). Permet de
+ * distinguer, avant même de valider, un prix qui ferait vraiment fuir des
+ * ventes d'un prix qui se contente de réduire une demande déjà bien au-delà
+ * de ce que la capacité actuelle peut de toute façon produire.
+ */
+function projectedCapturedDemand(
+  candidateMultiplier: number,
+  currentMultiplier: number,
+  report: ProductCycleReport,
+): number | null {
+  const oldShare = report.marketSharePercent / 100;
+  const totalDemandOld = report.unitsSold + report.unitsLost;
+  if (oldShare <= 0 || currentMultiplier <= 0 || totalDemandOld <= 0) return null;
+  const k = candidateMultiplier / currentMultiplier;
+  const newShare = (k * oldShare) / (k * oldShare + (1 - oldShare));
+  return totalDemandOld * (newShare / oldShare);
+}
+
 function ProductPriceForm({
   companyId,
   productId,
   unitPrice,
   pricing,
+  report,
   onDone,
 }: {
   companyId: string;
   productId: string;
   unitPrice: number;
   pricing: ProductPricing;
+  report: ProductCycleReport | null;
   onDone: () => void;
 }) {
   const [price, setPrice] = useState(unitPrice);
@@ -603,6 +627,10 @@ function ProductPriceForm({
 
   const previewMultiplier = priceMultiplierAt(price, pricing);
   const currentMultiplier = pricing.currentPriceMultiplier;
+
+  const capacity = report?.unitsProduced ?? null;
+  const projectedDemand = report ? projectedCapturedDemand(previewMultiplier, currentMultiplier, report) : null;
+  const noSalesLossExpected = projectedDemand !== null && capacity !== null && projectedDemand >= capacity - 0.05;
 
   return (
     <>
@@ -629,6 +657,13 @@ function ProductPriceForm({
         <span>{priceMultiplierLabel(previewMultiplier)}</span>
         <span>×{previewMultiplier.toFixed(2)} sur la demande à ce prix (plafond ×{pricing.priceMultiplierCap})</span>
       </div>
+      {report && projectedDemand !== null && capacity !== null && (
+        <p className={styles.jobMeta}>
+          {noSalesLossExpected
+            ? `✅ Aucune vente perdue attendue à ce prix : la demande projetée (~${projectedDemand.toFixed(1)} unités) reste au-dessus de ta capacité actuelle (${capacity.toFixed(1)} unités/cycle) — tu es limité par la capacité, pas par la demande, donc ce prix ne fait que gagner de la marge sur les ventes que tu ferais de toute façon.`
+            : `🛒 Ventes estimées à ce prix : ~${Math.min(projectedDemand, capacity).toFixed(1)} unités/cycle (contre ${report.unitsSold.toFixed(1)} aujourd'hui).`}
+        </p>
+      )}
     </>
   );
 }
@@ -794,6 +829,7 @@ function ProductCard({
               productId={product.id}
               unitPrice={product.unitPrice}
               pricing={product.pricing}
+              report={product.latestCycleReport}
               onDone={onDone}
             />
             {!product.isCore && (
