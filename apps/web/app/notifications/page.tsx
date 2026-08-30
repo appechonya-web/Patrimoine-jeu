@@ -39,9 +39,9 @@ export default async function NotificationsPage() {
 
       <EmailAlertsSection enabled={emailAlerts.enabled} outbox={outbox} />
 
-      <DigestSection periods={digest} />
-
       <NotificationsList notifications={notifications} unreadCount={unreadCount} />
+
+      <DigestSection periods={digest} />
     </main>
   );
 }

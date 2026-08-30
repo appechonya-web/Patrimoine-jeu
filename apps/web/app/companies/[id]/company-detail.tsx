@@ -6,6 +6,7 @@ import Link from "next/link";
 import {
   ACTION_COOLDOWN_CYCLES,
   DEPARTMENT_MANAGER_SALARY_PER_CYCLE,
+  EARLY_LOAN_REPAYMENT_PENALTY_RATE,
   EMPLOYEE_TIER_CATALOG,
   EMPLOYEE_TIERS,
   EXPORT_UNLOCK_COST,
@@ -68,6 +69,7 @@ import {
   unlockExport,
   listShareForSale,
   withdrawCompanyTreasury,
+  repayLoanEarly,
   requestLoan,
   setProductAllocation,
   setProductPrice,
@@ -988,9 +990,35 @@ function ListingRow({ listing, onDone }: { listing: CompanyDetailData["openListi
   );
 }
 
-function LoanRow({ loan }: { loan: CompanyDetailData["loans"][number] }) {
+function LoanRow({
+  loan,
+  companyId,
+  canRepay,
+  onDone,
+}: {
+  loan: CompanyDetailData["loans"][number];
+  companyId: string;
+  canRepay: boolean;
+  onDone: () => void;
+}) {
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const statusLabel =
     loan.status === "ACTIVE" ? "🟢 En cours" : loan.status === "PAID" ? "✅ Soldé" : "❌ En défaut";
+  const totalDue = loan.remainingBalance * (1 + EARLY_LOAN_REPAYMENT_PENALTY_RATE);
+
+  async function handleRepay() {
+    setError(null);
+    setPending(true);
+    try {
+      await repayLoanEarly(companyId, loan.id);
+      onDone();
+    } catch (err) {
+      setError(err instanceof GameError ? err.message : "Une erreur est survenue");
+    } finally {
+      setPending(false);
+    }
+  }
 
   return (
     <div className={styles.jobCard}>
@@ -1018,7 +1046,17 @@ function LoanRow({ loan }: { loan: CompanyDetailData["loans"][number] }) {
             </StatHint>
           </span>
         </div>
+        {error && <p className={styles.error}>{error}</p>}
       </div>
+      {loan.status === "ACTIVE" && canRepay && (
+        <div className={styles.jobActions}>
+          <StatHint hint={`Solde restant + ${(EARLY_LOAN_REPAYMENT_PENALTY_RATE * 100).toFixed(0)}% de pénalité — sans elle, emprunter à taux fixe n'aurait aucun risque.`}>
+            <button className={styles.apply} type="button" disabled={pending} onClick={handleRepay}>
+              {pending ? "…" : `💳 Rembourser par anticipation (${currencyFormatter.format(totalDue)})`}
+            </button>
+          </StatHint>
+        </div>
+      )}
     </div>
   );
 }
@@ -1589,7 +1627,13 @@ export function CompanyDetail({
             {company.loans.length > 0 && (
               <div className={styles.jobList}>
                 {company.loans.map((loan) => (
-                  <LoanRow key={loan.id} loan={loan} />
+                  <LoanRow
+                    key={loan.id}
+                    loan={loan}
+                    companyId={company.id}
+                    canRepay={company.isPrimaryOwner}
+                    onDone={handleDone}
+                  />
                 ))}
               </div>
             )}

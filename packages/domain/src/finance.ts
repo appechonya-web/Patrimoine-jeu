@@ -53,6 +53,14 @@ export const EQUIPMENT_DEPRECIATION_RATE_PER_CYCLE = 0.001;
  */
 export const LOAN_DEFAULT_ATTRACTIVENESS_PENALTY = 15;
 
+/**
+ * Pénalité de remboursement anticipé, en % du solde restant dû — sans elle,
+ * emprunter à taux fixe n'aurait aucun risque (on rembourse dès qu'on n'en a
+ * plus besoin), ce qui viderait de son sens le choix de durée à la prise du
+ * prêt.
+ */
+export const EARLY_LOAN_REPAYMENT_PENALTY_RATE = 0.02;
+
 export const requestLoanInputSchema = z.object({
   principal: z.number().min(MIN_LOAN_PRINCIPAL),
   termCycles: z.union([z.literal(180), z.literal(365), z.literal(730)]),

@@ -218,6 +218,15 @@ export class CompaniesController {
     return this.companiesService.requestLoan(playerId, companyId, parsed.data);
   }
 
+  @Post("companies/:id/loans/:loanId/repay")
+  repayLoanEarly(
+    @CurrentPlayer() playerId: string,
+    @Param("id") companyId: string,
+    @Param("loanId") loanId: string,
+  ) {
+    return this.companiesService.repayLoanEarly(playerId, companyId, loanId);
+  }
+
   @Post("companies/:id/distribution-policy")
   setDistributionPolicy(@CurrentPlayer() playerId: string, @Param("id") companyId: string, @Body() body: unknown) {
     const parsed = setDistributionPolicyInputSchema.safeParse(body);

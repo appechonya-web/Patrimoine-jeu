@@ -47,6 +47,7 @@ import {
   INVESTMENT_AXIS_LABELS,
   LIQUIDATION_RESERVE_HOLDING_CYCLES,
   MASS_MARKETING_CAMPAIGN_DURATION_CYCLES,
+  EARLY_LOAN_REPAYMENT_PENALTY_RATE,
   MAX_LOAN_PRINCIPAL_EQUITY_RATIO,
   MIN_TENDER_PREMIUM_RATIO,
   PRODUCT_CATALOG,
@@ -854,6 +855,44 @@ export class CompaniesService {
       // doit donc atterrir dans SA trésorerie, pas dans le patrimoine
       // personnel du joueur.
       await tx.company.update({ where: { id: companyId }, data: { cashReserve: { increment: input.principal } } });
+    });
+
+    return this.refreshCompanyView(playerId, companyId);
+  }
+
+  /**
+   * Remboursement anticipé — solde restant dû + pénalité (cf.
+   * domain/finance.ts, EARLY_LOAN_REPAYMENT_PENALTY_RATE) : sans elle,
+   * emprunter à taux fixe n'aurait aucun risque, ce qui viderait de son sens
+   * le choix de durée à la prise du prêt.
+   */
+  async repayLoanEarly(playerId: string, companyId: string, loanId: string) {
+    await this.assertPrimaryOwner(playerId, companyId);
+
+    const loan = await this.prisma.client.companyLoan.findUnique({ where: { id: loanId } });
+    if (!loan || loan.companyId !== companyId) {
+      throw new NotFoundException("Prêt introuvable");
+    }
+    if (loan.status !== "ACTIVE") {
+      throw new BadRequestException("Ce prêt n'est plus actif");
+    }
+
+    const company = await this.prisma.client.company.findUnique({ where: { id: companyId } });
+    if (!company) {
+      throw new NotFoundException("Entreprise introuvable");
+    }
+
+    const remainingBalance = loan.remainingBalance.toNumber();
+    const totalDue = remainingBalance * (1 + EARLY_LOAN_REPAYMENT_PENALTY_RATE);
+    if (company.cashReserve.toNumber() < totalDue) {
+      throw new BadRequestException(
+        `Trésorerie insuffisante pour rembourser par anticipation — il faut ${totalDue.toFixed(0)} € (solde restant + ${(EARLY_LOAN_REPAYMENT_PENALTY_RATE * 100).toFixed(0)}% de pénalité)`,
+      );
+    }
+
+    await this.prisma.client.$transaction(async (tx) => {
+      await tx.companyLoan.update({ where: { id: loanId }, data: { remainingBalance: 0, status: "PAID" } });
+      await tx.company.update({ where: { id: companyId }, data: { cashReserve: { decrement: totalDue } } });
     });
 
     return this.refreshCompanyView(playerId, companyId);

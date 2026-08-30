@@ -252,6 +252,10 @@ export function requestLoan(companyId: string, principal: number, termCycles: 18
   return postJson(`/companies/${companyId}/loans`, { principal, termCycles });
 }
 
+export function repayLoanEarly(companyId: string, loanId: string): Promise<Company> {
+  return postJson(`/companies/${companyId}/loans/${loanId}/repay`, {});
+}
+
 export function setDistributionPolicy(companyId: string, policy: "dividend" | "reserve"): Promise<Company> {
   return postJson(`/companies/${companyId}/distribution-policy`, { policy });
 }
